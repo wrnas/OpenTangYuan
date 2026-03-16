@@ -59,10 +59,13 @@ namespace AiApi.Services
                     new BrowserTypeLaunchOptions
                     {
                         Headless = true,
+                        //为了防止阿里云服务器出问题
                         Args = new[]
                         {
                             "--no-sandbox",
-                            "--disable-dev-shm-usage"
+                            "--disable-setuid-sandbox",
+                            "--disable-dev-shm-usage",
+                            "--disable-gpu"
                         }
                     });
 
