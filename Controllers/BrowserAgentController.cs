@@ -925,16 +925,29 @@ namespace AiApi.Controllers
                         if (string.IsNullOrWhiteSpace(action.Selector))
                             throw new Exception("download 动作必须提供 selector");
 
-                        var dir = Path.Combine(_env.WebRootPath, "downloads", DateTime.Now.ToString("yyyyMMdd"));
+                        // Linux / Docker 环境下 WebRootPath 可能为空
+                        var root = _env.WebRootPath;
+
+                        if (string.IsNullOrEmpty(root))
+                        {
+                            root = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                            Directory.CreateDirectory(root);
+                        }
+
+                        // 创建 downloads 目录
+                        var dir = Path.Combine(root, "downloads", DateTime.Now.ToString("yyyyMMdd"));
                         Directory.CreateDirectory(dir);
 
+                        // 点击并等待下载
                         var download = await page.RunAndWaitForDownloadAsync(async () =>
                         {
                             await page.Locator(action.Selector).First.ClickAsync();
                         });
 
                         var fileName = download.SuggestedFilename;
+
                         var savePath = Path.Combine(dir, fileName);
+
                         await download.SaveAsAsync(savePath);
 
                         return new
@@ -945,6 +958,7 @@ namespace AiApi.Controllers
                             url = $"/downloads/{DateTime.Now:yyyyMMdd}/{fileName}"
                         };
                     }
+
 
                 #endregion
 
@@ -1026,6 +1040,57 @@ namespace AiApi.Controllers
                         return new
                         {
                             type = "clear_cookies"
+                        };
+                    }
+
+                #endregion
+
+                #region 自动识别登录表单
+                case "auto_detect_login":
+                    {
+                        if (string.IsNullOrWhiteSpace(action.Username) ||
+                            string.IsNullOrWhiteSpace(action.Password))
+                            throw new Exception("username/password required");
+                        var result = await page.EvaluateAsync<object>(@"
+                            (args)=>{
+
+                                const username = args.username;
+                                const password = args.password;
+
+                                const pwd = document.querySelector('input[type=password]');
+                                if(!pwd) return {success:false, reason:'password not found'}
+
+                                const form = pwd.closest('form') || document;
+
+                                const user = form.querySelector('input[type=text],input[type=email]');
+
+                                if(user){
+                                    user.value = username;
+                                    user.dispatchEvent(new Event('input',{bubbles:true}));
+                                    user.dispatchEvent(new Event('change',{bubbles:true}));
+                                }
+
+                                pwd.value = password;
+                                pwd.dispatchEvent(new Event('input',{bubbles:true}));
+                                pwd.dispatchEvent(new Event('change',{bubbles:true}));
+
+                                const btn = form.querySelector('button, input[type=submit]');
+
+                                if(btn){
+                                    btn.click();
+                                }
+
+                                return {success:true};
+                            }
+                            ", new
+                        {
+                            username = action.Username,
+                            password = action.Password
+                        });
+                        return new
+                        {
+                            type = "auto_login",
+                            result
                         };
                     }
 
@@ -1354,9 +1419,9 @@ namespace AiApi.Controllers
         /// </summary>
         private (string path, string url, string fileName) EnsureImagePath(string folderName)
         {
+            // WebRoot 可能为空（Linux / Docker）
             var root = _env.WebRootPath;
 
-            // 如果没有 wwwroot 自动创建
             if (string.IsNullOrEmpty(root))
             {
                 root = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
@@ -1375,8 +1440,11 @@ namespace AiApi.Controllers
 
             var url = $"/{folderName}/{dateFolder}/{fileName}";
 
+            _logger.LogDebug("生成图片路径: {Path}", path);
+
             return (path, url, fileName);
         }
+
 
 
         #endregion

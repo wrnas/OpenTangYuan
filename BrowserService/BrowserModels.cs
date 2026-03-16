@@ -132,5 +132,14 @@ namespace AiApi.Models
         /// skip = 跳过当前动作继续
         /// </summary>
         public string? OnError { get; set; } = "stop";
+        /// <summary>
+        /// 登陆框用户名
+        /// </summary>
+        public string? Username { get; set; }
+        /// <summary>
+        /// 登陆框密码
+        /// </summary>
+        public string? Password { get; set; }
+
     }
 }
