@@ -23,8 +23,6 @@ namespace TangYuan
             var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
             try
             {
-                Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", "/root/.cache/ms-playwright");
-
                 logger.Debug("初始化应用程序");
 
                 var builder = WebApplication.CreateBuilder(args);
