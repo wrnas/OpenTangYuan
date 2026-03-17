@@ -233,6 +233,12 @@ namespace AiApi.Services
         public IPage CurrentPage { get; set; } = default!;
 
         /// <summary>
+        /// 会话创建时间
+        /// 某些旧代码可能仍在使用这个字段，所以建议保留
+        /// </summary>
+        public DateTime CreatedTime { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
         /// 用于串行化同一 Session 上的并发动作
         /// 避免多个 run 同时操作同一个 page/context
         /// </summary>

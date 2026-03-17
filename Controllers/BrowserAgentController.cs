@@ -57,6 +57,30 @@ namespace AiApi.Controllers
             });
         }
 
+        
+        /// <summary>
+        /// 执行浏览器动作序列（核心入口）
+        ///
+        /// 这是唯一推荐给 Coze 使用的接口
+        ///
+        /// 请求结构：
+        /// {
+        ///   "actions": [
+        ///     { "type": "goto", "url": "https://xxx.com" },
+        ///     { "type": "get_text_list", "selector": ".item" }
+        ///   ]
+        /// }
+        ///
+        /// 返回重点字段：
+        /// - result.text   👉 给 AI 直接读
+        /// - result.list   👉 给 AI 做循环
+        /// - result.data   👉 原始结构化数据
+        ///
+        /// ⚠️ 注意：
+        /// - actions 必须有
+        /// - session 自动创建 / 复用
+        /// - 同一 session 内部是串行执行（防并发问题）
+        /// </summary>
         [HttpPost("run")]
         public async Task<IActionResult> Run([FromBody] BrowserRunRequest request)
         {
@@ -76,11 +100,13 @@ namespace AiApi.Controllers
 
             try
             {
+                // 1️⃣ 尝试复用 session
                 if (!string.IsNullOrWhiteSpace(request.SessionId))
                 {
                     session = _browserService.GetSession(request.SessionId);
                 }
 
+                // 2️⃣ 不存在就创建
                 if (session == null)
                 {
                     session = await _browserService.CreateSessionAsync();
@@ -89,71 +115,53 @@ namespace AiApi.Controllers
                 var outputs = new List<BrowserActionResult>();
                 var logs = new List<object>();
 
-                // 建议：BrowserSession 中增加 ActionLock，防并发串台
-                if (session.ActionLock != null)
-                {
-                    await session.ActionLock.WaitAsync();
-                }
+                // ⭐ 关键：同一个 session 必须串行执行
+                await session.ActionLock.WaitAsync();
 
                 try
                 {
                     foreach (var action in request.Actions)
                     {
                         var startTime = DateTime.UtcNow;
-                        var actionName = action.Type ?? "";
 
                         try
                         {
+                            // ⭐ 执行单个 action
                             var result = await ExecuteAction(session, action);
+
                             outputs.Add(result);
 
                             logs.Add(new
                             {
-                                action = actionName,
+                                action = action.Type,
                                 success = true,
                                 durationMs = (DateTime.UtcNow - startTime).TotalMilliseconds
                             });
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "BrowserAction 执行失败: {ActionType}", actionName);
+                            _logger.LogError(ex, "Action 执行失败");
 
-                            logs.Add(new
-                            {
-                                action = actionName,
-                                success = false,
-                                durationMs = (DateTime.UtcNow - startTime).TotalMilliseconds,
-                                error = ex.Message
-                            });
-
+                            // skip = 跳过错误继续执行
                             if (string.Equals(action.OnError, "skip", StringComparison.OrdinalIgnoreCase))
                             {
                                 outputs.Add(new BrowserActionResult
                                 {
                                     Success = false,
                                     Type = "error",
-                                    Error = ex.Message,
                                     Text = ex.Message,
-                                    Meta =
-                                    {
-                                        ["action"] = actionName
-                                    }
+                                    Error = ex.Message
                                 });
 
                                 continue;
                             }
 
+                            // stop = 直接返回
                             return Ok(new
                             {
                                 success = false,
                                 sessionId = session.SessionId,
                                 error = ex.Message,
-                                errorDetail = ex.ToString(),
-                                page = new
-                                {
-                                    url = session.CurrentPage?.Url ?? "",
-                                    title = session.CurrentPage == null ? "" : await SafeGetTitleAsync(session.CurrentPage)
-                                },
                                 outputs,
                                 logs
                             });
@@ -162,62 +170,48 @@ namespace AiApi.Controllers
                 }
                 finally
                 {
-                    if (session.ActionLock != null)
-                    {
-                        session.ActionLock.Release();
-                    }
+                    session.ActionLock.Release();
                 }
 
+                // ⭐ 核心：统一提取最终结果（给 AI 用）
                 var final = BuildFinalResult(outputs);
 
-                var response = new
+                return Ok(new
                 {
                     success = true,
                     sessionId = session.SessionId,
+
                     page = new
                     {
                         url = session.CurrentPage.Url,
                         title = await SafeGetTitleAsync(session.CurrentPage)
                     },
+
+                    // ⭐⭐⭐ Coze 最重要的字段
                     result = new
                     {
                         type = final.FinalType,
                         text = final.FinalText,
                         list = final.FinalList,
-                        dataJson = final.FinalDataJson,
-                        data = final.FinalData,
-                        count = final.FinalList.Count
+                        data = final.FinalData
                     },
 
-                    // 兼容你原先的字段
-                    finalType = final.FinalType,
-                    finalText = final.FinalText,
-                    finalDataJson = final.FinalDataJson,
-                    finalList = final.FinalList,
-
+                    // 调试用
                     outputs,
                     logs
-                };
-
-                if (request.CloseSession)
-                {
-                    await _browserService.CloseSession(session.SessionId);
-                }
-
-                return Ok(response);
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Run 执行失败");
-
                 return Ok(new
                 {
                     success = false,
-                    error = ex.Message,
-                    errorDetail = ex.ToString()
+                    error = ex.Message
                 });
             }
         }
+
+
 
         [HttpPost("close")]
         public async Task<IActionResult> Close([FromBody] BrowserSessionRequest request)
@@ -253,7 +247,18 @@ namespace AiApi.Controllers
         #endregion
 
         #region Core Action Executor
-
+        /// <summary>
+        /// 执行单个浏览器动作（核心引擎）
+        ///
+        /// 设计原则：
+        /// - 每个 action 必须返回统一结构 BrowserActionResult
+        /// - 不允许返回 null（否则 AI 很难处理）
+        /// - 所有异常统一抛出，由上层处理
+        ///
+        /// ⭐ 注意：
+        /// - 执行前后会检查 URL 是否跳出白名单
+        /// - click 等动作不保证页面稳定，需要 wait / wait_for
+        /// </summary>
         private async Task<BrowserActionResult> ExecuteAction(BrowserSession session, BrowserAction action)
         {
             if (string.IsNullOrWhiteSpace(action.Type))
@@ -442,7 +447,20 @@ namespace AiApi.Controllers
         #endregion
 
         #region Interaction
-
+        /// <summary>
+        /// 点击元素
+        ///
+        /// ⚠️ 注意：
+        /// - 点击后页面可能跳转 / 异步更新
+        /// - 默认不会等待
+        ///
+        /// 推荐：
+        /// {
+        ///   "type": "click",
+        ///   "selector": ".btn",
+        ///   "waitForNavigation": true
+        /// }
+        /// </summary>
         private async Task<BrowserActionResult> ExecuteClick(IPage page, BrowserAction action)
         {
             if (string.IsNullOrWhiteSpace(action.Selector))
@@ -782,7 +800,17 @@ namespace AiApi.Controllers
                 }
             };
         }
-
+        /// <summary>
+        /// 获取多个元素文本（最常用）
+        ///
+        /// 示例：
+        /// { "type": "get_text_list", "selector": ".news-title" }
+        ///
+        /// 返回：
+        /// - text：拼接字符串（给 AI 直接读）
+        /// - list：数组（给 AI 循环）
+        /// - data：原始数组
+        /// </summary>
         private async Task<BrowserActionResult> ExecuteGetTextList(IPage page, BrowserAction action)
         {
             if (string.IsNullOrWhiteSpace(action.Selector))
@@ -974,7 +1002,14 @@ namespace AiApi.Controllers
                 }
             };
         }
-
+        /// <summary>
+        /// 判断元素是否存在
+        ///
+        /// 非常适合 AI 做判断：
+        /// - 是否登录
+        /// - 是否弹窗
+        /// - 是否加载成功
+        /// </summary>
         private async Task<BrowserActionResult> ExecuteExists(IPage page, BrowserAction action)
         {
             if (string.IsNullOrWhiteSpace(action.Selector))
@@ -1665,7 +1700,14 @@ namespace AiApi.Controllers
             if (obj == null) return null;
             return obj.GetType().GetProperty(propertyName)?.GetValue(obj)?.ToString();
         }
-
+        /// <summary>
+        /// 从最后一个 action 提取 AI 可用结果
+        ///
+        /// ⭐ 设计原则：
+        /// - AI 优先读 text
+        /// - list 用于循环
+        /// - data 用于结构化
+        /// </summary>
         private BrowserFinalResult BuildFinalResult(List<BrowserActionResult> outputs)
         {
             if (outputs == null || outputs.Count == 0)
