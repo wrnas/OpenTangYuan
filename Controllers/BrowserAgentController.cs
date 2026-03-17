@@ -34,40 +34,7 @@ namespace AiApi.Controllers
             _browserService = browserService;
             _logger = logger;
             _env = env;
-        }
-
-        #region For Coze
-        /// <summary>
-        /// Coze 插件专用接口
-        /// 
-        /// Coze 不支持复杂 JSON（actions数组）
-        /// 所以这里只接收单个 action，然后自动包装成 BrowserRunRequest
-        /// </summary>
-        [HttpPost("RunCoze")]
-        public async Task<IActionResult> RunCoze([FromBody] BrowserAction action)
-        {
-            if (action == null || string.IsNullOrWhiteSpace(action.Type))
-            {
-                return Ok(new
-                {
-                    success = false,
-                    error = "type 不能为空"
-                });
-            }
-
-            var request = new BrowserRunRequest
-            {
-                Actions = new List<BrowserAction>
-        {
-            action
-        }
-            };
-
-            // 直接复用原来的 run 方法
-            return await Run(request);
-        }
-
-        #endregion
+        }       
 
 
         #region Public API
