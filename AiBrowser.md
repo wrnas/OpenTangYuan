@@ -1,242 +1,126 @@
-﻿# 🤖 AI Browser Agent API
+﻿### 动作说明
+页面导航
+goto
+作用：打开网页
+必填：url
+示例：
+{ "type": "goto", "url": "https://news.163.com" }
 
-一个 **AI 可控制的浏览器自动化服务**，允许 AI 通过 JSON actions
-操作真实浏览器。
+✅ 页面交互
+click
 
-基于：
+作用：点击元素
 
-Playwright + ASP.NET WebAPI
+必填：selector
 
-支持： - 自动浏览网页 - 自动点击 / 输入 - 自动抓取数据 - 自动登录 -
-自动提取文章 - 自动截图 - 自动下载文件 - 页面结构分析 - 验证码协作
+注意：点击后可能需要 wait
 
-适用于： AI Agent / Coze Plugin / 数据采集 / 自动化测试 / AI 浏览器
+{ "type": "click", "selector": ".btn" }
 
-------------------------------------------------------------------------
 
-# 📡 API 地址
+click_text
 
-POST /AiApi/Browser/run
+作用：按文字点击（比 selector 更通用）
 
-------------------------------------------------------------------------
+{ "type": "click_text", "value": "登录" }
 
-# 📥 请求格式
 
-``` json
-{
-  "sessionId": "",
-  "closeSession": false,
-  "actions": []
-}
-```
+fill
 
-  字段           说明
-  -------------- ----------------------
-  sessionId      浏览器会话 ID，可选
-  closeSession   是否执行完关闭浏览器
-  actions        浏览器操作列表
+作用：输入文本
 
-------------------------------------------------------------------------
+{ "type": "fill", "selector": "#username", "value": "admin" }
 
-# ⚙️ Action 执行机制
+✅ 等待（非常重要）
 
-浏览器操作通过 **actions 顺序执行**。
+wait
+
+固定等待
+
+{ "type": "wait", "seconds": 2 }
+
+
+wait_for
+
+等元素出现（推荐）
+
+{ "type": "wait_for", "selector": ".list-item" }
+
+✅ 数据抓取
+
+get_text
+
+获取一个元素
+
+{ "type": "get_text", "selector": "h1" }
+
+
+get_text_list
+
+获取多个元素（最常用）
+
+{ "type": "get_text_list", "selector": ".news-title" }
+
+
+get_links_structured
+
+获取标题 + 链接
+
+{ "type": "get_links_structured", "selector": "a" }
+
+✅ 判断类（AI决策关键）
+
+exists
+
+判断元素是否存在
+
+{ "type": "exists", "selector": ".login-btn" }
+
+✅ 页面分析
+
+analyze_page
+
+分析按钮 / 输入框 / 链接
+
+{ "type": "analyze_page" }
+
+✅ 内容提取
+
+extract_article
+
+提取文章
+
+{ "type": "extract_article" }
+
+
+### AI 使用说明
+
+你可以使用 Browser 工具来操作网页。
+
+请使用 actions 数组描述操作步骤，每一步必须包含 type。
+
+常用规则：
+
+打开网页使用 goto
+
+页面加载后再操作，必要时使用 wait 或 wait_for
+
+点击元素使用 click 或 click_text
+
+获取数据优先使用 get_text_list
+
+如果不确定页面结构，可以先用 analyze_page
+
+如果需要判断元素是否存在，使用 exists
+
+多步骤任务必须拆成多个 actions 顺序执行
 
 示例：
 
-``` json
 {
   "actions": [
-    { "type": "goto", "url": "https://news.163.com" },
-    { "type": "wait", "seconds": 2 },
-    { "type": "click_index", "selector": "a", "value": "5" },
-    { "type": "extract_article" }
+    { "type": "goto", "url": "https://example.com" },
+    { "type": "wait_for", "selector": ".item" },
+    { "type": "get_text_list", "selector": ".item" }
   ]
 }
-```
-
-执行流程： 1. 打开网站 2. 等待加载 3. 点击新闻 4. 提取文章
-
-------------------------------------------------------------------------
-
-# 🌐 页面导航
-
-  Action      说明
-  ----------- ------------------------
-  goto        打开 URL
-  goto_attr   从元素读取 href 并打开
-  back        浏览器后退
-  forward     浏览器前进
-  refresh     刷新页面
-
-------------------------------------------------------------------------
-
-# 🖱 页面交互
-
-  Action        说明
-  ------------- -----------------
-  click         点击元素
-  click_index   点击第 N 个元素
-  click_text    按文本点击
-  fill          输入文本
-  press         键盘按键
-  hover         鼠标悬停
-
-------------------------------------------------------------------------
-
-# ⏱ 等待操作
-
-  Action                说明
-  --------------------- -------------------
-  wait                  等待秒数
-  wait_for              等待元素出现
-  wait_for_load_state   等待页面加载状态
-  wait_url_contains     等待 URL 包含文本
-
-------------------------------------------------------------------------
-
-# 📊 数据读取
-
-  Action                 说明
-  ---------------------- ----------------------
-  get_text               获取元素文本
-  get_text_list          获取多个文本
-  get_attr               获取属性
-  get_attr_list          获取属性列表
-  get_links              获取所有链接
-  get_links_structured   获取结构化链接
-  get_html               获取 HTML
-  check_text             检查页面是否包含文本
-
-------------------------------------------------------------------------
-
-# 🔍 页面分析
-
-## analyze_page
-
-分析页面结构： - 按钮 - 输入框 - 链接 - iframe
-
-------------------------------------------------------------------------
-
-# 📰 内容提取
-
-## extract_article
-
-自动提取：
-
--   文章标题
--   文章正文
-
-返回格式：
-
-``` json
-{
-"type":"article",
-"data":{
-"title":"文章标题",
-"content":"文章正文"
-}
-}
-```
-
-适用于：新闻、博客、公告、文章页。
-
-------------------------------------------------------------------------
-
-# 📸 截图
-
-  Action               说明
-  -------------------- ------------------
-  screenshot           页面截图
-  screenshot_base64    返回 base64 图片
-  screenshot_element   元素截图
-
-------------------------------------------------------------------------
-
-# 📥 下载文件
-
-``` json
-{
-"type":"download",
-"selector":"a.download"
-}
-```
-
-返回：
-
-``` json
-{
-"type":"download",
-"fileName":"file.zip",
-"url":"/downloads/yyyyMMdd/file.zip"
-}
-```
-
-------------------------------------------------------------------------
-
-# 🔐 验证码处理
-
-服务器环境采用 **人工协作方案**。
-
-  Action            说明
-  ----------------- ------------------
-  detect_captcha    检测验证码
-  capture_captcha   截图验证码
-  submit_captcha    填写验证码
-  auto_login_form   自动识别登录表单
-
-------------------------------------------------------------------------
-
-# 🔑 自动登录
-
-``` json
-{
-"type":"auto_detect_login",
-"username":"admin",
-"password":"123456"
-}
-```
-
-系统会尝试识别： - 用户名输入框 - 密码输入框 - 登录按钮
-
-------------------------------------------------------------------------
-
-# 🧠 AI 使用推荐流程
-
-推荐执行顺序：
-
-1.  goto
-2.  wait
-3.  analyze_page
-4.  click / fill
-5.  extract
-
-------------------------------------------------------------------------
-
-# 📤 返回结果格式
-
-``` json
-{
-"success": true,
-"sessionId": "xxx",
-"page":{
-"url":"https://example.com",
-"title":"Example Page"
-},
-"outputs":[],
-"logs":[]
-}
-```
-
-------------------------------------------------------------------------
-
-# 🚀 系统能力
-
-本系统实现了一个 **AI Browser Agent**。
-
-能力包括： - 自动浏览 - 自动点击 - 自动输入 - 自动抓取 - 自动提取文章 -
-自动登录 - 验证码协作 - 截图 - 下载 - 页面分析
-
-接近：
-
-ChatGPT Browser / AutoGPT Browser / Perplexity Browser
