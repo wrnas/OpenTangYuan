@@ -4,7 +4,6 @@ namespace AiApi.Models
 {
     /// <summary>
     /// 浏览器执行请求
-    /// 用于 /Browser/run 接口
     /// </summary>
     public class BrowserRunRequest
     {
@@ -27,57 +26,35 @@ namespace AiApi.Models
 
     /// <summary>
     /// Session操作请求
-    /// 用于关闭 Session
     /// </summary>
     public class BrowserSessionRequest
     {
-        /// <summary>
-        /// SessionId
-        /// </summary>
         public string? SessionId { get; set; }
     }
 
     /// <summary>
     /// 浏览器动作
-    /// AI 或 Swagger 发送的浏览器操作指令
     /// </summary>
     public class BrowserAction
     {
         /// <summary>
         /// 动作类型
-        /// 例如：
-        /// goto
-        /// click
-        /// fill
-        /// wait
-        /// evaluate
-        /// get_text
-        /// get_attr_list
         /// </summary>
         public string? Type { get; set; }
 
         /// <summary>
-        /// URL
-        /// goto / new_tab 使用
+        /// URL（goto / new_tab）
         /// </summary>
         public string? Url { get; set; }
 
         /// <summary>
         /// CSS选择器
-        /// 例如：
-        /// #UserUid
-        /// .login-btn
-        /// tr.new
         /// </summary>
         public string? Selector { get; set; }
 
         /// <summary>
         /// 通用值
-        /// 用于：
-        /// fill
-        /// press
-        /// click_text
-        /// check_text
+        /// fill / press / click_text / check_text / switch_tab 等使用
         /// </summary>
         public string? Value { get; set; }
 
@@ -88,24 +65,17 @@ namespace AiApi.Models
         public string? Script { get; set; }
 
         /// <summary>
-        /// 等待秒数
         /// wait 使用
         /// </summary>
         public double? Seconds { get; set; }
 
         /// <summary>
         /// 列表获取条数限制
-        /// get_text_list / get_attr_list 使用
         /// </summary>
         public int? Take { get; set; }
 
         /// <summary>
         /// 属性名
-        /// get_attr / get_attr_list 使用
-        /// 例如：
-        /// title
-        /// href
-        /// src
         /// </summary>
         public string? Attr { get; set; }
 
@@ -116,30 +86,127 @@ namespace AiApi.Models
 
         /// <summary>
         /// 等待超时时间（毫秒）
-        /// wait_for 使用
         /// </summary>
         public int? TimeoutMs { get; set; }
 
         /// <summary>
         /// 最大滚动次数
-        /// scroll_until_text 使用
         /// </summary>
         public int? MaxScrollCount { get; set; }
 
         /// <summary>
-        /// 出错处理策略
-        /// stop = 停止执行
-        /// skip = 跳过当前动作继续
+        /// 出错处理策略：stop / skip
         /// </summary>
         public string? OnError { get; set; } = "stop";
+
         /// <summary>
-        /// 登陆框用户名
+        /// 登录用户名
         /// </summary>
         public string? Username { get; set; }
+
         /// <summary>
-        /// 登陆框密码
+        /// 登录密码
         /// </summary>
         public string? Password { get; set; }
 
+        /// <summary>
+        /// 是否等待点击后的页面稳定
+        /// 很适合 click / click_text / click_index
+        /// </summary>
+        public bool WaitForNavigation { get; set; } = false;
+
+        /// <summary>
+        /// 点击后等待的 load state
+        /// load / domcontentloaded / networkidle
+        /// </summary>
+        public string? WaitUntil { get; set; }
+
+        /// <summary>
+        /// 元素等待状态
+        /// attached / detached / visible / hidden
+        /// 供 wait_for / exists 等使用
+        /// </summary>
+        public string? WaitForState { get; set; }
+
+        /// <summary>
+        /// 索引
+        /// 替代原来 click_index 用 value 传数字的方式，更清晰
+        /// </summary>
+        public int? Index { get; set; }
+
+        /// <summary>
+        /// select_option 时可用
+        /// </summary>
+        public string? Label { get; set; }
+
+        /// <summary>
+        /// 下载/截图等场景的文件名提示，可选
+        /// </summary>
+        public string? FileName { get; set; }
+    }
+
+    /// <summary>
+    /// 单个动作结果
+    /// </summary>
+    public class BrowserActionResult
+    {
+        public bool Success { get; set; } = true;
+
+        /// <summary>
+        /// 结果类型，如 text / text_list / article / screenshot
+        /// </summary>
+        public string Type { get; set; } = "";
+
+        /// <summary>
+        /// 便于 AI 直接消费的文本结果
+        /// </summary>
+        public string? Text { get; set; }
+
+        /// <summary>
+        /// 便于 AI / Coze 直接取数组
+        /// </summary>
+        public List<string> List { get; set; } = new();
+
+        /// <summary>
+        /// 原始结构化数据
+        /// </summary>
+        public object? Data { get; set; }
+
+        /// <summary>
+        /// 可选标题
+        /// </summary>
+        public string? Title { get; set; }
+
+        /// <summary>
+        /// 可选当前页面 / 目标页面 URL
+        /// </summary>
+        public string? Url { get; set; }
+
+        /// <summary>
+        /// 可选数量
+        /// </summary>
+        public int? Count { get; set; }
+
+        /// <summary>
+        /// 错误信息
+        /// </summary>
+        public string? Error { get; set; }
+
+        /// <summary>
+        /// 附加元信息
+        /// </summary>
+        public Dictionary<string, object?> Meta { get; set; } = new();
+    }
+
+    /// <summary>
+    /// 最终结果
+    /// </summary>
+    public class BrowserFinalResult
+    {
+        public string FinalType { get; set; } = "";
+        public string FinalText { get; set; } = "";
+        public string FinalDataJson { get; set; } = "[]";
+        public List<string> FinalList { get; set; } = new();
+        public object? FinalData { get; set; }
     }
 }

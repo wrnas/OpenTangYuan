@@ -228,11 +228,20 @@ namespace AiApi.Services
     public class BrowserSession
     {
         public string SessionId { get; set; } = "";
-
+        public IBrowser Browser { get; set; } = default!;
         public IBrowserContext Context { get; set; } = default!;
-
         public IPage CurrentPage { get; set; } = default!;
 
-        public DateTime CreatedTime { get; set; }
+        /// <summary>
+        /// 用于串行化同一 Session 上的并发动作
+        /// 避免多个 run 同时操作同一个 page/context
+        /// </summary>
+        public SemaphoreSlim ActionLock { get; set; } = new SemaphoreSlim(1, 1);
+
+        /// <summary>
+        /// 最后活跃时间
+        /// 方便后续做过期回收
+        /// </summary>
+        public DateTime LastActiveTime { get; set; } = DateTime.UtcNow;
     }
 }
