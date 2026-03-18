@@ -97,12 +97,12 @@ namespace TangYuan.Controllers
         {
             try
             {
-                // 只查 指令名 + 说明（Other 字段存放说明）
-                // 如果你没有填 Other，这里会返回 null，不影响
+                // 只查 指令名 + 说明（Remark 字段存放说明）
+                // 如果你没有填 Remark，这里会返回 null，不影响
                 var sql = @"
                     SELECT 
                         SkillCode, 
-                        Other AS AIDesc 
+                        Remark AS AIDesc 
                     FROM Skills 
                     ORDER BY ID ASC";
 
@@ -134,11 +134,11 @@ namespace TangYuan.Controllers
                     var insertSql = @"
                         INSERT INTO Skills (
                             SkillCode, SkillActions, SkillType, NeedLogin, 
-                            UpdateTime, WebSiteName, WebSiteUrl, Other
+                            UpdateTime, WebSiteName, WebSiteUrl, Remark
                         ) 
                         VALUES (
                             @SkillCode, @SkillActions, @SkillType, @NeedLogin,
-                            @UpdateTime, @WebSiteName, @WebSiteUrl, @Other
+                            @UpdateTime, @WebSiteName, @WebSiteUrl, @Remark
                         )";
 
                     DynamicParameters dp = new DynamicParameters();
@@ -149,7 +149,7 @@ namespace TangYuan.Controllers
                     dp.Add("@UpdateTime", now);
                     dp.Add("@WebSiteName", model.WebSiteName);
                     dp.Add("@WebSiteUrl", model.WebSiteUrl);
-                    dp.Add("@Other", model.Other); // 这里填说明，给AI用
+                    dp.Add("@Remark", model.Remark); // 这里填说明，给AI用
 
                     result = await ExecuteAsync(insertSql, dp);
                 }
@@ -165,7 +165,7 @@ namespace TangYuan.Controllers
                             UpdateTime = @UpdateTime,
                             WebSiteName = @WebSiteName,
                             WebSiteUrl = @WebSiteUrl,
-                            Other = @Other
+                            Remark = @Remark
                         WHERE ID = @ID";
 
                     DynamicParameters dp = new DynamicParameters();
@@ -177,7 +177,7 @@ namespace TangYuan.Controllers
                     dp.Add("@UpdateTime", now);
                     dp.Add("@WebSiteName", model.WebSiteName);
                     dp.Add("@WebSiteUrl", model.WebSiteUrl);
-                    dp.Add("@Other", model.Other);
+                    dp.Add("@Remark", model.Remark);
 
                     result = await ExecuteAsync(updateSql, dp);
                 }
@@ -244,8 +244,11 @@ namespace TangYuan.Controllers
         {
             try
             {
-                int result = await ExecuteAsync(sqlText);
-                return Ok(ResponseHelper.Success($"执行成功，受影响行数：{result}"));
+                // 执行动态查询（使用Dapper的QueryAsync）
+                var result = await QueryAsync<dynamic>(sqlText);
+
+                // 转换为JSON格式返回
+                return HandleSuccess(result, "执行成功");               
             }
             catch (Exception ex)
             {
@@ -267,6 +270,7 @@ namespace TangYuan.Controllers
         public int NeedLogin { get; set; }
         public string WebSiteName { get; set; }
         public string WebSiteUrl { get; set; }
-        public string Other { get; set; } // 【关键】这个字段用来存 AI 的指令说明！
+        public string Remark { get; set; } // 【关键】这个字段用来存 AI 的指令说明！
+        public string Other { get; set; }
     }
 }

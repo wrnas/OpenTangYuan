@@ -7,6 +7,8 @@
 # 2 启动并更新
 #  docker-compose up -d
 
+# 3 放服务器上不能有任何中文
+
 version: '3.8'
 
 services:
@@ -17,7 +19,7 @@ services:
     ports:
       - "54123:54123"
     volumes:
-      - ./sqlite-data:/app/data  # 数据库持久化，永不丢失
+      - ./sqlite-data:/app/data  
     environment:
       - TZ=Asia/Shanghai
       - ASPNETCORE_URLS=http://*:54123
