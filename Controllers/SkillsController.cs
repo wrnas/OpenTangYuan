@@ -1,17 +1,19 @@
 ﻿using AiApi.Controllers;
 using AiApi.Services;
 using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using TangYuan.Models;
 using WebApi.Tools;
-using System.Collections.Generic;
 
 namespace TangYuan.Controllers
 {
     /// <summary>
     /// AI 技能指令库控制器（方案 B：最省 token + AI 智能理解版）
     /// </summary>
+    [Authorize(AuthenticationSchemes = "ApiKey")]  // 👈 需要apikey验证    
     public class SkillsController : BaseCommandController
     {
         private readonly TokenCacheService _tokenCache;
@@ -28,7 +30,9 @@ namespace TangYuan.Controllers
         /// <summary>
         /// AI专用：获取所有指令名称列表（极省 token）
         /// </summary>
-        [HttpPost]
+        
+        [HttpPost("Skills/GetAllSkillCodes")]
+
         public async Task<IActionResult> GetAllSkillCodes()
         {
             try
@@ -51,7 +55,7 @@ namespace TangYuan.Controllers
         /// AI 核心：根据指令名称获取执行动作（仅返回动作JSON）
         /// </summary>
         /// <param name="skillCode">指令名称</param>
-        [HttpPost]
+        [HttpPost("Skills/GetSkillAction")]
         public async Task<IActionResult> GetSkillAction([FromBody] string skillCode)
         {
             try
@@ -88,7 +92,7 @@ namespace TangYuan.Controllers
         /// AI专用：获取所有指令及其简单说明（极省 token，辅助 AI 理解指令功能）
         /// 返回格式：[{SkillCode:"指令名", Desc:"说明"}]
         /// </summary>
-        [HttpPost]
+        [HttpPost("Skills/GetSkillListForAI")]
         public async Task<IActionResult> GetSkillListForAI()
         {
             try
@@ -116,7 +120,7 @@ namespace TangYuan.Controllers
         // ==========================================
         // 【管理接口】保存/新增技能（有ID则更新，无ID则新增）
         // ==========================================
-        [HttpPost]
+        [HttpPost("Skills/SaveSkillAction")]
         public async Task<IActionResult> SaveSkillAction([FromBody] SkillModel model)
         {
             try
@@ -192,7 +196,7 @@ namespace TangYuan.Controllers
         // ==========================================
         // 【管理接口】获取技能列表（管理后台用）
         // ==========================================
-        [HttpPost]
+        [HttpPost("Skills/GetSkillList")]
         public async Task<IActionResult> GetSkillList()
         {
             try
@@ -211,7 +215,7 @@ namespace TangYuan.Controllers
         // ==========================================
         // 【管理接口】删除技能
         // ==========================================
-        [HttpPost]
+        [HttpPost("Skills/DeleteSkill")]
         public async Task<IActionResult> DeleteSkill([FromBody] int id)
         {
             try
@@ -235,7 +239,7 @@ namespace TangYuan.Controllers
         // ==========================================
         // 【管理接口】通用执行SQL（谨慎使用）
         // ==========================================
-        [HttpPost]
+        [HttpPost("Skills/ExecSql")]
         public async Task<IActionResult> ExecSql([FromBody] string sqlText)
         {
             try

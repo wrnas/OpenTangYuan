@@ -1,280 +1,215 @@
-﻿using TangYuan.Models;
-using Dapper;
+﻿using Dapper;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using NLog;
-using System;
-using System.Collections.Generic;
+using Microsoft.Data.Sqlite;
+using MySqlConnector;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
-using System.Threading.Tasks;
+using TangYuan.Models;
 
 namespace TangYuan.Controllers
 {
-    public class BaseCommandController : Controller
+    /// <summary>
+    /// 支持多数据库的控制器基类，封装 Dapper 基本操作和事务管理
+    /// </summary>
+    public abstract class BaseCommandController : Controller, IDisposable
     {
         protected readonly IConfiguration _config;
         protected readonly ILogger<BaseCommandController> _logger;
 
-        // 事务相关字段
-        private IDbConnection _currentConnection;
-        private IDbTransaction _currentTransaction;
+        private DbConnection? _currentConnection;
+        private DbTransaction? _currentTransaction;
         protected bool HasActiveTransaction => _currentTransaction != null;
 
-        public BaseCommandController(IConfiguration configuration, ILogger<BaseCommandController> logger)
+        protected BaseCommandController(IConfiguration configuration, ILogger<BaseCommandController> logger)
         {
             _config = configuration;
             _logger = logger;
         }
 
-        protected string Constring_MsSql => _config["ConnectionStrings:MsSql"];
-
-        protected string GetCustomSetting(string key)
+        // ==============================
+        // 可重写的连接创建策略（子类可自定义）
+        // ==============================
+        /// <summary>
+        /// 根据配置获取数据库连接，默认按 Sqlite -> MySql -> SqlConn 顺序取第一个非空配置
+        /// </summary>
+        protected virtual DbConnection GetDbConnection()
         {
-            return _config[key];
+            // 1. 优先 SQLite
+            var sqliteConn = _config.GetConnectionString("Sqlite");
+            if (!string.IsNullOrEmpty(sqliteConn))
+            {
+                return new SqliteConnection(sqliteConn);
+            }
+
+            // 2. 其次 MySQL
+            var mysqlConn = _config.GetConnectionString("MySql");
+            if (!string.IsNullOrEmpty(mysqlConn))
+            {
+                return new MySqlConnection(mysqlConn);
+            }
+
+            // 3. 最后 SQL Server
+            var mssqlConn = _config.GetConnectionString("SqlConn");
+            if (!string.IsNullOrEmpty(mssqlConn))
+            {
+                return new SqlConnection(mssqlConn);
+            }
+
+            throw new InvalidOperationException("未配置任何数据库连接字符串，请检查 appsettings.json 中的 ConnectionStrings 节点（Sqlite/MySql/SqlConn）");
         }
 
-        protected IActionResult HandleError(string message)
-        {
-            _logger.LogError(message);
-            return BadRequest(ResponseHelper.Fail<object>(message));
-        }
-
-        protected IActionResult HandleSuccess(object result, string message = "ok")
-        {
-            return Ok(ResponseHelper.Success(result, message));
-        }
-
-        protected IDbConnection GetMsSqlConnection()
-        {
-            return new SqlConnection(Constring_MsSql);
-        }
-
-        // ==================== 事务控制方法 ====================
+        // ==================== 事务控制（增强资源管理） ====================
         protected void BeginTransaction()
         {
             if (_currentConnection != null)
                 throw new InvalidOperationException("已有活动事务，请先提交或回滚");
-            _currentConnection = GetMsSqlConnection();
-            _currentConnection.Open();
-            _currentTransaction = _currentConnection.BeginTransaction();
+
+            var connection = GetDbConnection();
+            try
+            {
+                connection.Open();
+                _currentTransaction = connection.BeginTransaction();
+                _currentConnection = connection;
+            }
+            catch
+            {
+                connection.Dispose();
+                throw;
+            }
         }
 
         protected void CommitTransaction()
         {
             if (_currentTransaction == null)
                 throw new InvalidOperationException("没有活动事务");
-            _currentTransaction.Commit();
-            _currentTransaction.Dispose();
-            _currentConnection?.Dispose();
-            _currentTransaction = null;
-            _currentConnection = null;
+
+            try
+            {
+                _currentTransaction.Commit();
+            }
+            finally
+            {
+                CleanupTransaction();
+            }
         }
 
         protected void RollbackTransaction()
         {
             if (_currentTransaction == null)
                 throw new InvalidOperationException("没有活动事务");
-            _currentTransaction.Rollback();
-            _currentTransaction.Dispose();
+
+            try
+            {
+                _currentTransaction.Rollback();
+            }
+            finally
+            {
+                CleanupTransaction();
+            }
+        }
+
+        private void CleanupTransaction()
+        {
+            _currentTransaction?.Dispose();
             _currentConnection?.Dispose();
             _currentTransaction = null;
             _currentConnection = null;
         }
 
-        // ==================== Dapper 辅助方法（自动感知事务，使用命名参数避免歧义） ====================
+        // ==================== 确保资源释放 ====================
+        public void Dispose()
+        {
+            if (_currentTransaction != null)
+            {
+                // 未提交的事务自动回滚
+                try { _currentTransaction.Rollback(); } catch { /* 忽略回滚异常 */ }
+                _currentTransaction.Dispose();
+            }
+            _currentConnection?.Dispose();
+        }
 
-        protected async Task<T> QueryFirstOrDefaultAsync<T>(string sql, object param = null, CommandType commandType = CommandType.Text)
+        // ==================== 检查连接可用性（可选） ====================
+        /// <summary>
+        /// 确保事务中的连接仍然打开，若关闭则尝试重新打开（通常不需要手动调用）
+        /// </summary>
+        protected void EnsureConnectionOpen()
+        {
+            if (_currentConnection != null && _currentConnection.State != ConnectionState.Open)
+            {
+                _currentConnection.Open();
+            }
+        }
+
+        // ==================== Dapper 通用方法（异步，带 ConfigureAwait） ====================
+        protected async Task<T?> QueryFirstOrDefaultAsync<T>(string sql, object? param = null, CommandType commandType = CommandType.Text)
         {
             if (HasActiveTransaction)
             {
-                return await _currentConnection.QueryFirstOrDefaultAsync<T>(
-                    sql: sql,
-                    param: param,
-                    transaction: _currentTransaction,
-                    commandType: commandType);
+                EnsureConnectionOpen();
+                return await _currentConnection!.QueryFirstOrDefaultAsync<T>(sql, param, _currentTransaction, commandType: commandType)
+                                                  .ConfigureAwait(false);
             }
-            else
-            {
-                using (var connection = GetMsSqlConnection())
-                {
-                    return await connection.QueryFirstOrDefaultAsync<T>(
-                        sql: sql,
-                        param: param,
-                        commandType: commandType);
-                }
-            }
+            using var conn = GetDbConnection();
+            return await conn.QueryFirstOrDefaultAsync<T>(sql, param, commandType: commandType)
+                              .ConfigureAwait(false);
         }
 
-        protected async Task<IEnumerable<T>> QueryAsync<T>(string sql, object param = null, CommandType commandType = CommandType.Text)
+        protected async Task<IEnumerable<T>> QueryAsync<T>(string sql, object? param = null, CommandType commandType = CommandType.Text)
         {
             if (HasActiveTransaction)
             {
-                return await _currentConnection.QueryAsync<T>(
-                    sql: sql,
-                    param: param,
-                    transaction: _currentTransaction,
-                    commandType: commandType);
+                EnsureConnectionOpen();
+                return await _currentConnection!.QueryAsync<T>(sql, param, _currentTransaction, commandType: commandType)
+                                                .ConfigureAwait(false);
             }
-            else
-            {
-                using (var connection = GetMsSqlConnection())
-                {
-                    return await connection.QueryAsync<T>(
-                        sql: sql,
-                        param: param,
-                        commandType: commandType);
-                }
-            }
+            using var conn = GetDbConnection();
+            return await conn.QueryAsync<T>(sql, param, commandType: commandType)
+                              .ConfigureAwait(false);
         }
 
-        protected async Task<T> QuerySingleAsync<T>(string sql, object param = null, CommandType commandType = CommandType.Text)
+        protected async Task<int> ExecuteAsync(string sql, object? param = null, CommandType commandType = CommandType.Text)
         {
             if (HasActiveTransaction)
             {
-                return await _currentConnection.QuerySingleOrDefaultAsync<T>(
-                    sql: sql,
-                    param: param,
-                    transaction: _currentTransaction,
-                    commandType: commandType);
+                EnsureConnectionOpen();
+                return await _currentConnection!.ExecuteAsync(sql, param, _currentTransaction, commandType: commandType)
+                                                .ConfigureAwait(false);
             }
-            else
-            {
-                using (var connection = GetMsSqlConnection())
-                {
-                    return await connection.QuerySingleOrDefaultAsync<T>(
-                        sql: sql,
-                        param: param,
-                        commandType: commandType);
-                }
-            }
+            using var conn = GetDbConnection();
+            return await conn.ExecuteAsync(sql, param, commandType: commandType)
+                              .ConfigureAwait(false);
         }
 
-        protected async Task<int> ExecuteAsync(string sql, object param = null, CommandType commandType = CommandType.Text)
+        protected async Task<T?> ExecuteScalarAsync<T>(string sql, object? param = null, CommandType commandType = CommandType.Text)
         {
             if (HasActiveTransaction)
             {
-                return await _currentConnection.ExecuteAsync(
-                    sql: sql,
-                    param: param,
-                    transaction: _currentTransaction,
-                    commandType: commandType);
+                EnsureConnectionOpen();
+                return await _currentConnection!.ExecuteScalarAsync<T>(sql, param, _currentTransaction, commandType: commandType)
+                                                .ConfigureAwait(false);
             }
-            else
-            {
-                using (var connection = GetMsSqlConnection())
-                {
-                    return await connection.ExecuteAsync(
-                        sql: sql,
-                        param: param,
-                        commandType: commandType);
-                }
-            }
+            using var conn = GetDbConnection();
+            return await conn.ExecuteScalarAsync<T>(sql, param, commandType: commandType)
+                              .ConfigureAwait(false);
         }
 
-        protected async Task<T> ExecuteScalarAsync<T>(string sql, object param = null, CommandType commandType = CommandType.Text)
+        // ==================== 快捷返回（可根据实际 ResponseHelper 调整） ====================
+        /// <summary>
+        /// 返回错误响应，假设存在 ResponseHelper 类（请根据实际情况引入或修改）
+        /// </summary>
+        protected IActionResult HandleError(string message)
         {
-            if (HasActiveTransaction)
-            {
-                return await _currentConnection.ExecuteScalarAsync<T>(
-                    sql: sql,
-                    param: param,
-                    transaction: _currentTransaction,
-                    commandType: commandType);
-            }
-            else
-            {
-                using (var connection = GetMsSqlConnection())
-                {
-                    return await connection.ExecuteScalarAsync<T>(
-                        sql: sql,
-                        param: param,
-                        commandType: commandType);
-                }
-            }
+            _logger.LogError(message);
+            return BadRequest(ResponseHelper.Fail<object>(message));  // 确保 ResponseHelper 可用
         }
 
-        protected async Task<IDataReader> GetDataReaderByDapperAsync(string sql, object param = null, CommandType commandType = CommandType.Text)
+        /// <summary>
+        /// 返回成功响应
+        /// </summary>
+        protected IActionResult HandleSuccess(object? result = null, string message = "ok")
         {
-            if (HasActiveTransaction)
-            {
-                return await _currentConnection.ExecuteReaderAsync(
-                    sql: sql,
-                    param: param,
-                    transaction: _currentTransaction,
-                    commandType: commandType);
-            }
-            else
-            {
-                // 注意：此处不能使用 using，因为需要返回 reader 供外部使用
-                var connection = GetMsSqlConnection();
-                // 需要手动打开连接
-                connection.Open();
-                return await connection.ExecuteReaderAsync(
-                    sql: sql,
-                    param: param,
-                    commandType: commandType);
-                // 调用者必须负责关闭 reader 和 connection
-            }
-        }
-
-        // ==================== 以下为非 Dapper 方法（不支持事务，请勿在事务块中使用） ====================
-
-        protected async Task<DataTable> GetDataTableAsync(string sql, object param = null, CommandType commandType = CommandType.Text)
-        {
-            using (var connection = new SqlConnection(Constring_MsSql))
-            {
-                await connection.OpenAsync();
-
-                using (var cmd = new SqlCommand(sql, connection))
-                {
-                    cmd.CommandType = commandType;
-
-                    if (param != null)
-                    {
-                        foreach (var property in param.GetType().GetProperties())
-                        {
-                            var value = property.GetValue(param);
-                            var parameter = new SqlParameter(property.Name, value ?? DBNull.Value);
-                            cmd.Parameters.Add(parameter);
-                        }
-                    }
-
-                    var dataTable = new DataTable();
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        dataTable.Load(reader);
-                    }
-
-                    return dataTable;
-                }
-            }
-        }
-
-        protected async Task<SqlDataReader> GetDataReaderAsync(string sql, object param = null, CommandType commandType = CommandType.Text)
-        {
-            var connection = new SqlConnection(Constring_MsSql);
-            await connection.OpenAsync();
-
-            using (var cmd = new SqlCommand(sql, connection))
-            {
-                cmd.CommandType = commandType;
-
-                if (param != null)
-                {
-                    foreach (var property in param.GetType().GetProperties())
-                    {
-                        var value = property.GetValue(param);
-                        var parameter = new SqlParameter(property.Name, value ?? DBNull.Value);
-                        cmd.Parameters.Add(parameter);
-                    }
-                }
-
-                var reader = await cmd.ExecuteReaderAsync();
-                return reader;
-                // 注意：调用者必须负责关闭 reader 和 connection
-            }
+            return Ok(ResponseHelper.Success(result, message));       // 确保 ResponseHelper 可用
         }
     }
 }
