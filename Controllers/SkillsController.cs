@@ -56,8 +56,10 @@ namespace TangYuan.Controllers
         /// </summary>
         /// <param name="skillCode">指令名称</param>
         [HttpPost("Skills/GetSkillAction")]
-        public async Task<IActionResult> GetSkillAction([FromBody] string skillCode)
+        public async Task<IActionResult> GetSkillAction([FromBody] SkillModel model )
         {
+            string skillCode = string.Empty;
+            skillCode = model.SkillCode;
             try
             {
                 var sql = @"
@@ -216,8 +218,9 @@ namespace TangYuan.Controllers
         // 【管理接口】删除技能
         // ==========================================
         [HttpPost("Skills/DeleteSkill")]
-        public async Task<IActionResult> DeleteSkill([FromBody] int id)
+        public async Task<IActionResult> DeleteSkill([FromBody] SkillModel model)
         {
+            int id = model.ID;
             try
             {
                 var sql = "DELETE FROM Skills WHERE ID = @ID";

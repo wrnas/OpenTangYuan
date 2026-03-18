@@ -1,5 +1,10 @@
 
 ## 注意事项
+### 发布docker后更新程序。
+```cd /www/wwwroot/OpenTangYuanDocker
+```docker-compose up -d --build
+
+
 ### 后台全部返回统一格式：
 ```c#
 public int code { get; set; }
