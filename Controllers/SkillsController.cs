@@ -42,7 +42,7 @@ namespace TangYuan.Controllers
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "获取指令列表异常");
+                _logger.LogError(ex, "获取指令列表异常");
                 return Ok(ResponseHelper.Fail<object>("获取指令列表失败"));
             }
         }
