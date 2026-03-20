@@ -3,6 +3,7 @@ using AiApi.Services;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using TangYuan.Models;
@@ -247,6 +248,12 @@ namespace TangYuan.Controllers
         {
             try
             {
+                if (sqlText.IsNullOrEmpty())
+                {
+                    _logger.LogError("字符串为空。", "执行SQL失败：" + sqlText);
+                    return Ok(ResponseHelper.Fail<object>("字符串为空。"));
+                }
+
                 // 执行动态查询（使用Dapper的QueryAsync）
                 var result = await QueryAsync<dynamic>(sqlText);
 
