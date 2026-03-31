@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using TangYuan.Models;
+using TangYuan.Tools;
 using WebApi.Tools;
 
 namespace TangYuan.Controllers
@@ -34,7 +35,7 @@ namespace TangYuan.Controllers
 
         public SkillsController(
             IConfiguration configuration,
-            ILogger<SkillsController> logger,            
+            ILogger<SkillsController> logger,
             IOptions<FileSystemOptions> fsOptions)
             : base(configuration, logger)
         {
@@ -55,6 +56,9 @@ namespace TangYuan.Controllers
                 list.Add(new { SkillCode = "print_task", AIDesc = "打印 Word/Excel/PDF/图片" });
                 list.Add(new { SkillCode = "folder_task", AIDesc = "按后缀自动归类文件" });
                 list.Add(new { SkillCode = "tool_task", AIDesc = "调用外部命令行工具 exe，支持传参" });
+                list.Add(new { SkillCode = "lock_task", AIDesc = "一键锁屏" });
+                list.Add(new { SkillCode = "screenshot_task", AIDesc = "全屏截图" });
+                list.Add(new { SkillCode = "email_task", AIDesc = "发送邮件（可带附件）" });
 
                 return Ok(ResponseHelper.Success(list));
             }
@@ -88,7 +92,6 @@ namespace TangYuan.Controllers
                     return Ok(ResponseHelper.Success(result));
                 }
 
-                // 原子技能调用
                 object res = code.ToLower() switch
                 {
                     "file_task" => await DoFileTaskAsync(model.Arguments),
@@ -96,6 +99,9 @@ namespace TangYuan.Controllers
                     "print_task" => await DoPrintTaskAsync(model.Arguments),
                     "folder_task" => await DoFolderTaskAsync(model.Arguments),
                     "tool_task" => await RunExternalToolAsync(model.Arguments),
+                    "lock_task" => await CommandTools.LockScreenAsync(),
+                    "screenshot_task" => await CommandTools.CaptureScreenAsync(),
+                    "email_task" => await CommandTools.SendEmailAsync(model.Arguments),
                     _ => "无效技能"
                 };
 
@@ -118,8 +124,7 @@ namespace TangYuan.Controllers
             }
         }
 
-        #region 原子技能实现（异步安全版本）
-
+        #region 原子技能实现
         private async Task<object> DoFileTaskAsync(Dictionary<string, object> args)
         {
             string act = GetString(args, "action", "");
@@ -133,7 +138,6 @@ namespace TangYuan.Controllers
                 "search" => await SearchFileAsync(keyword, ext),
                 "copy" => await CopyAsync(from, to),
                 "move" => await MoveAsync(from, to),
-               // "delete" => await DeleteAsync(from), 禁止删除操作
                 "mkdir" => await CreateDirAsync(from),
                 _ => "不支持的操作"
             };
@@ -263,110 +267,114 @@ namespace TangYuan.Controllers
                 error = string.IsNullOrEmpty(error) ? "无错误" : error
             };
         }
-
         #endregion
 
-        #region 混合搜索（Everything → Windows Search → 递归降级）
-
+        #region 文件搜索（返回全部匹配结果 · 修复版）
         /// <summary>
-        /// 搜索文件，优先使用 Everything，失败则尝试 Windows Search，最后降级为递归搜索
+        /// 搜索文件：优先 Everything → 降级 Windows Search → 最后递归搜索
+        /// 返回：所有匹配的文件路径列表（多行字符串）
         /// </summary>
         private async Task<string> SearchFileAsync(string keyword, string ext = "*")
         {
             if (string.IsNullOrEmpty(keyword))
                 throw new ArgumentException("搜索关键词不能为空");
 
-            string result = "未找到文件";
-
-            // 1. 尝试 Everything
             try
             {
-                result = await SearchWithEverythingAsync(keyword, ext);
-                if (!string.IsNullOrEmpty(result) && result != "未找到文件" && result != "搜索发生错误")
-                    return result;
+                var resultList = await SearchWithEverythingAsync(keyword, ext);
+                if (resultList.Any())
+                    return FormatFileList(resultList);
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.LogWarning(ex, "Everything 搜索失败，自动降级到 Windows Search");
-            }
-
-            // 2. 尝试 Windows Search
-            try
-            {
-                result = await SearchWithWindowsSearchAsync(keyword, ext);
-                if (!string.IsNullOrEmpty(result) && result != "未找到文件")
-                    return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Windows Search 搜索失败，自动降级到递归搜索");
-            }
-
-            // 3. 最终降级：递归遍历
-            return await SearchFallbackAsync(keyword, ext);
-        }
-
-        private async Task<string> SearchWithEverythingAsync(string keyword, string ext = "*")
-        {
-            try
-            {
-                var searchClient = new EverythingSearchClient.SearchClient();
-                var results = await Task.Run(() => searchClient.Search(keyword));
-
-                if (results.Items.Length == 0)
-                    return "未找到文件";
-
-                return results.Items[0].Path;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Everything 搜索异常，将降级");
-                // 抛出异常，让上层捕获并降级
-                throw new Exception("Everything 不可用", ex);
-            }
-        }
-
-        private async Task<string> SearchWithWindowsSearchAsync(string keyword, string ext = "*")
-        {
-            try
-            {
-                // 转义关键词中的双引号，防止SQL注入/语法错误
-                string safeKeyword = keyword.Replace("\"", "\"\"");
-
-                string query = $@"
-            SELECT System.ItemPathDisplay 
-            FROM SYSTEMINDEX 
-            WHERE CONTAINS(System.FileName, ""{safeKeyword}"")";
-
-                if (!string.IsNullOrEmpty(ext) && ext != "*")
-                    query += $" AND System.FileExtension = '.{ext.TrimStart('.')}'";
-                query += " ORDER BY System.DateModified DESC";
-
-                using var conn = new OleDbConnection("Provider=Search.CollatorDSO;Extended Properties='Application=Windows';");
-                using var cmd = new OleDbCommand(query, conn);
-
-                await conn.OpenAsync();
-                using var reader = await cmd.ExecuteReaderAsync();
-
-                while (await reader.ReadAsync())
+                try
                 {
-                    string path = reader.GetString(0);
-                    ValidatePath(path, mustExist: true);
-                    return path;
+                    var resultList = await SearchWithWindowsSearchAsync(keyword, ext);
+                    if (resultList.Any())
+                        return FormatFileList(resultList);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Windows Search 异常，直接降级到递归搜索");
-                // 抛出异常，让外层捕获并走最终降级
-                throw;
+                catch
+                {
+                    var resultList = await SearchFallbackAsync(keyword, ext);
+                    return resultList.Any() ? FormatFileList(resultList) : "未找到文件";
+                }
             }
 
             return "未找到文件";
         }
 
-        private async Task<string> SearchFallbackAsync(string keyword, string ext = "*")
+        /// <summary>
+        /// Everything 搜索：返回所有匹配文件
+        /// </summary>
+        private async Task<List<string>> SearchWithEverythingAsync(string keyword, string ext = "*")
         {
+            var list = new List<string>();
+            var searchClient = new EverythingSearchClient.SearchClient();
+
+            var results = await Task.Run(() => searchClient.Search(keyword));
+            if (results.Items == null || results.Items.Length == 0)
+                return list;
+
+            foreach (var item in results.Items)
+            {
+                try
+                {
+                    string path = item.Path;
+                    if (!string.IsNullOrEmpty(ext) && ext != "*" && !path.EndsWith($".{ext.Trim('.')}", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    ValidatePath(path, true);
+                    list.Add(path);
+                }
+                catch { continue; }
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// Windows Search 搜索：返回所有匹配
+        /// </summary>
+        private async Task<List<string>> SearchWithWindowsSearchAsync(string keyword, string ext = "*")
+        {
+            var list = new List<string>();
+            string safeKeyword = keyword.Replace("\"", "\"\"");
+
+            string query = $@"
+        SELECT System.ItemPathDisplay 
+        FROM SYSTEMINDEX 
+        WHERE CONTAINS(System.FileName, ""{safeKeyword}"")";
+
+            if (!string.IsNullOrEmpty(ext) && ext != "*")
+                query += $" AND System.FileExtension = '.{ext.TrimStart('.')}'";
+
+            query += " ORDER BY System.DateModified DESC";
+
+            using var conn = new OleDbConnection("Provider=Search.CollatorDSO;Extended Properties='Application=Windows';");
+            using var cmd = new OleDbCommand(query, conn);
+            await conn.OpenAsync();
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                try
+                {
+                    string path = reader.GetString(0);
+                    ValidatePath(path, true);
+                    list.Add(path);
+                }
+                catch { continue; }
+            }
+
+            return list;
+        }
+
+        /// <summary>
+        /// 兜底递归搜索：返回所有匹配
+        /// </summary>
+        private async Task<List<string>> SearchFallbackAsync(string keyword, string ext = "*")
+        {
+            var list = new List<string>();
             var dirs = new[] {
         Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
@@ -384,37 +392,49 @@ namespace TangYuan.Controllers
             foreach (var dir in dirs)
             {
                 if (!Directory.Exists(dir)) continue;
+
                 try
                 {
-                    var file = Directory.EnumerateFiles(dir, $"*.{ext}", opt)
-                        .FirstOrDefault(f =>
-                            Path.GetFileName(f).Contains(keyword, StringComparison.OrdinalIgnoreCase));
+                    var files = Directory.EnumerateFiles(dir, $"*.{ext}", opt)
+                        .Where(f => Path.GetFileName(f).Contains(keyword, StringComparison.OrdinalIgnoreCase));
 
-                    if (file != null)
+                    foreach (var file in files)
                     {
-                        ValidatePath(file, mustExist: true);
-                        return await Task.FromResult(file);
+                        try
+                        {
+                            ValidatePath(file, true);
+                            list.Add(file);
+                        }
+                        catch { continue; }
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "递归搜索目录失败: {Directory}", dir);
-                }
+                catch { continue; }
             }
 
-            return "未找到文件";
+            return await Task.FromResult(list);
         }
 
+        /// <summary>
+        /// 把文件列表格式化成多行文本，方便 AI 阅读
+        /// </summary>
+        private string FormatFileList(List<string> files)
+        {
+            if (files == null || files.Count == 0)
+                return "未找到文件";
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"找到 {files.Count} 个文件：");
+
+            foreach (var f in files)
+                sb.AppendLine("✅ " + f);
+
+            return sb.ToString().TrimEnd();
+        }
         #endregion
 
-
-        #region 工作流（支持变量传递）
-
+        #region 工作流
         private async Task<object> RunWorkflowAsync(List<SkillStep> steps, Dictionary<string, object> input)
         {
-            if (steps == null || steps.Count == 0)
-                throw new ArgumentException("工作流步骤不能为空");
-
             var context = new Dictionary<string, object>(input);
             var log = new List<object>();
 
@@ -427,17 +447,10 @@ namespace TangYuan.Controllers
                 {
                     object result = step.Action?.ToLower() switch
                     {
-                        "search" => await SearchFileAsync(
-                            GetString(resolvedArgs, "keyword", ""),
-                            GetString(resolvedArgs, "ext", "*")),
+                        "search" => await SearchFileAsync(GetString(resolvedArgs, "keyword", ""), GetString(resolvedArgs, "ext", "*")),
                         "print" => await DoPrintTaskAsync(resolvedArgs),
-                        "copy" => await CopyAsync(
-                            GetString(resolvedArgs, "from", ""),
-                            GetString(resolvedArgs, "to", "")),
-                        "move" => await MoveAsync(
-                            GetString(resolvedArgs, "from", ""),
-                            GetString(resolvedArgs, "to", "")),
-                        "delete" => await DeleteAsync(GetString(resolvedArgs, "path", "")),
+                        "copy" => await CopyAsync(GetString(resolvedArgs, "from", ""), GetString(resolvedArgs, "to", "")),
+                        "move" => await MoveAsync(GetString(resolvedArgs, "from", ""), GetString(resolvedArgs, "to", "")),
                         "mkdir" => await CreateDirAsync(GetString(resolvedArgs, "path", "")),
                         "tool" => await RunExternalToolAsync(resolvedArgs),
                         "open" => await DoOpenTaskAsync(resolvedArgs),
@@ -457,125 +470,72 @@ namespace TangYuan.Controllers
             return new { msg = "技能流程执行完毕", log = log };
         }
 
-        private Dictionary<string, object> ResolveTemplateVariables(
-            Dictionary<string, object> args,
-            IReadOnlyDictionary<string, object> context,
-            int currentStepIndex)
+        private Dictionary<string, object> ResolveTemplateVariables(Dictionary<string, object> args, IReadOnlyDictionary<string, object> context, int currentStepIndex)
         {
-            if (args == null) return new Dictionary<string, object>();
-
             var resolved = new Dictionary<string, object>();
             foreach (var kv in args)
             {
                 if (kv.Value is string strValue)
                 {
-                    string newValue = Regex.Replace(strValue, @"\{\{([^}]+)\}\}", match =>
+                    resolved[kv.Key] = Regex.Replace(strValue, @"\{\{([^}]+)\}\}", match =>
                     {
-                        string placeholder = match.Groups[1].Value.Trim();
-                        if (placeholder.StartsWith("step", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (int.TryParse(placeholder.Substring(4), out int stepIdx) &&
-                                context.TryGetValue($"step{stepIdx}", out var val))
-                                return val?.ToString() ?? "";
-                        }
-                        else if (placeholder.StartsWith("input.", StringComparison.OrdinalIgnoreCase))
-                        {
-                            string key = placeholder.Substring(6);
-                            if (context.TryGetValue(key, out var val))
-                                return val?.ToString() ?? "";
-                        }
+                        string key = match.Groups[1].Value.Trim();
+                        if (key.StartsWith("step") && int.TryParse(key.AsSpan(4), out int idx) && context.TryGetValue($"step{idx}", out var v))
+                            return v?.ToString() ?? "";
+                        if (key.StartsWith("input.") && context.TryGetValue(key.Substring(6), out var iv))
+                            return iv?.ToString() ?? "";
                         return match.Value;
                     });
-                    resolved[kv.Key] = newValue;
                 }
-                else
-                {
-                    resolved[kv.Key] = kv.Value;
-                }
+                else resolved[kv.Key] = kv.Value;
             }
             return resolved;
         }
-
         #endregion
 
         #region 安全文件操作
-
         private string ValidatePath(string inputPath, bool mustExist = false)
         {
-            if (string.IsNullOrWhiteSpace(inputPath))
-                throw new ArgumentException("路径不能为空");
-
-            string fullPath;
-            try
-            {
-                fullPath = Path.GetFullPath(inputPath);
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException($"路径格式无效: {inputPath}", ex);
-            }
-
-            // 防止路径遍历攻击
-            if (fullPath.Contains(".."))
-            {
-                throw new UnauthorizedAccessException("路径中包含非法字符：..");
-            }
-
-            if (_fsOptions.AllowedRoots != null && _fsOptions.AllowedRoots.Count > 0)
-            {
-                bool isAllowed = _fsOptions.AllowedRoots.Any(root =>
-                    fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase));
-                if (!isAllowed)
-                    throw new UnauthorizedAccessException($"路径 {fullPath} 不在允许的根目录中");
-            }
-
+            if (string.IsNullOrWhiteSpace(inputPath)) throw new ArgumentException("路径不能为空");
+            string fullPath = Path.GetFullPath(inputPath);
+            if (fullPath.Contains("..")) throw new UnauthorizedAccessException("路径非法");
+            if (_fsOptions.AllowedRoots?.Any(r => fullPath.StartsWith(r, StringComparison.OrdinalIgnoreCase)) == false)
+                throw new UnauthorizedAccessException("路径不在允许范围");
             if (mustExist && !System.IO.File.Exists(fullPath) && !Directory.Exists(fullPath))
-                throw new FileNotFoundException($"文件或目录不存在: {fullPath}");
-
+                throw new FileNotFoundException($"不存在: {fullPath}");
             return fullPath;
         }
 
-
         private async Task<string> CopyAsync(string from, string to)
         {
-            var fullFrom = ValidatePath(from, mustExist: true);
-            var fullTo = ValidatePath(to, mustExist: false);
-            await Task.Run(() => System.IO.File.Copy(fullFrom, fullTo, true));
+            var f = ValidatePath(from, true);
+            var t = ValidatePath(to, false);
+            await Task.Run(() => System.IO.File.Copy(f, t, true));
             return "已复制";
         }
 
         private async Task<string> MoveAsync(string from, string to)
         {
-            var fullFrom = ValidatePath(from, mustExist: true);
-            var fullTo = ValidatePath(to, mustExist: false);
-            await Task.Run(() => System.IO.File.Move(fullFrom, fullTo));
+            var f = ValidatePath(from, true);
+            var t = ValidatePath(to, false);
+            await Task.Run(() => System.IO.File.Move(f, t));
             return "已移动";
-        }
-
-        private async Task<string> DeleteAsync(string path)
-        {
-            var fullPath = ValidatePath(path, mustExist: true);
-            await Task.Run(() => System.IO.File.Delete(fullPath));
-            return "已删除";
         }
 
         private async Task<string> CreateDirAsync(string path)
         {
-            var fullPath = ValidatePath(path, mustExist: false);
-            await Task.Run(() => Directory.CreateDirectory(fullPath));
+            var p = ValidatePath(path, false);
+            await Task.Run(() => Directory.CreateDirectory(p));
             return "已创建";
         }
 
-        private string GetString(Dictionary<string, object> args, string key, string defaultValue = "")
+        private new string GetString(Dictionary<string, object> args, string key, string defaultValue = "")
         {
-            if (args == null) return defaultValue;
-            return args.TryGetValue(key, out var value) ? value?.ToString() ?? defaultValue : defaultValue;
+            return args != null && args.TryGetValue(key, out var v) ? v?.ToString() ?? defaultValue : defaultValue;
         }
-
         #endregion
 
         #region 管理接口
-
         [HttpPost("GetAllSkillCodes")]
         public async Task<IActionResult> GetAllSkillCodes()
         {
@@ -586,25 +546,17 @@ namespace TangYuan.Controllers
         [HttpPost("GetSkillAction")]
         public async Task<IActionResult> GetSkillAction([FromBody] SkillModel m)
         {
-            if (m == null || string.IsNullOrEmpty(m.SkillCode))
-                return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
-
-            var action = await QueryFirstOrDefaultAsync<string>(
-                "SELECT SkillActions FROM Skills WHERE SkillCode = @SkillCode", m);
-            return Ok(ResponseHelper.Success(action));
+            if (string.IsNullOrEmpty(m?.SkillCode)) return BadRequest();
+            var a = await QueryFirstOrDefaultAsync<string>("SELECT SkillActions FROM Skills WHERE SkillCode = @SkillCode", m);
+            return Ok(ResponseHelper.Success(a));
         }
 
         [HttpPost("SaveSkillAction")]
         public async Task<IActionResult> SaveSkillAction([FromBody] SkillModel m)
         {
-            if (m == null || string.IsNullOrEmpty(m.SkillCode))
-                return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
-
-            var sql = @"INSERT INTO Skills (SkillCode, SkillActions, Remark)
-                        VALUES (@SkillCode, @SkillActions, @Remark)
-                        ON CONFLICT(SkillCode) DO UPDATE SET
-                        SkillActions = excluded.SkillActions,
-                        Remark = excluded.Remark";
+            if (string.IsNullOrEmpty(m?.SkillCode)) return BadRequest();
+            var sql = @"INSERT INTO Skills (SkillCode,SkillActions,Remark) VALUES (@SkillCode,@SkillActions,@Remark)
+                        ON CONFLICT(SkillCode) DO UPDATE SET SkillActions=excluded.SkillActions,Remark=excluded.Remark";
             await ExecuteAsync(sql, m);
             return Ok(ResponseHelper.Success("保存成功"));
         }
@@ -612,34 +564,25 @@ namespace TangYuan.Controllers
         [HttpPost("GetSkillList")]
         public async Task<IActionResult> GetSkillList()
         {
-            var skills = await QueryAsync<dynamic>("SELECT * FROM Skills");
-            return Ok(ResponseHelper.Success(skills));
+            var list = await QueryAsync<dynamic>("SELECT * FROM Skills");
+            return Ok(ResponseHelper.Success(list));
         }
 
         [HttpPost("DeleteSkill")]
         public async Task<IActionResult> DeleteSkill([FromBody] SkillModel m)
         {
-            if (m == null || m.ID <= 0 && string.IsNullOrEmpty(m.SkillCode))
-                return BadRequest(ResponseHelper.Fail<object>("缺少有效标识"));
-
-            string sql = m.ID > 0
-                ? "DELETE FROM Skills WHERE ID = @ID"
-                : "DELETE FROM Skills WHERE SkillCode = @SkillCode";
+            if (m == null || (m.ID <= 0 && string.IsNullOrEmpty(m.SkillCode))) return BadRequest();
+            string sql = m.ID > 0 ? "DELETE FROM Skills WHERE ID=@ID" : "DELETE FROM Skills WHERE SkillCode=@SkillCode";
             await ExecuteAsync(sql, m);
             return Ok(ResponseHelper.Success("删除成功"));
         }
 
         [HttpPost("ExecSql")]
-        public IActionResult ExecSql()
-        {
-            return StatusCode(403, ResponseHelper.Fail<object>("此接口已禁用"));
-        }
-
+        public IActionResult ExecSql() => StatusCode(403, ResponseHelper.Fail<object>("禁用"));
         #endregion
     }
 
-    #region 模型定义
-
+    #region 模型
     public class SkillModel
     {
         public int ID { get; set; }
@@ -665,10 +608,8 @@ namespace TangYuan.Controllers
         public List<string> AllowedRoots { get; set; } = new()
         {
             Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            @"C:\Temp\AIWorkspace"
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
         };
     }
-
     #endregion
 }
