@@ -1,39 +1,38 @@
-﻿namespace TangYuan
-{
-    using AiApi.Services;
-    using Microsoft.AspNetCore.Authentication;
-    using Microsoft.AspNetCore.Authentication.JwtBearer;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.IdentityModel.Tokens;
-    using Microsoft.OpenApi.Models;
-    using NLog;
-    using NLog.Extensions.Logging;
-    using NLog.Web;
-    using System.Security.Cryptography;
-    using System.Text;
-    using TangYuan.Models;
-    using TangYuan.OpenApi;
-    using WebApi.Tools;
-    
+﻿using AiApi.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;          // 新增：限流支持
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using NLog;
+using NLog.Extensions.Logging;
+using NLog.Web;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.RateLimiting;               // 新增：限流策略选项
+using TangYuan.Controllers;                        // 新增：引用 FileSystemOptions
+using TangYuan.Models;
+using TangYuan.OpenApi;
+using WebApi.Tools;
+using EverythingSearchClient;
 
+namespace TangYuan
+{
     public class Program
     {
         public static void Main(string[] args)
         {
             var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
             try
-            {                
+            {
                 logger.Debug("初始化应用程序");
 
                 var builder = WebApplication.CreateBuilder(args);
 
-                // ===== 修复1：确保所有服务注册在ConfigureServices完成 =====
                 ConfigureServices(builder.Services, builder.Configuration);
 
                 var app = builder.Build();
 
-                // ===== 修复2：调整中间件顺序 =====
                 ConfigureMiddleware(app, builder.Configuration);
 
                 app.Run();
@@ -83,11 +82,11 @@
                 };
 
                 c.AddSecurityDefinition("Bearer", jwtSecurityScheme);
-                //
-                // 新增：API Key 安全定义
+
+                // API Key 安全定义
                 var apiKeyScheme = new OpenApiSecurityScheme
                 {
-                    Name = "X-API-Key",               // Header 名称，必须与后端认证处理器读取的 Header 一致
+                    Name = "X-API-Key",
                     In = ParameterLocation.Header,
                     Type = SecuritySchemeType.ApiKey,
                     Description = "请输入你的 API Key"
@@ -96,7 +95,7 @@
 
                 // 添加操作过滤器，根据 [Authorize] 中的方案动态添加安全要求
                 c.OperationFilter<SecurityRequirementsOperationFilter>();
-                //
+
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -113,9 +112,6 @@
                 });
             });
 
-
-
-
             // CORS
             services.AddCors(options =>
                 options.AddPolicy("AllowAll", policy =>
@@ -124,12 +120,11 @@
             // Token服务
             services.AddSingleton<TokenCacheService>();
 
-            // ===== 修复3：更健壮的JWT配置 =====
+            // JWT 配置
             var jwtSecret = configuration["Jwt:Secret"] ?? "fallback-secret-key";
             var issuer = configuration["Jwt:Issuer"] ?? "default-issuer";
             var audience = configuration["Jwt:Audience"] ?? "default-audience";
 
-            // 添加此检查以确认密钥类型
             logger.Info($"JWT 密钥长度: {jwtSecret.Length} 字符");
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -146,11 +141,10 @@
                         ClockSkew = TimeSpan.Zero
                     };
 
-                    // 根据密钥长度自动选择加密类型
                     if (jwtSecret.Length >= 64)
                     {
                         logger.Info("使用RSA安全密钥");
-                        using (var rsa = RSA.Create())  // 自动选择适合的 RSA 实现
+                        using (var rsa = RSA.Create())
                         {
                             rsa.ImportFromPem(jwtSecret);
                             options.TokenValidationParameters.IssuerSigningKey = new RsaSecurityKey(rsa.ExportParameters(false));
@@ -164,8 +158,6 @@
                 })
                 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", null);
 
-            ;
-
             // NLog
             services.AddLogging(logging =>
             {
@@ -175,19 +167,58 @@
 
             // 阿里云OSS
             services.Configure<AliyunOssOptions>(
-                configuration.GetSection("AliyunOSS"));
+                configuration.GetSection("AliyunOSS"));           
 
-            #region 注册内部使用业务相关的方法
-           
-
+            #region 新增：文件系统安全选项配置
+            // 从 appsettings.json 中读取 "FileSystem" 节，绑定到 FileSystemOptions
+            // 控制器中使用 IOptions<FileSystemOptions> 注入
+            services.Configure<FileSystemOptions>(configuration.GetSection("FileSystem"));
+            // 如果没有配置则使用默认值（已在 FileSystemOptions 构造函数中指定）
             #endregion
 
+            #region 新增：限流策略（防止 AI 滥用接口）
+            // 添加速率限制服务，支持固定窗口、滑动窗口、令牌桶等策略
+            services.AddRateLimiter(options =>
+            {
+                // 全局默认限制策略（可选）
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                {
+                    // 按用户 IP 或 API Key 进行限流，这里简单按 IP 地址
+                    var clientId = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientId, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 100,           // 每个窗口允许的最大请求数
+                        Window = TimeSpan.FromMinutes(1), // 窗口大小
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 5                // 允许排队等候的请求数
+                    });
+                });
 
+                // 为特定接口（如 Skills/ExecuteSkill）添加更严格的策略
+                options.AddFixedWindowLimiter("AiCallLimiter", opt =>
+                {
+                    opt.PermitLimit = 10;             // 每分钟最多 10 次调用
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.QueueLimit = 2;
+                });
+
+                // 可选：处理限流触发时的响应
+                options.OnRejected = async (context, cancellationToken) =>
+                {
+                    context.HttpContext.Response.StatusCode = 429;
+                    await context.HttpContext.Response.WriteAsync("请求过于频繁，请稍后再试。", cancellationToken);
+                };
+            });
+            #endregion
+
+            #region 注册内部使用业务相关的方法
+            // 原有业务注册（如果有）
+            #endregion
         }
 
         private static void ConfigureMiddleware(WebApplication app, IConfiguration configuration)
         {
-            // ===== 修复4：改为异步中间件 =====
+            // Swagger 基础认证中间件（保持不变）
             app.Use(async (context, next) =>
             {
                 if (context.Request.Path.StartsWithSegments("/swagger"))
@@ -229,27 +260,36 @@
                 await next();
             });
 
-            // 中间件顺序很重要
+            // Swagger UI
             app.UseSwagger();
             app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1"));
 
-            // HTTPS
+            // HTTPS 重定向
             app.UseHttpsRedirection();
 
-            //允许访问 wwwroot 文件
+            // 静态文件（wwwroot）
             app.UseStaticFiles();
 
             // 路由
-            app.UseRouting();            
+            app.UseRouting();
 
-            // ===== 修复5：确保CORS在认证之前 =====
+            // CORS（必须在 UseAuthentication 之前）
             app.UseCors("AllowAll");
 
-            // 认证中间件
+            // 新增：启用速率限制中间件
+            // 位置：通常在 UseRouting 之后，UseAuthentication/UseAuthorization 之前或之后均可
+            // 建议放在认证之前，以便对未认证的请求也能限流
+            app.UseRateLimiter();
+
+            // 认证与授权
             app.UseAuthentication();
             app.UseAuthorization();
 
+            // 映射控制器
             app.MapControllers();
+
+            // 可选：为特定控制器或操作附加限流策略（使用特性方式已在控制器中标记）
+            // 例如：app.MapControllers().RequireRateLimiting("AiCallLimiter");  // 全局应用，谨慎使用
         }
     }
 }
