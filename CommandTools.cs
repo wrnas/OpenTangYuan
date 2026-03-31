@@ -94,38 +94,30 @@ namespace TangYuan.Tools
 
             try
             {
-                // 生成带时间戳的文件名，避免重复
                 string savePath = $"D:\\screen_{DateTime.Now:yyyyMMddHHmmss}.png";
-
-                // 获取屏幕宽高
                 int screenWidth = GetSystemMetrics(SM_CXSCREEN);
                 int screenHeight = GetSystemMetrics(SM_CYSCREEN);
 
-                // 获取屏幕设备上下文
                 hdcSrc = GetDC(IntPtr.Zero);
                 hdcDest = CreateCompatibleDC(hdcSrc);
                 hBitmap = CreateCompatibleBitmap(hdcSrc, screenWidth, screenHeight);
                 hOldBitmap = SelectObject(hdcDest, hBitmap);
 
-                // 执行截图：把屏幕内容复制到内存位图
                 BitBlt(hdcDest, 0, 0, screenWidth, screenHeight, hdcSrc, 0, 0, SRCCOPY);
                 SelectObject(hdcDest, hOldBitmap);
 
-                // 保存为图片文件
-                using (Bitmap bmp = Image.FromHbitmap(hBitmap))
-                {
-                    bmp.Save(savePath, ImageFormat.Png);
-                }
+                using var bmp = Image.FromHbitmap(hBitmap);
+                bmp.Save(savePath, ImageFormat.Png);
 
-                return $"✅ 截图已保存：{savePath}";
+                // ✅ 返回纯路径，工作流才能正常使用！
+                return savePath;
             }
             catch (Exception ex)
             {
-                return $"❌ 截图失败：{ex.Message}";
+                return $"截图失败：{ex.Message}";
             }
             finally
             {
-                // 必须释放系统资源，防止内存泄漏
                 DeleteObject(hBitmap);
                 DeleteDC(hdcDest);
                 ReleaseDC(IntPtr.Zero, hdcSrc);
@@ -145,69 +137,54 @@ namespace TangYuan.Tools
         /// </summary>
         /// <param name="args">原始参数字典</param>
         /// <returns>发送结果</returns>
+        // CommandTools.cs 里的 SendEmailAsync 改成这样
+        // 发邮件 → 严谨判断：非空 + 不是模板 + 文件存在
         public static async Task<object> SendEmailAsync(Dictionary<string, object> args)
         {
             try
             {
-                // 直接在这里实现 GetString 逻辑，不再依赖外部方法
                 string GetValue(string key, string defaultValue = "")
                 {
                     if (args == null || !args.TryGetValue(key, out var value))
                         return defaultValue;
-                    return value?.ToString() ?? defaultValue;
+                    return value?.ToString()?.Trim() ?? defaultValue;
                 }
 
-                // 从参数中获取传入的值
-                string toEmail = GetValue("to", "");                // 收件人
-                string subject = GetValue("subject", "无主题");     // 主题
-                string body = GetValue("body", "");                 // 正文
-                string attachmentPath = GetValue("attachment", ""); // 附件路径（可选）
+                string toEmail = GetValue("to");
+                string subject = GetValue("subject", "屏幕截图");
+                string body = GetValue("body", "已为您截取屏幕");
+                string attachment = GetValue("attachment");
 
-                // 校验必填项
                 if (string.IsNullOrWhiteSpace(toEmail))
-                    return "❌ 收件人邮箱不能为空";
+                    return "错误：收件人邮箱不能为空";
 
-                // ==============================
-                // 邮箱配置区 → 这里改成你自己的
-                // ==============================
-                string smtpServer = "smtp.163.com";       // SMTP 服务器
-                int smtpPort = 465;                       // SSL 端口
-                string fromEmail = "你的邮箱@163.com";     // 发件人邮箱
-                string fromName = "文件自动助手";          // 发件人显示名称
-                string authCode = "你的授权码";            // 不是登录密码，是授权码
-
-                // 构造邮件
                 var message = new MimeMessage();
-                message.From.Add(new MailboxAddress(fromName, fromEmail));
+                message.From.Add(new MailboxAddress("系统助手", "l00f@163.com"));
                 message.To.Add(new MailboxAddress("", toEmail));
                 message.Subject = subject;
+                var builder = new BodyBuilder { TextBody = body };
 
-                // 正文 + 附件构造器
-                var builder = new BodyBuilder
+                // ✅【超级严谨】三段过滤，绝不偷懒
+                if (!string.IsNullOrWhiteSpace(attachment)      // 非空
+                    && !attachment.Contains("{{")              // 不是模板变量
+                    && File.Exists(attachment))                // 文件真实存在
                 {
-                    TextBody = body
-                };
-
-                // 如果有附件且文件存在，则添加
-                if (!string.IsNullOrEmpty(attachmentPath) && File.Exists(attachmentPath))
-                {
-                    builder.Attachments.Add(attachmentPath);
+                    builder.Attachments.Add(attachment);
                 }
 
                 message.Body = builder.ToMessageBody();
 
-                // 发送邮件
                 using var client = new SmtpClient();
-                await client.ConnectAsync(smtpServer, smtpPort, SecureSocketOptions.SslOnConnect);
-                await client.AuthenticateAsync(fromEmail, authCode);
+                await client.ConnectAsync("smtp.163.com", 465, SecureSocketOptions.SslOnConnect);
+                await client.AuthenticateAsync("l00f@163.com", "KYfLX3B7tj8tGE6A");
                 await client.SendAsync(message);
                 await client.DisconnectAsync(true);
 
-                return $"✅ 邮件发送成功：{toEmail}";
+                return $"邮件发送成功：{toEmail}";
             }
             catch (Exception ex)
             {
-                return $"❌ 发送失败：{ex.Message}";
+                return $"邮件发送失败：{ex.Message}";
             }
         }
         #endregion

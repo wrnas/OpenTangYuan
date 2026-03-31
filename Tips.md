@@ -54,6 +54,9 @@
 示例：
 {"SkillCode":"tool_task","Arguments":{"exePath":"C:\\sendmail.exe","arguments":"test","timeout":10}}
 
+
+
+
 ------------------------------------
 使用规则：
 1. 用户需求简单 → 直接调用对应工具
@@ -225,6 +228,54 @@ json
     }
   }
 ]
+
+
+
+技能 1：一键锁屏
+适用场景：用户要求锁定电脑、锁屏、保护屏幕时SkillCode：lock_task参数：无请求示例：
+json
+{
+  "SkillCode": "lock_task",
+  "Arguments": {}
+}
+技能 2：全屏截图
+适用场景：用户要求截图、截取屏幕、保存屏幕画面SkillCode：screenshot_task参数：无请求示例：
+json
+{
+  "SkillCode": "screenshot_task",
+  "Arguments": {}
+}
+返回结果会包含截图保存路径，默认保存到 D 盘。
+技能 3：发送邮件（可带附件）
+适用场景：用户要发邮件、发送文件、发送截图、发送文档SkillCode：email_task参数：
+to：收件人邮箱（必填）
+subject：邮件主题（可选）
+body：邮件正文（可选）
+attachment：附件完整路径（可选）
+最简请求示例：
+json
+{
+  "SkillCode": "email_task",
+  "Arguments": {
+    "to": "xxx@qq.com",
+    "subject": "主题",
+    "body": "内容"
+  }
+}
+带附件示例（如刚截的图）：
+json
+{
+  "SkillCode": "email_task",
+  "Arguments": {
+    "to": "xxx@qq.com",
+    "subject": "屏幕截图",
+    "body": "这是当前屏幕",
+    "attachment": "D:\\screen_20260331225711.png"
+  }
+}
+
+
+
 五、重要注意事项
 路径必须用双反斜杠：\\
 外部 exe 必须在白名单内：sendmail.exe、pdf2txt.exe、magick.exe

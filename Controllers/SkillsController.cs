@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Mysqlx.Crud;
 using System;
 using System.Collections.Generic;
 using System.Data.OleDb;
@@ -445,17 +446,8 @@ namespace TangYuan.Controllers
 
                 try
                 {
-                    object result = step.Action?.ToLower() switch
-                    {
-                        "search" => await SearchFileAsync(GetString(resolvedArgs, "keyword", ""), GetString(resolvedArgs, "ext", "*")),
-                        "print" => await DoPrintTaskAsync(resolvedArgs),
-                        "copy" => await CopyAsync(GetString(resolvedArgs, "from", ""), GetString(resolvedArgs, "to", "")),
-                        "move" => await MoveAsync(GetString(resolvedArgs, "from", ""), GetString(resolvedArgs, "to", "")),
-                        "mkdir" => await CreateDirAsync(GetString(resolvedArgs, "path", "")),
-                        "tool" => await RunExternalToolAsync(resolvedArgs),
-                        "open" => await DoOpenTaskAsync(resolvedArgs),
-                        _ => throw new NotSupportedException($"未知动作: {step.Action}")
-                    };
+                    // ✅ 统一走 ExecuteSkill 逻辑 → 支持所有原子技能：lock / screenshot / email / file 等
+                    object result = await ExecuteSkillInternal(step.Action, resolvedArgs);
 
                     context[$"step{i}"] = result;
                     log.Add(new { step = step.Action, result });
@@ -470,27 +462,61 @@ namespace TangYuan.Controllers
             return new { msg = "技能流程执行完毕", log = log };
         }
 
-        private Dictionary<string, object> ResolveTemplateVariables(Dictionary<string, object> args, IReadOnlyDictionary<string, object> context, int currentStepIndex)
+        // ✅ 内部统一执行原子技能（支持所有 SkillCode）
+        private async Task<object> ExecuteSkillInternal(string skillCode, Dictionary<string, object> args)
         {
+            return skillCode.ToLower() switch
+            {
+                "file_task" => await DoFileTaskAsync(args),
+                "open_task" => await DoOpenTaskAsync(args),
+                "print_task" => await DoPrintTaskAsync(args),
+                "folder_task" => await DoFolderTaskAsync(args),
+                "tool_task" => await RunExternalToolAsync(args),
+                "lock_task" => await CommandTools.LockScreenAsync(),
+                "screenshot_task" => await CommandTools.CaptureScreenAsync(),
+                "email_task" => await CommandTools.SendEmailAsync(args),
+                _ => throw new NotSupportedException($"不支持的技能：{skillCode}")
+            };
+        }
+
+        private Dictionary<string, object> ResolveTemplateVariables(
+    Dictionary<string, object> args,
+    IReadOnlyDictionary<string, object> context,
+    int currentStepIndex)
+        {
+            if (args == null) return new Dictionary<string, object>();
             var resolved = new Dictionary<string, object>();
+
             foreach (var kv in args)
             {
-                if (kv.Value is string strValue)
+                string? rawText = kv.Value switch
                 {
-                    resolved[kv.Key] = Regex.Replace(strValue, @"\{\{([^}]+)\}\}", match =>
+                    string s => s,
+                    JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString(),
+                    JsonElement je => je.ToString(),
+                    _ => null
+                };
+
+                if (rawText != null)
+                {
+                    resolved[kv.Key] = Regex.Replace(rawText, @"\{\{\s*([^}]+?)\s*\}\}", match =>
                     {
                         string key = match.Groups[1].Value.Trim();
-                        if (key.StartsWith("step") && int.TryParse(key.AsSpan(4), out int idx) && context.TryGetValue($"step{idx}", out var v))
-                            return v?.ToString() ?? "";
-                        if (key.StartsWith("input.") && context.TryGetValue(key.Substring(6), out var iv))
-                            return iv?.ToString() ?? "";
-                        return match.Value;
+                        if (context.TryGetValue(key, out var value) && value != null)
+                            return value.ToString() ?? "";
+
+                        return "";
                     });
                 }
-                else resolved[kv.Key] = kv.Value;
+                else
+                {
+                    resolved[kv.Key] = kv.Value;
+                }
             }
+
             return resolved;
         }
+
         #endregion
 
         #region 安全文件操作
@@ -551,13 +577,38 @@ namespace TangYuan.Controllers
             return Ok(ResponseHelper.Success(a));
         }
 
+        
+        
         [HttpPost("SaveSkillAction")]
         public async Task<IActionResult> SaveSkillAction([FromBody] SkillModel m)
         {
-            if (string.IsNullOrEmpty(m?.SkillCode)) return BadRequest();
-            var sql = @"INSERT INTO Skills (SkillCode,SkillActions,Remark) VALUES (@SkillCode,@SkillActions,@Remark)
-                        ON CONFLICT(SkillCode) DO UPDATE SET SkillActions=excluded.SkillActions,Remark=excluded.Remark";
-            await ExecuteAsync(sql, m);
+            if (string.IsNullOrEmpty(m?.SkillCode))
+                return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
+
+            var exists = await QueryFirstOrDefaultAsync<int>(
+                "SELECT 1 FROM Skills WHERE SkillCode = @SkillCode LIMIT 1", m);
+
+            if (exists == 1)
+            {
+                // 更新：所有字段都传
+                await ExecuteAsync(@"
+            UPDATE Skills 
+            SET SkillActions = @SkillActions, 
+                Remark = @Remark,
+                SkillType = @SkillType,
+                UpdateTime = @UpdateTime
+            WHERE SkillCode = @SkillCode",
+                m);
+            }
+            else
+            {
+                // 插入：所有字段都来自 Model，Model 自带默认值
+                await ExecuteAsync(@"
+            INSERT INTO Skills (SkillCode, SkillActions, Remark, SkillType, UpdateTime) 
+            VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)",
+                m);
+            }
+
             return Ok(ResponseHelper.Success("保存成功"));
         }
 
@@ -585,10 +636,18 @@ namespace TangYuan.Controllers
     #region 模型
     public class SkillModel
     {
-        public int ID { get; set; }
+        public int ID { get; set; } = 0;
         public string SkillCode { get; set; }
+
         public string SkillActions { get; set; }
+
         public string Remark { get; set; }
+
+        // 👇 这里给默认值！前端不传就自动用这个
+        public string SkillType { get; set; } = "OtherType";
+
+        // 👇 时间也可以给默认值，完美
+        public string UpdateTime { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
     }
 
     public class ExecSkillModel
