@@ -1,0 +1,249 @@
+{
+  "version": "1.0",
+  "note": "优先使用 workflows；没有现成技能时，再使用 builtins 组合调用 ExecuteSkill。",
+  "skills": [
+    {
+      "skillCode": "browser_task",
+      "desc": "浏览器自动化操作",
+      "args": {
+        "actions": "浏览器动作数组，必填"
+      },
+      "actionTypes": [
+        {
+          "type": "goto",
+          "desc": "打开网页",
+          "required": [ "url" ]
+        },
+        {
+          "type": "click",
+          "desc": "点击元素",
+          "required": [ "selector" ]
+        },
+        {
+          "type": "click_text",
+          "desc": "按文本点击元素",
+          "required": [ "value" ]
+        },
+        {
+          "type": "fill",
+          "desc": "填写输入框",
+          "required": [ "selector", "value" ]
+        },
+        {
+          "type": "press",
+          "desc": "按键",
+          "required": [ "selector", "value" ]
+        },
+        {
+          "type": "wait_for",
+          "desc": "等待元素出现",
+          "required": [ "selector" ]
+        },
+        {
+          "type": "wait_for_load_state",
+          "desc": "等待页面加载完成",
+          "required": []
+        },
+        {
+          "type": "get_text",
+          "desc": "获取单个元素文本",
+          "required": [ "selector" ]
+        },
+        {
+          "type": "get_text_list",
+          "desc": "获取多个元素文本",
+          "required": [ "selector" ]
+        },
+        {
+          "type": "exists",
+          "desc": "判断元素是否存在",
+          "required": [ "selector" ]
+        },
+        {
+          "type": "screenshot",
+          "desc": "页面截图",
+          "required": []
+        },
+        {
+          "type": "screenshot_element",
+          "desc": "元素截图",
+          "required": [ "selector" ]
+        },
+        {
+          "type": "download",
+          "desc": "点击并下载文件",
+          "required": [ "selector" ]
+        },
+        {
+          "type": "new_tab",
+          "desc": "新开标签页",
+          "required": []
+        },
+        {
+          "type": "switch_tab",
+          "desc": "切换标签页",
+          "required": [ "index" ]
+        },
+        {
+          "type": "get_tabs",
+          "desc": "获取所有标签页",
+          "required": []
+        },
+        {
+          "type": "auto_detect_login",
+          "desc": "自动填写并尝试登录",
+          "required": [ "username", "password" ]
+        }
+      ],
+      "example": {
+        "SkillCode": "browser_task",
+        "Arguments": {
+          "actions": [
+            {
+              "type": "goto",
+              "url": "https://www.baidu.com"
+            },
+            {
+              "type": "get_text",
+              "selector": "title"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "skillCode": "file_task",
+      "desc": "文件搜索、复制、移动、创建目录",
+      "args": {
+        "action": "search | copy | move | mkdir",
+        "from": "源路径；copy/move/mkdir 时使用",
+        "to": "目标路径；copy/move 时使用",
+        "keyword": "搜索关键词；search 时使用",
+        "ext": "扩展名；search 时使用，默认 *"
+      },
+      "actions": [
+        {
+          "action": "search",
+          "required": [ "keyword" ],
+          "optional": [ "ext" ]
+        },
+        {
+          "action": "copy",
+          "required": [ "from", "to" ],
+          "optional": []
+        },
+        {
+          "action": "move",
+          "required": [ "from", "to" ],
+          "optional": []
+        },
+        {
+          "action": "mkdir",
+          "required": [ "from" ],
+          "optional": []
+        }
+      ],
+      "example": {
+        "SkillCode": "file_task",
+        "Arguments": {
+          "action": "copy",
+          "from": "C:\\Temp\\a.png",
+          "to": "D:\\a.png"
+        }
+      }
+    },
+    {
+      "skillCode": "email_task",
+      "desc": "发送邮件，可带单个附件",
+      "args": {
+        "to": "收件人邮箱，必填",
+        "subject": "邮件主题，可空",
+        "body": "邮件正文，可空",
+        "attachment": "附件完整路径，可空"
+      },
+      "example": {
+        "SkillCode": "email_task",
+        "Arguments": {
+          "to": "214634166@qq.com",
+          "subject": "测试邮件",
+          "body": "这是测试正文",
+          "attachment": "D:\\a.png"
+        }
+      }
+    },
+    {
+      "skillCode": "screenshot_task",
+      "desc": "全屏截图",
+      "args": {},
+      "example": {
+        "SkillCode": "screenshot_task",
+        "Arguments": {}
+      }
+    },
+    {
+      "skillCode": "open_task",
+      "desc": "打开文件、程序、文件夹",
+      "args": {
+        "path": "文件路径、目录路径或程序路径"
+      },
+      "example": {
+        "SkillCode": "open_task",
+        "Arguments": {
+          "path": "C:\\Temp"
+        }
+      }
+    },
+    {
+      "skillCode": "print_task",
+      "desc": "打印文件",
+      "args": {
+        "path": "待打印文件完整路径"
+      },
+      "example": {
+        "SkillCode": "print_task",
+        "Arguments": {
+          "path": "C:\\Temp\\a.pdf"
+        }
+      }
+    },
+    {
+      "skillCode": "folder_task",
+      "desc": "按后缀归类文件",
+      "args": {
+        "source": "源目录"
+      },
+      "example": {
+        "SkillCode": "folder_task",
+        "Arguments": {
+          "source": "C:\\Temp"
+        }
+      }
+    },
+    {
+      "skillCode": "tool_task",
+      "desc": "调用白名单外部工具 exe",
+      "args": {
+        "exePath": "exe 完整路径",
+        "arguments": "命令行参数",
+        "timeout": "超时秒数，默认 10"
+      },
+      "example": {
+        "SkillCode": "tool_task",
+        "Arguments": {
+          "exePath": "C:\\Tools\\magick.exe",
+          "arguments": "-version",
+          "timeout": "10"
+        }
+      }
+    },
+    {
+      "skillCode": "lock_task",
+      "desc": "锁屏",
+      "args": {},
+      "example": {
+        "SkillCode": "lock_task",
+        "Arguments": {}
+      }
+    }
+  ]
+}
