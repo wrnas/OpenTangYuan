@@ -269,9 +269,10 @@ LIMIT 1";
         /// 统一执行入口
         ///
         /// 执行顺序：
-        /// 1. 先查数据库是否存在同名组合技能（SkillActions）
-        /// 2. 如果有，则按工作流执行
-        /// 3. 如果没有，则按内置原子技能执行
+        /// 1. 如果请求里直接带了 Steps，则按临时 workflow 执行
+        /// 2. 否则先查数据库是否存在同名 workflow 技能
+        /// 3. 如果有，则按数据库 workflow 执行
+        /// 4. 如果没有，则按内置原子技能执行
         /// </summary>
         [HttpPost("ExecuteSkill")]
         public async Task<IActionResult> ExecuteSkill([FromBody] ExecSkillModel model)
@@ -280,39 +281,76 @@ LIMIT 1";
                 return BadRequest(ResponseHelper.Fail<object>("请求体不能为空"));
 
             string code = model.SkillCode?.Trim() ?? "";
-            if (string.IsNullOrWhiteSpace(code))
-                return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
+            var args = model.Arguments ?? new Dictionary<string, object>();
 
             try
             {
-                // 优先尝试读取数据库中的组合技能定义
-                var skillJson = await QueryFirstOrDefaultAsync<string>(
-                    "SELECT SkillActions FROM Skills WHERE SkillCode = @SkillCode LIMIT 1",
-                    new { SkillCode = code });
-
                 object result;
+                string executeMode;
 
-                if (!string.IsNullOrWhiteSpace(skillJson))
+                // 1. 优先执行请求中直接传入的临时 workflow
+                if (model.Steps != null && model.Steps.Count > 0)
                 {
-                    var steps = JsonSerializer.Deserialize<List<SkillStep>>(skillJson) ?? new List<SkillStep>();
-                    result = await RunWorkflowAsync(steps, model.Arguments ?? new Dictionary<string, object>());
+                    _logger.LogInformation("开始执行临时 workflow，SkillCode={SkillCode}", code);
+                    result = await RunWorkflowAsync(model.Steps, args);
+                    executeMode = "temp_workflow";
                 }
                 else
                 {
-                    result = await ExecuteSkillInternal(code, model.Arguments ?? new Dictionary<string, object>());
+                    // 2. 再尝试读取数据库中的 workflow 技能定义
+                    var skillJson = await QueryFirstOrDefaultAsync<string>(
+                        "SELECT SkillActions FROM Skills WHERE SkillCode = @SkillCode LIMIT 1",
+                        new { SkillCode = code });
+
+                    if (!string.IsNullOrWhiteSpace(skillJson))
+                    {
+                        List<SkillStep> steps;
+                        try
+                        {
+                            steps = JsonSerializer.Deserialize<List<SkillStep>>(skillJson) ?? new List<SkillStep>();
+                        }
+                        catch (JsonException ex)
+                        {
+                            _logger.LogError(ex, "SkillActions JSON 格式错误，SkillCode={SkillCode}", code);
+                            return StatusCode(500, ResponseHelper.Fail<object>("SkillActions JSON 格式错误"));
+                        }
+
+                        _logger.LogInformation("开始执行 workflow 技能，SkillCode={SkillCode}", code);
+                        result = await RunWorkflowAsync(steps, args);
+                        executeMode = "workflow";
+                    }
+                    else
+                    {
+                        if (string.IsNullOrWhiteSpace(code))
+                            return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空，或者请直接传 Steps"));
+
+                        _logger.LogInformation("开始执行 builtin 技能，SkillCode={SkillCode}", code);
+                        result = await ExecuteSkillInternal(code, args);
+                        executeMode = "builtin";
+                    }
                 }
 
-                return Ok(ResponseHelper.Success(result));
+                return Ok(ResponseHelper.Success(new
+                {
+                    skillCode = code,
+                    executeMode, // temp_workflow / workflow / builtin
+                    result
+                }));
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning(ex, "安全限制：{Message}", ex.Message);
+                _logger.LogWarning(ex, "安全限制，SkillCode={SkillCode}，Message={Message}", code, ex.Message);
                 return StatusCode(403, ResponseHelper.Fail<object>(ex.Message));
             }
             catch (FileNotFoundException ex)
             {
-                _logger.LogWarning(ex, "文件不存在：{Message}", ex.Message);
+                _logger.LogWarning(ex, "文件不存在，SkillCode={SkillCode}，Message={Message}", code, ex.Message);
                 return NotFound(ResponseHelper.Fail<object>(ex.Message));
+            }
+            catch (NotSupportedException ex)
+            {
+                _logger.LogWarning(ex, "不支持的技能，SkillCode={SkillCode}，Message={Message}", code, ex.Message);
+                return BadRequest(ResponseHelper.Fail<object>(ex.Message));
             }
             catch (Exception ex)
             {
@@ -321,90 +359,212 @@ LIMIT 1";
             }
         }
 
+
+
         #endregion
 
         #region 工作流引擎
 
         /// <summary>
-        /// 执行组合技能（工作流）
+        /// 执行 workflow 技能
         ///
-        /// 支持：
-        /// - step0 / step1 / step2...
-        /// - 模板变量传值：{{step0}}、{{step0.path}}、{{step0.data.path}}
+        /// 功能：
+        /// 1. 按顺序执行每个步骤
+        /// 2. 支持模板变量，例如：
+        ///    {{step0}}
+        ///    {{step0.path}}
+        ///    {{step0.data.path}}
+        /// 3. 每一步执行结果会写入上下文，供后续步骤引用
+        ///
+        /// 返回：
+        /// - success: 是否成功
+        /// - msg: 执行结果说明
+        /// - totalSteps: 总步骤数
+        /// - completedSteps: 已完成步骤数
+        /// - failedAt: 失败步骤索引（失败时返回）
+        /// - failedStep: 失败步骤名称（失败时返回）
+        /// - lastResult: 最后一个成功步骤的结果
+        /// - log: 每一步的执行日志
         /// </summary>
-        private async Task<object> RunWorkflowAsync(List<SkillStep> steps, Dictionary<string, object> input)
+        private async Task<object> RunWorkflowAsync(List<SkillStep>? steps, Dictionary<string, object>? input)
         {
-            var context = new Dictionary<string, object>(input);
+            // 1. 空值保护
+            var safeSteps = steps ?? new List<SkillStep>();
+            var context = input != null
+                ? new Dictionary<string, object>(input)
+                : new Dictionary<string, object>();
+
             var log = new List<object>();
+            object? lastResult = null;
 
-            for (int i = 0; i < steps.Count; i++)
+            // 2. 没有步骤时直接返回
+            if (safeSteps.Count == 0)
             {
-                var step = steps[i];
-                var resolvedArgs = ResolveTemplateVariables(step.Args, context);
+                return new
+                {
+                    success = true,
+                    msg = "workflow 没有可执行步骤",
+                    totalSteps = 0,
+                    completedSteps = 0,
+                    lastResult = (object?)null,
+                    log
+                };
+            }
 
+            // 3. 逐步执行
+            for (int i = 0; i < safeSteps.Count; i++)
+            {
+                var step = safeSteps[i];
+
+                // 防止空步骤导致异常
+                var action = step?.Action?.Trim() ?? "";
+                var stepArgs = step?.Args ?? new Dictionary<string, object>();
+
+                if (string.IsNullOrWhiteSpace(action))
+                {
+                    log.Add(new
+                    {
+                        stepIndex = i,
+                        step = "",
+                        success = false,
+                        error = "步骤 Action 不能为空"
+                    });
+
+                    return new
+                    {
+                        success = false,
+                        msg = "workflow 执行失败",
+                        failedAt = i,
+                        failedStep = "",
+                        totalSteps = safeSteps.Count,
+                        completedSteps = i,
+                        lastResult,
+                        log
+                    };
+                }
+
+                // 先解析模板变量
+                Dictionary<string, object> resolvedArgs;
                 try
                 {
-                    object result = await ExecuteSkillInternal(step.Action, resolvedArgs);
-
-                    // 把当前步骤结果放进上下文，供后续步骤引用
-                    context[$"step{i}"] = result;
+                    resolvedArgs = ResolveTemplateVariables(stepArgs, context);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "步骤参数模板解析失败，StepIndex={StepIndex}，Action={Action}", i, action);
 
                     log.Add(new
                     {
                         stepIndex = i,
-                        step = step.Action,
+                        step = action,
+                        success = false,
+                        error = "参数模板解析失败：" + ex.Message
+                    });
+
+                    return new
+                    {
+                        success = false,
+                        msg = "workflow 执行失败",
+                        failedAt = i,
+                        failedStep = action,
+                        totalSteps = safeSteps.Count,
+                        completedSteps = i,
+                        lastResult,
+                        log
+                    };
+                }
+
+                try
+                {
+                    _logger.LogInformation("开始执行 workflow 步骤，StepIndex={StepIndex}，Action={Action}", i, action);
+
+                    // 执行当前原子技能
+                    var result = await ExecuteSkillInternal(action, resolvedArgs);
+
+                    // 保存当前步骤结果
+                    context[$"step{i}"] = result;
+                    lastResult = result;
+
+                    log.Add(new
+                    {
+                        stepIndex = i,
+                        step = action,
+                        success = true,
                         args = resolvedArgs,
                         result
                     });
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "工作流步骤 {Action} 执行失败", step.Action);
+                    _logger.LogError(ex, "workflow 步骤执行失败，StepIndex={StepIndex}，Action={Action}", i, action);
 
                     log.Add(new
                     {
                         stepIndex = i,
-                        step = step.Action,
+                        step = action,
+                        success = false,
                         args = resolvedArgs,
                         error = ex.Message
                     });
 
                     return new
                     {
-                        msg = "技能流程中断",
-                        failedAt = step.Action,
+                        success = false,
+                        msg = "workflow 执行失败",
+                        failedAt = i,
+                        failedStep = action,
+                        totalSteps = safeSteps.Count,
+                        completedSteps = i,
+                        lastResult,
                         log
                     };
                 }
             }
 
+            // 4. 全部执行完成
             return new
             {
-                msg = "技能流程执行完毕",
+                success = true,
+                msg = "workflow 执行完成",
+                totalSteps = safeSteps.Count,
+                completedSteps = safeSteps.Count,
+                lastResult,
                 log
             };
         }
 
+
         /// <summary>
         /// 统一执行内置原子技能
+        ///
+        /// 说明：
+        /// 1. 这里只处理 builtin skill
+        /// 2. workflow skill 不走这里，而是走 RunWorkflowAsync
+        /// 3. 如果 skillCode 不支持，会抛 NotSupportedException
         /// </summary>
-        private async Task<object> ExecuteSkillInternal(string skillCode, Dictionary<string, object> args)
+        private async Task<object> ExecuteSkillInternal(string skillCode, Dictionary<string, object>? args)
         {
-            return skillCode.Trim().ToLowerInvariant() switch
+            var code = skillCode?.Trim().ToLowerInvariant() ?? "";
+            var safeArgs = args ?? new Dictionary<string, object>();
+
+            return code switch
             {
-                "file_task" => await DoFileTaskAsync(args),
-                "open_task" => await DoOpenTaskAsync(args),
-                "print_task" => await DoPrintTaskAsync(args),
-                "folder_task" => await DoFolderTaskAsync(args),
-                "tool_task" => await RunExternalToolAsync(args),
+                "file_task" => await DoFileTaskAsync(safeArgs),
+                "open_task" => await DoOpenTaskAsync(safeArgs),
+                "print_task" => await DoPrintTaskAsync(safeArgs),
+                "folder_task" => await DoFolderTaskAsync(safeArgs),
+                "tool_task" => await RunExternalToolAsync(safeArgs),
                 "lock_task" => await CommandTools.LockScreenAsync(),
                 "screenshot_task" => await CommandTools.CaptureScreenAsync(),
-                "email_task" => await CommandTools.SendEmailAsync(args),
-                "browser_task" => await DoBrowserTaskAsync(args),
+                "email_task" => await CommandTools.SendEmailAsync(safeArgs),
+                "browser_task" => await DoBrowserTaskAsync(safeArgs),
                 _ => throw new NotSupportedException($"不支持的技能：{skillCode}")
             };
         }
 
+
+
+        #region 模板处理
         /// <summary>
         /// 模板变量替换
         ///
@@ -415,20 +575,29 @@ LIMIT 1";
         /// - {{myInputVar}}
         ///
         /// 说明：
-        /// 1. args 中如果 value 是 JsonElement/string，都先转成字符串再替换
-        /// 2. 如果找不到变量，则替换为空字符串
+        /// 1. 只对“可转成字符串”的参数做模板替换
+        /// 2. 非字符串类型的值原样保留
+        /// 3. 如果模板变量不存在，替换为空字符串
+        /// 4. 支持从：
+        ///    - Dictionary<string, object>
+        ///    - JsonElement
+        ///    - 匿名对象 / 普通对象属性
+        ///    中读取字段
         /// </summary>
         private Dictionary<string, object> ResolveTemplateVariables(
             Dictionary<string, object>? args,
             IReadOnlyDictionary<string, object> context)
         {
-            if (args == null)
-                return new Dictionary<string, object>();
+            // 1. 空值保护
+            if (args == null || args.Count == 0)
+                return new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
             var resolved = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var kv in args)
             {
+                // 2. 尝试把当前参数转成字符串
+                //    只有字符串类参数才做模板替换
                 string? rawText = kv.Value switch
                 {
                     null => null,
@@ -438,17 +607,19 @@ LIMIT 1";
                     _ => kv.Value.ToString()
                 };
 
-                // 非字符串类型，原样保留
+                // 3. 如果无法转成字符串，则原样保留
                 if (rawText == null)
                 {
                     resolved[kv.Key] = kv.Value!;
                     continue;
                 }
 
+                // 4. 替换模板变量
+                //    例如：{{step0.data.path}}
                 var replaced = Regex.Replace(rawText, @"\{\{\s*([^}]+?)\s*\}\}", match =>
                 {
                     var expr = match.Groups[1].Value.Trim();
-                    return ResolveExpression(expr, context);
+                    return ResolveTemplateExpression(expr, context);
                 });
 
                 resolved[kv.Key] = replaced;
@@ -458,23 +629,36 @@ LIMIT 1";
         }
 
         /// <summary>
-        /// 解析一个表达式，例如：
-        /// step0
-        /// step0.path
-        /// step0.data.path
+        /// 解析单个模板表达式
+        ///
+        /// 示例：
+        /// - step0
+        /// - step0.path
+        /// - step0.data.path
+        /// - myInputVar
+        ///
+        /// 规则：
+        /// 1. 先取第一级变量（如 step0 / myInputVar）
+        /// 2. 再逐级读取属性/字段
+        /// 3. 任意一级不存在时返回空字符串
         /// </summary>
-        private string ResolveExpression(string expr, IReadOnlyDictionary<string, object> context)
+        private string ResolveTemplateExpression(
+            string expr,
+            IReadOnlyDictionary<string, object> context)
         {
             if (string.IsNullOrWhiteSpace(expr))
                 return "";
 
+            // 按点分隔，例如 step0.data.path
             var parts = expr.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (parts.Length == 0)
                 return "";
 
+            // 先从上下文中取第一级变量
             if (!context.TryGetValue(parts[0], out var current) || current == null)
                 return "";
 
+            // 逐级往下取值
             for (int i = 1; i < parts.Length; i++)
             {
                 current = GetObjectMemberValue(current, parts[i]);
@@ -486,32 +670,68 @@ LIMIT 1";
         }
 
         /// <summary>
-        /// 从对象 / JsonElement / Dictionary 中取成员值
+        /// 从对象中读取指定成员值
+        ///
+        /// 支持：
+        /// 1. Dictionary<string, object>
+        /// 2. JsonElement（对象类型）
+        /// 3. 匿名对象 / 普通对象属性
         /// </summary>
         private object? GetObjectMemberValue(object obj, string memberName)
         {
             if (obj == null || string.IsNullOrWhiteSpace(memberName))
                 return null;
 
-            // 1. JsonElement 对象处理
-            if (obj is JsonElement je)
-            {
-                if (je.ValueKind == JsonValueKind.Object && je.TryGetProperty(memberName, out var child))
-                    return child;
-
-                return null;
-            }
-
-            // 2. Dictionary<string, object> 处理
+            // 1. Dictionary<string, object>
             if (obj is IDictionary<string, object> dict)
             {
                 return dict.TryGetValue(memberName, out var value) ? value : null;
             }
 
-            // 3. 普通匿名对象 / 类对象反射处理
+            // 2. JsonElement
+            if (obj is JsonElement je)
+            {
+                if (je.ValueKind == JsonValueKind.Object &&
+                    je.TryGetProperty(memberName, out var child))
+                {
+                    return child;
+                }
+
+                return null;
+            }
+
+            // 3. 普通对象 / 匿名对象
             var prop = obj.GetType().GetProperty(memberName);
-            return prop?.GetValue(obj);
+            if (prop != null)
+                return prop.GetValue(obj);
+
+            return null;
         }
+
+        /// <summary>
+        /// 把 object 安全转成字符串
+        ///
+        /// 支持：
+        /// - string
+        /// - JsonElement
+        /// - 普通对象
+        /// </summary>
+        private string ConvertObjectToString(object? value, string defaultValue = "")
+        {
+            if (value == null)
+                return defaultValue;
+
+            return value switch
+            {
+                string s => s,
+                JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString() ?? defaultValue,
+                JsonElement je => je.ToString() ?? defaultValue,
+                _ => value.ToString() ?? defaultValue
+            };
+        }
+
+
+        #endregion
 
         #endregion
 
@@ -538,6 +758,8 @@ LIMIT 1";
                 _ => throw new NotSupportedException($"file_task 不支持的操作：{action}")
             };
         }
+
+
 
         private async Task<object> DoOpenTaskAsync(Dictionary<string, object> args)
         {
@@ -1007,7 +1229,7 @@ LIMIT 1";
             return fullPath;
         }
 
-        private async Task<string> CopyAsync(string from, string to)
+        private async Task<SkillResult> CopyAsync(string from, string to)
         {
             var source = ValidatePath(from, mustExist: true);
             var target = ValidatePath(to, mustExist: false);
@@ -1021,10 +1243,22 @@ LIMIT 1";
                 System.IO.File.Copy(source, target, overwrite: true);
             });
 
-            return "已复制";
+            return new SkillResult
+            {
+                Success = true,
+                SkillCode = "file_task",
+                Type = "copy",
+                Text = "已复制",
+                Data = new
+                {
+                    from = source,
+                    to = target
+                }
+            };
         }
 
-        private async Task<string> MoveAsync(string from, string to)
+
+        private async Task<SkillResult> MoveAsync(string from, string to)
         {
             var source = ValidatePath(from, mustExist: true);
             var target = ValidatePath(to, mustExist: false);
@@ -1041,15 +1275,39 @@ LIMIT 1";
                 System.IO.File.Move(source, target);
             });
 
-            return "已移动";
+            return new SkillResult
+            {
+                Success = true,
+                SkillCode = "file_task",
+                Type = "move",
+                Text = "已移动",
+                Data = new
+                {
+                    from = source,
+                    to = target
+                }
+            };
         }
 
-        private async Task<string> CreateDirAsync(string path)
+
+        private async Task<SkillResult> CreateDirAsync(string path)
         {
             var fullPath = ValidatePath(path, mustExist: false);
             await Task.Run(() => Directory.CreateDirectory(fullPath));
-            return "已创建";
+
+            return new SkillResult
+            {
+                Success = true,
+                SkillCode = "file_task",
+                Type = "mkdir",
+                Text = "已创建目录",
+                Data = new
+                {
+                    path = fullPath
+                }
+            };
         }
+
 
         #endregion
 
@@ -1067,22 +1325,7 @@ LIMIT 1";
             return ConvertObjectToString(value, defaultValue).Trim();
         }
 
-        /// <summary>
-        /// 把 object 安全转成字符串
-        /// </summary>
-        private string ConvertObjectToString(object? value, string defaultValue = "")
-        {
-            if (value == null)
-                return defaultValue;
-
-            return value switch
-            {
-                string s => s,
-                JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString() ?? defaultValue,
-                JsonElement je => je.ToString() ?? defaultValue,
-                _ => value.ToString() ?? defaultValue
-            };
-        }
+        
 
         #endregion
 
@@ -1191,7 +1434,14 @@ VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
         public string SkillCode { get; set; } = "";
 
         public Dictionary<string, object> Arguments { get; set; } = new();
+
+        /// <summary>
+        /// 临时 workflow 步骤。
+        /// 如果传了 Steps，就直接执行，不走数据库。
+        /// </summary>
+        public List<SkillStep> Steps { get; set; } = new();
     }
+
 
     public class SkillStep
     {

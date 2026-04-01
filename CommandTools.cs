@@ -7,7 +7,9 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading.Tasks;
+using TangYuan.Models;
 
 namespace TangYuan.Tools
 {
@@ -107,10 +109,20 @@ namespace TangYuan.Tools
                 SelectObject(hdcDest, hOldBitmap);
 
                 using var bmp = Image.FromHbitmap(hBitmap);
-                bmp.Save(savePath, ImageFormat.Png);
+                bmp.Save(savePath, ImageFormat.Png);               
 
-                // ✅ 返回纯路径，工作流才能正常使用！
-                return savePath;
+                return new SkillResult
+                {
+                    Success = true,
+                    SkillCode = "screenshot_task",
+                    Type = "screenshot",
+                    Text = "截图成功",
+                    Data = new
+                    {
+                        path = savePath,
+                        fileName = Path.GetFileName(savePath)
+                    }
+                };
             }
             catch (Exception ex)
             {
@@ -145,29 +157,34 @@ namespace TangYuan.Tools
             {
                 string GetValue(string key, string defaultValue = "")
                 {
-                    if (args == null || !args.TryGetValue(key, out var value))
+                    if (args == null || !args.TryGetValue(key, out var value) || value == null)
                         return defaultValue;
-                    return value?.ToString()?.Trim() ?? defaultValue;
+
+                    return value switch
+                    {
+                        string s => s.Trim(),
+                        JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString()?.Trim() ?? defaultValue,
+                        JsonElement je => je.ToString()?.Trim() ?? defaultValue,
+                        _ => value.ToString()?.Trim() ?? defaultValue
+                    };
                 }
 
                 string toEmail = GetValue("to");
-                string subject = GetValue("subject", "屏幕截图");
-                string body = GetValue("body", "已为您截取屏幕");
+                string subject = GetValue("subject", "系统邮件");
+                string body = GetValue("body", "");
                 string attachment = GetValue("attachment");
 
                 if (string.IsNullOrWhiteSpace(toEmail))
-                    return "错误：收件人邮箱不能为空";
+                    throw new ArgumentException("收件人邮箱不能为空");
 
                 var message = new MimeMessage();
                 message.From.Add(new MailboxAddress("系统助手", "l00f@163.com"));
                 message.To.Add(new MailboxAddress("", toEmail));
                 message.Subject = subject;
+
                 var builder = new BodyBuilder { TextBody = body };
 
-                // ✅【超级严谨】三段过滤，绝不偷懒
-                if (!string.IsNullOrWhiteSpace(attachment)      // 非空
-                    && !attachment.Contains("{{")              // 不是模板变量
-                    && File.Exists(attachment))                // 文件真实存在
+                if (!string.IsNullOrWhiteSpace(attachment) && File.Exists(attachment))
                 {
                     builder.Attachments.Add(attachment);
                 }
@@ -180,11 +197,23 @@ namespace TangYuan.Tools
                 await client.SendAsync(message);
                 await client.DisconnectAsync(true);
 
-                return $"邮件发送成功：{toEmail}";
+                return new SkillResult
+                {
+                    Success = true,
+                    SkillCode = "email_task",
+                    Type = "send_email",
+                    Text = "邮件发送成功",
+                    Data = new
+                    {
+                        to = toEmail,
+                        subject,
+                        attachment
+                    }
+                };
             }
             catch (Exception ex)
             {
-                return $"邮件发送失败：{ex.Message}";
+                throw new Exception("邮件发送失败：" + ex.Message, ex);
             }
         }
         #endregion
