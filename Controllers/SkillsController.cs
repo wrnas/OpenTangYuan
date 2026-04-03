@@ -38,13 +38,22 @@ namespace TangYuan.Controllers
 
         /// <summary>
         /// 允许执行的外部 exe 白名单
+        /// 可执行文件需要在配置文件中配置
         /// </summary>
-        private static readonly HashSet<string> AllowedExeNames = new(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> AllowedExeNames = LoadAllowedExeNames();
+
+        private static HashSet<string> LoadAllowedExeNames()
         {
-            "sendmail.exe",
-            "pdf2txt.exe",
-            "magick.exe"
-        };
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+                .Build();
+
+            var exeNames = configuration.GetSection("AllowedExeNames").Get<List<string>>()
+                           ?? new List<string>();
+
+            return new HashSet<string>(exeNames, StringComparer.OrdinalIgnoreCase);
+        }
 
         public SkillsController(
             IConfiguration configuration,
@@ -205,10 +214,10 @@ namespace TangYuan.Controllers
             try
             {
                 var sql = @"
-SELECT SkillCode, SkillActions, Remark, SkillType, UpdateTime
-FROM Skills
-WHERE SkillCode = @SkillCode
-LIMIT 1";
+                            SELECT SkillCode, SkillActions, Remark, SkillType, UpdateTime
+                            FROM Skills
+                            WHERE SkillCode = @SkillCode
+                            LIMIT 1";
 
                 var skill = await QueryFirstOrDefaultAsync<dynamic>(sql, new { SkillCode = model.SkillCode });
 
@@ -737,9 +746,10 @@ LIMIT 1";
 
         #region 原子技能：文件
 
+       
         /// <summary>
         /// 文件类技能：
-        /// search / copy / move / mkdir
+        /// search / copy / move / rename / mkdir
         /// </summary>
         private async Task<object> DoFileTaskAsync(Dictionary<string, object> args)
         {
@@ -748,12 +758,14 @@ LIMIT 1";
             string to = GetString(args, "to");
             string keyword = GetString(args, "keyword");
             string ext = GetString(args, "ext", "*");
+            string newName = GetString(args, "newName");
 
             return action.Trim().ToLowerInvariant() switch
             {
                 "search" => await SearchFileAsync(keyword, ext),
                 "copy" => await CopyAsync(from, to),
                 "move" => await MoveAsync(from, to),
+                "rename" => await RenameAsync(from, newName),
                 "mkdir" => await CreateDirAsync(from),
                 _ => throw new NotSupportedException($"file_task 不支持的操作：{action}")
             };
@@ -1185,7 +1197,8 @@ LIMIT 1";
             sb.AppendLine($"找到 {files.Count} 个文件：");
 
             foreach (var file in files)
-                sb.AppendLine("✅ " + file);
+                //sb.AppendLine("✅ " + file);
+                sb.AppendLine(file);
 
             return sb.ToString().TrimEnd();
         }
@@ -1281,6 +1294,45 @@ LIMIT 1";
                 SkillCode = "file_task",
                 Type = "move",
                 Text = "已移动",
+                Data = new
+                {
+                    from = source,
+                    to = target
+                }
+            };
+        }
+
+        private async Task<SkillResult> RenameAsync(string path, string newName)
+        {
+            var source = ValidatePath(path, mustExist: true);
+
+            if (string.IsNullOrWhiteSpace(newName))
+                throw new ArgumentException("新文件名不能为空");
+
+            // 确保 newName 不包含路径，只取文件名
+            var safeNewName = Path.GetFileName(newName);
+
+            var sourceDir = Path.GetDirectoryName(source);
+            if (string.IsNullOrWhiteSpace(sourceDir))
+                throw new ArgumentException("无法获取源文件目录");
+
+            var target = Path.Combine(sourceDir, safeNewName);
+            var targetValidated = ValidatePath(target, mustExist: false);
+
+            await Task.Run(() =>
+            {
+                if (System.IO.File.Exists(target))
+                    System.IO.File.Delete(target);
+
+                System.IO.File.Move(source, target);
+            });
+
+            return new SkillResult
+            {
+                Success = true,
+                SkillCode = "file_task",
+                Type = "rename",
+                Text = "已重命名",
                 Data = new
                 {
                     from = source,
