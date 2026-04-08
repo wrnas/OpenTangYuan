@@ -136,6 +136,31 @@ AI 通过它知道原子技能怎么调用。
 3. 如果存在，执行 workflow
 4. 如果不存在，执行 builtin skill
 
+### 4.6 关于浏览器操作
+browser_task 使用规则：
+
+1. 优先使用标准动作：
+goto, click, fill, press, select_option,
+wait, wait_for, wait_for_load_state, wait_url_contains,
+get_text, get_text_list, get_attr, exists, count,
+screenshot, screenshot_element, download,
+new_tab, switch_tab, get_tabs。
+
+2. 一个 browser_task 尽量完成一整段浏览器流程，不要无故拆成多个 browser_task。
+
+3. 读取页面信息前必须先等待页面稳定，优先使用 wait_for，少用固定 wait。
+
+4. 点击会导致跳转时，优先设置 waitForNavigation=true，并指定 waitUntil。
+
+5. 默认使用简单、稳定、可维护的 selector，不优先使用复杂文本匹配或 evaluate。
+
+6. 登录、查询、下载、截图是 browser_task 最适合的场景；文件处理、邮件、微信通知应交给其他 skill。
+
+7. 默认 onError=stop；只有可选步骤才使用 onError=skip。
+
+8. 默认 closeSession=true；只有需要跨调用保留登录态时才使用 closeSession=false。
+
+
 ---
 
 ## 5. workflow 执行机制

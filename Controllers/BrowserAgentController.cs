@@ -82,6 +82,7 @@ namespace AiApi.Controllers
         /// - 同一 session 内部是串行执行（防并发问题）
         /// </summary>
         [HttpPost("run")]
+        [HttpPost("run")]
         public async Task<IActionResult> Run([FromBody] BrowserRunRequest request)
         {
             request ??= new BrowserRunRequest();
@@ -100,13 +101,11 @@ namespace AiApi.Controllers
 
             try
             {
-                // 1️⃣ 尝试复用 session
                 if (!string.IsNullOrWhiteSpace(request.SessionId))
                 {
                     session = _browserService.GetSession(request.SessionId);
                 }
 
-                // 2️⃣ 不存在就创建
                 if (session == null)
                 {
                     session = await _browserService.CreateSessionAsync();
@@ -115,7 +114,6 @@ namespace AiApi.Controllers
                 var outputs = new List<BrowserActionResult>();
                 var logs = new List<object>();
 
-                // ⭐ 关键：同一个 session 必须串行执行
                 await session.ActionLock.WaitAsync();
 
                 try
@@ -126,9 +124,7 @@ namespace AiApi.Controllers
 
                         try
                         {
-                            // ⭐ 执行单个 action
                             var result = await _browserService.ExecuteActionAsync(session, action);
-
 
                             outputs.Add(result);
 
@@ -143,7 +139,6 @@ namespace AiApi.Controllers
                         {
                             _logger.LogError(ex, "Action 执行失败");
 
-                            // skip = 跳过错误继续执行
                             if (string.Equals(action.OnError, "skip", StringComparison.OrdinalIgnoreCase))
                             {
                                 outputs.Add(new BrowserActionResult
@@ -157,7 +152,6 @@ namespace AiApi.Controllers
                                 continue;
                             }
 
-                            // stop = 直接返回
                             return Ok(new
                             {
                                 success = false,
@@ -174,7 +168,6 @@ namespace AiApi.Controllers
                     session.ActionLock.Release();
                 }
 
-                // ⭐ 核心：统一提取最终结果（给 AI 用）
                 var final = _browserService.BuildFinalResult(outputs);
 
                 return Ok(new
@@ -188,7 +181,6 @@ namespace AiApi.Controllers
                         title = await _browserService.SafeGetTitleAsync(session.CurrentPage)
                     },
 
-                    // ⭐⭐⭐ Coze 最重要的字段
                     result = new
                     {
                         type = final.FinalType,
@@ -197,7 +189,6 @@ namespace AiApi.Controllers
                         data = final.FinalData
                     },
 
-                    // 调试用
                     outputs,
                     logs
                 });
@@ -210,7 +201,22 @@ namespace AiApi.Controllers
                     error = ex.Message
                 });
             }
+            finally
+            {
+                if (request.CloseSession && session != null)
+                {
+                    try
+                    {
+                        await _browserService.CloseSession(session.SessionId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "关闭浏览器 Session 失败，SessionId={SessionId}", session.SessionId);
+                    }
+                }
+            }
         }
+
 
 
 

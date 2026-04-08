@@ -33,6 +33,43 @@ namespace AiApi.Services
         // Session最大存活时间
         private readonly TimeSpan _sessionTimeout = TimeSpan.FromMinutes(30);
 
+        /// <summary>
+        /// 推荐给 AI / workflow 使用的标准动作白名单（v1）
+        /// 注意：这不是执行权限限制，只是标准协议定义。
+        /// </summary>
+        public static readonly HashSet<string> StandardActionTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "goto",
+        "back",
+        "forward",
+        "refresh",
+
+        "click",
+        "fill",
+        "press",
+        "select_option",
+
+        "wait",
+        "wait_for",
+        "wait_for_load_state",
+        "wait_url_contains",
+
+        "get_text",
+        "get_text_list",
+        "get_attr",
+        "exists",
+        "count",
+
+        "screenshot",
+        "screenshot_element",
+        "download",
+
+        "new_tab",
+        "switch_tab",
+        "get_tabs"
+    };
+
+
         public BrowserService(IConfiguration configuration, IWebHostEnvironment env)
         {
             _env = env;  // 注入
@@ -95,7 +132,7 @@ namespace AiApi.Services
                 "extract_article" => await ExtractArticle(page),
                 "extract_list" => await ExecuteExtractList(page, action),
 
-                "screenshot" => await ExecuteScreenshot(page),
+                "screenshot" => await ExecuteScreenshot(page, action),
                 "screenshot_base64" => await ExecuteScreenshotBase64(page),
                 "screenshot_element" => await ExecuteScreenshotElement(page, action),
                 "download" => await ExecuteDownload(page, action),
@@ -1157,21 +1194,42 @@ namespace AiApi.Services
 
         #region Screenshot / Download
 
-        private async Task<BrowserActionResult> ExecuteScreenshot(IPage page)
+
+
+        private async Task<BrowserActionResult> ExecuteScreenshot(IPage page, BrowserAction action)
         {
-            var (path, url, fileName) = EnsureImagePath("screens");
+            string path;
+            string url = "";
+            string fileName;
+
+            if (!string.IsNullOrWhiteSpace(action.Path))
+            {
+                path = action.Path;
+                var dir = Path.GetDirectoryName(path);
+                if (!string.IsNullOrWhiteSpace(dir))
+                    Directory.CreateDirectory(dir);
+
+                fileName = Path.GetFileName(path);
+            }
+            else
+            {
+                var builtIn = EnsureImagePath("screens");
+                path = builtIn.path;
+                url = builtIn.url;
+                fileName = builtIn.fileName;
+            }
 
             await page.ScreenshotAsync(new PageScreenshotOptions
             {
                 Path = path,
-                FullPage = true
+                FullPage = action.FullPage ?? true
             });
 
             return new BrowserActionResult
             {
                 Type = "screenshot",
-                Text = url,
-                Url = url,
+                Text = string.IsNullOrWhiteSpace(url) ? path : url,
+                Url = string.IsNullOrWhiteSpace(url) ? path : url,
                 Data = new
                 {
                     fileName,
@@ -1180,6 +1238,8 @@ namespace AiApi.Services
                 }
             };
         }
+
+
 
         private async Task<BrowserActionResult> ExecuteScreenshotBase64(IPage page)
         {

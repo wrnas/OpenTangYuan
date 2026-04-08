@@ -1005,7 +1005,6 @@ namespace TangYuan.Controllers
             if (!args.TryGetValue("actions", out var actionsObj) || actionsObj == null)
                 throw new ArgumentException("browser_task 必须提供 actions");
 
-            // actions 既可能是 JSON 字符串，也可能是 JsonElement
             if (actionsObj is string actionsJson)
             {
                 actions = JsonSerializer.Deserialize<List<BrowserAction>>(actionsJson) ?? new List<BrowserAction>();
@@ -1022,12 +1021,25 @@ namespace TangYuan.Controllers
             if (actions.Count == 0)
                 throw new ArgumentException("browser_task 的 actions 不能为空");
 
-            var session = await _browserService.CreateSessionAsync();
+            string sessionId = GetString(args, "sessionId");
+            bool closeSession = bool.TryParse(GetString(args, "closeSession", "false"), out var close) && close;
+
+            BrowserSession? session = null;
+
+            if (!string.IsNullOrWhiteSpace(sessionId))
+            {
+                session = _browserService.GetSession(sessionId);
+            }
+
+            if (session == null)
+            {
+                session = await _browserService.CreateSessionAsync();
+            }
+
             var outputs = new List<BrowserActionResult>();
 
             try
             {
-                // 同一个 session 内部动作串行执行
                 await session.ActionLock.WaitAsync();
 
                 try
@@ -1043,20 +1055,37 @@ namespace TangYuan.Controllers
                     session.ActionLock.Release();
                 }
 
-                // 返回最后一步结果，便于后续工作流引用 stepX.data.path 等字段
-                return outputs.LastOrDefault() ?? new BrowserActionResult
+                var final = _browserService.BuildFinalResult(outputs);
+
+                return new SkillResult
                 {
                     Success = true,
-                    Type = "browser_task",
-                    Text = "浏览器动作执行完成，但没有输出"
+                    SkillCode = "browser_task",
+                    Type = final.FinalType,
+                    Text = final.FinalText,
+                    Data = new
+                    {
+                        sessionId = session.SessionId,
+                        page = new
+                        {
+                            url = session.CurrentPage.Url,
+                            title = await _browserService.SafeGetTitleAsync(session.CurrentPage)
+                        },
+                        list = final.FinalList,
+                        data = final.FinalData,
+                        outputs
+                    }
                 };
             }
-            catch
+            finally
             {
-                // 这里不主动关闭 session，是为了保留后续扩展空间（例如会话复用）
-                throw;
+                if (closeSession && session != null)
+                {
+                    await _browserService.CloseSession(session.SessionId);
+                }
             }
         }
+
 
         #endregion
 
