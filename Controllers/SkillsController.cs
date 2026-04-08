@@ -12,6 +12,8 @@ using System.Text.RegularExpressions;
 using TangYuan.Models;
 using TangYuan.Tools;
 using WebApi.Tools;
+using TangYuan.Tools;
+
 
 namespace TangYuan.Controllers
 {
@@ -567,9 +569,11 @@ namespace TangYuan.Controllers
                 "screenshot_task" => await CommandTools.CaptureScreenAsync(),
                 "email_task" => await CommandTools.SendEmailAsync(safeArgs),
                 "browser_task" => await DoBrowserTaskAsync(safeArgs),
+                "wechat_task" => await DoWechatTaskAsync(safeArgs),
                 _ => throw new NotSupportedException($"不支持的技能：{skillCode}")
             };
         }
+
 
 
 
@@ -746,7 +750,7 @@ namespace TangYuan.Controllers
 
         #region 原子技能：文件
 
-       
+
         /// <summary>
         /// 文件类技能：
         /// search / copy / move / rename / mkdir
@@ -770,6 +774,7 @@ namespace TangYuan.Controllers
                 _ => throw new NotSupportedException($"file_task 不支持的操作：{action}")
             };
         }
+
 
 
 
@@ -860,6 +865,123 @@ namespace TangYuan.Controllers
         }
 
         #endregion
+
+
+        #region 原子技能：企业微信
+
+        /// <summary>
+        /// 企业微信机器人消息发送
+        ///
+        /// action:
+        /// - text
+        /// - markdown
+        /// - card
+        /// </summary>
+        private async Task<object> DoWechatTaskAsync(Dictionary<string, object> args)
+        {
+            string action = GetString(args, "action").Trim().ToLowerInvariant();
+
+            if (string.IsNullOrWhiteSpace(action))
+                throw new ArgumentException("wechat_task 的 action 不能为空");
+
+            switch (action)
+            {
+                case "text":
+                    {
+                        string content = GetString(args, "content");
+                        if (string.IsNullOrWhiteSpace(content))
+                            throw new ArgumentException("text 模式下 content 不能为空");
+
+                        bool isAtAll = bool.TryParse(GetString(args, "isAtAll", "false"), out var b) && b;
+
+                        string atUsersRaw = GetString(args, "atUsers");
+                        string[] atUsers = string.IsNullOrWhiteSpace(atUsersRaw)
+                            ? Array.Empty<string>()
+                            : atUsersRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                        string result = await WechatBotHelper.SendText(content, isAtAll, atUsers);
+
+                        return new SkillResult
+                        {
+                            Success = result.StartsWith("成功"),
+                            SkillCode = "wechat_task",
+                            Type = "text",
+                            Text = result,
+                            Data = new
+                            {
+                                action = "text",
+                                content,
+                                isAtAll,
+                                atUsers
+                            },
+                            Error = result.StartsWith("成功") ? "" : result
+                        };
+                    }
+
+                case "markdown":
+                    {
+                        string content = GetString(args, "content");
+                        if (string.IsNullOrWhiteSpace(content))
+                            throw new ArgumentException("markdown 模式下 content 不能为空");
+
+                        string result = await WechatBotHelper.SendMarkdown(content);
+
+                        return new SkillResult
+                        {
+                            Success = result.StartsWith("成功"),
+                            SkillCode = "wechat_task",
+                            Type = "markdown",
+                            Text = result,
+                            Data = new
+                            {
+                                action = "markdown",
+                                content
+                            },
+                            Error = result.StartsWith("成功") ? "" : result
+                        };
+                    }
+
+                case "card":
+                    {
+                        string title = GetString(args, "title");
+                        string desc = GetString(args, "desc");
+                        string url = GetString(args, "url");
+                        string picUrl = GetString(args, "picUrl");
+
+                        if (string.IsNullOrWhiteSpace(title))
+                            throw new ArgumentException("card 模式下 title 不能为空");
+                        if (string.IsNullOrWhiteSpace(desc))
+                            throw new ArgumentException("card 模式下 desc 不能为空");
+                        if (string.IsNullOrWhiteSpace(url))
+                            throw new ArgumentException("card 模式下 url 不能为空");
+
+                        string result = await WechatBotHelper.SendCard(title, desc, url, picUrl);
+
+                        return new SkillResult
+                        {
+                            Success = result.StartsWith("成功"),
+                            SkillCode = "wechat_task",
+                            Type = "card",
+                            Text = result,
+                            Data = new
+                            {
+                                action = "card",
+                                title,
+                                desc,
+                                url,
+                                picUrl
+                            },
+                            Error = result.StartsWith("成功") ? "" : result
+                        };
+                    }
+
+                default:
+                    throw new NotSupportedException($"wechat_task 不支持的操作：{action}");
+            }
+        }
+
+        #endregion
+
 
         #region 原子技能：浏览器
 
@@ -959,7 +1081,7 @@ namespace TangYuan.Controllers
 
             string arguments = GetString(args, "arguments");
             int timeoutSec = int.TryParse(GetString(args, "timeout", "10"), out int t) ? t : 10;
-            timeoutSec = Math.Clamp(timeoutSec, 1, 60);
+            timeoutSec = Math.Clamp(timeoutSec, 1, 120);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
             using var process = new Process
@@ -995,7 +1117,6 @@ namespace TangYuan.Controllers
                 }
                 catch
                 {
-                    // 忽略 kill 失败
                 }
 
                 throw new TimeoutException($"外部工具执行超时（{timeoutSec}秒）");
@@ -1004,14 +1125,24 @@ namespace TangYuan.Controllers
             string output = await outputTask;
             string error = await errorTask;
 
-            return new
+            return new SkillResult
             {
-                status = "完成",
-                exitCode = process.ExitCode,
-                output = string.IsNullOrWhiteSpace(output) ? "无输出" : output,
-                error = string.IsNullOrWhiteSpace(error) ? "无错误" : error
+                Success = process.ExitCode == 0,
+                SkillCode = "tool_task",
+                Type = "run_exe",
+                Text = process.ExitCode == 0 ? "工具执行完成" : "工具执行失败",
+                Data = new
+                {
+                    exePath = fullExePath,
+                    arguments,
+                    exitCode = process.ExitCode,
+                    output = string.IsNullOrWhiteSpace(output) ? "" : output,
+                    error = string.IsNullOrWhiteSpace(error) ? "" : error
+                },
+                Error = process.ExitCode == 0 ? "" : error
             };
         }
+
 
         #endregion
 
@@ -1021,34 +1152,62 @@ namespace TangYuan.Controllers
         /// 搜索文件：
         /// 优先 Everything → 降级 Windows Search → 最后递归搜索
         /// </summary>
-        private async Task<string> SearchFileAsync(string keyword, string ext = "*")
+        private async Task<SkillResult> SearchFileAsync(string keyword, string ext = "*")
         {
             if (string.IsNullOrWhiteSpace(keyword))
                 throw new ArgumentException("搜索关键词不能为空");
 
+            List<string> resultList = new();
+
             try
             {
-                var resultList = await SearchWithEverythingAsync(keyword, ext);
-                if (resultList.Any())
-                    return FormatFileList(resultList);
+                resultList = await SearchWithEverythingAsync(keyword, ext);
+
+                if (!resultList.Any())
+                    resultList = await SearchWithWindowsSearchAsync(keyword, ext);
             }
             catch
             {
-                try
-                {
-                    var resultList = await SearchWithWindowsSearchAsync(keyword, ext);
-                    if (resultList.Any())
-                        return FormatFileList(resultList);
-                }
-                catch
-                {
-                    var resultList = await SearchFallbackAsync(keyword, ext);
-                    return resultList.Any() ? FormatFileList(resultList) : "未找到文件";
-                }
+                resultList = await SearchFallbackAsync(keyword, ext);
             }
 
-            return "未找到文件";
+            if (resultList == null || resultList.Count == 0)
+            {
+                return new SkillResult
+                {
+                    Success = false,
+                    SkillCode = "file_task",
+                    Type = "search",
+                    Text = "未找到文件",
+                    Data = new
+                    {
+                        keyword,
+                        ext,
+                        firstPath = "",
+                        paths = Array.Empty<string>(),
+                        count = 0
+                    },
+                    Error = "未找到文件"
+                };
+            }
+
+            return new SkillResult
+            {
+                Success = true,
+                SkillCode = "file_task",
+                Type = "search",
+                Text = $"找到 {resultList.Count} 个文件",
+                Data = new
+                {
+                    keyword,
+                    ext,
+                    firstPath = resultList.FirstOrDefault() ?? "",
+                    paths = resultList,
+                    count = resultList.Count
+                }
+            };
         }
+
 
         /// <summary>
         /// Everything 搜索

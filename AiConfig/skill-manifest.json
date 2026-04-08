@@ -3,6 +3,7 @@
   "note": "优先使用 workflows；没有现成技能时，再使用 builtins 组合调用 ExecuteSkill。",
   "skills": [
     {
+
       "skillCode": "browser_task",
       "desc": "浏览器自动化操作",
       "args": {
@@ -244,6 +245,46 @@
         "SkillCode": "lock_task",
         "Arguments": {}
       }
+    },
+    {
+      "skillCode": "tool_task",
+      "desc": "调用白名单中的外部 exe 工具",
+      "args": {
+        "exePath": "exe 完整路径，必填",
+        "arguments": "命令行参数，选填",
+        "timeout": "超时时间秒数，选填"
+      },
+      "example": {
+        "SkillCode": "tool_task",
+        "Arguments": {
+          "exePath": "D:\\LmyTools.exe",
+          "arguments": "--input \"D:\\学生成绩.xlsx\" --output \"D:\\拆分结果.xlsx\"",
+          "timeout": "60"
+        }
+      }
+    },
+    {
+      "skillCode": "wechat_task",
+      "desc": "发送企业微信机器人消息，支持文本、Markdown、图文卡片",
+      "args": {
+        "action": "text / markdown / card",
+        "content": "text 或 markdown 时必填",
+        "isAtAll": "text 时可选，true/false",
+        "atUsers": "text 时可选，多个用户用逗号分隔",
+        "title": "card 时必填",
+        "desc": "card 时必填",
+        "url": "card 时必填",
+        "picUrl": "card 时可选"
+      },
+      "example": {
+        "SkillCode": "wechat_task",
+        "Arguments": {
+          "action": "text",
+          "content": "测试消息"
+        }
+      }
     }
+
+    //------------------
   ]
 }
