@@ -69,6 +69,24 @@ namespace TangYuan.Controllers
             _fsOptions = fsOptions.Value;
         }
 
+        #region 内部处理
+        /// <summary>
+        /// browser_task 反序列化浏览器动作时使用的 JSON 配置
+        /// 说明：
+        /// 1. 允许小写字段映射到 BrowserAction 的大写属性
+        /// 2. 允许数字字段以字符串形式传入，例如 "take": "10"
+        /// </summary>
+        private static readonly JsonSerializerOptions BrowserJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+        };
+
+        #endregion
+
+
+
+
         #region AI技能相关
 
         /*
@@ -397,49 +415,107 @@ namespace TangYuan.Controllers
         /// - lastResult: 最后一个成功步骤的结果
         /// - log: 每一步的执行日志
         /// </summary>
+        /// <summary>
+        /// 执行 workflow 技能（瘦身版日志）
+        ///
+        /// 功能：
+        /// 1. 按顺序执行每个步骤
+        /// 2. 支持模板变量，例如：
+        ///    {{step0}}
+        ///    {{step0.path}}
+        ///    {{step0.data.path}}
+        /// 3. 每一步执行结果会写入上下文，供后续步骤引用
+        ///
+        /// 返回：
+        /// - success: 是否成功
+        /// - msg: 执行结果说明
+        /// - totalSteps: 总步骤数
+        /// - completedSteps: 已完成步骤数
+        /// - failedAt: 失败步骤索引（失败时返回）
+        /// - failedStep: 失败步骤名称（失败时返回）
+        /// - lastResult: 最后一个成功步骤的结果
+        /// - log: 每一步的简要执行日志
+        /// </summary>
+        /// <summary>
+        /// 执行 workflow 技能（默认精简版返回）
+        ///
+        /// 说明：
+        /// 1. 默认只返回必要信息：success / msg / totalSteps / completedSteps / lastResult
+        /// 2. 只有当 input 中传了 debug=true 时，才返回详细 log
+        /// 3. 每一步执行结果仍会写入上下文，供后续步骤引用
+        /// </summary>
         private async Task<object> RunWorkflowAsync(List<SkillStep>? steps, Dictionary<string, object>? input)
         {
-            // 1. 空值保护
             var safeSteps = steps ?? new List<SkillStep>();
             var context = input != null
                 ? new Dictionary<string, object>(input)
                 : new Dictionary<string, object>();
 
+            bool debug = false;
+            if (input != null && input.TryGetValue("debug", out var debugObj))
+            {
+                var debugText = ConvertObjectToString(debugObj, "false");
+                debug = bool.TryParse(debugText, out var dbg) && dbg;
+            }
+
             var log = new List<object>();
             object? lastResult = null;
 
-            // 2. 没有步骤时直接返回
             if (safeSteps.Count == 0)
             {
+                if (debug)
+                {
+                    return new
+                    {
+                        success = true,
+                        msg = "workflow 没有可执行步骤",
+                        totalSteps = 0,
+                        completedSteps = 0,
+                        lastResult = (object?)null,
+                        log
+                    };
+                }
+
                 return new
                 {
                     success = true,
                     msg = "workflow 没有可执行步骤",
                     totalSteps = 0,
                     completedSteps = 0,
-                    lastResult = (object?)null,
-                    log
+                    lastResult = (object?)null
                 };
             }
 
-            // 3. 逐步执行
             for (int i = 0; i < safeSteps.Count; i++)
             {
                 var step = safeSteps[i];
-
-                // 防止空步骤导致异常
                 var action = step?.Action?.Trim() ?? "";
                 var stepArgs = step?.Args ?? new Dictionary<string, object>();
 
                 if (string.IsNullOrWhiteSpace(action))
                 {
-                    log.Add(new
+                    if (debug)
                     {
-                        stepIndex = i,
-                        step = "",
-                        success = false,
-                        error = "步骤 Action 不能为空"
-                    });
+                        log.Add(new
+                        {
+                            stepIndex = i,
+                            step = "",
+                            success = false,
+                            error = "步骤 Action 不能为空"
+                        });
+
+                        return new
+                        {
+                            success = false,
+                            msg = "workflow 执行失败",
+                            failedAt = i,
+                            failedStep = "",
+                            totalSteps = safeSteps.Count,
+                            completedSteps = i,
+                            lastResult,
+                            log
+                        };
+                    }
 
                     return new
                     {
@@ -449,12 +525,10 @@ namespace TangYuan.Controllers
                         failedStep = "",
                         totalSteps = safeSteps.Count,
                         completedSteps = i,
-                        lastResult,
-                        log
+                        lastResult
                     };
                 }
 
-                // 先解析模板变量
                 Dictionary<string, object> resolvedArgs;
                 try
                 {
@@ -464,13 +538,28 @@ namespace TangYuan.Controllers
                 {
                     _logger.LogError(ex, "步骤参数模板解析失败，StepIndex={StepIndex}，Action={Action}", i, action);
 
-                    log.Add(new
+                    if (debug)
                     {
-                        stepIndex = i,
-                        step = action,
-                        success = false,
-                        error = "参数模板解析失败：" + ex.Message
-                    });
+                        log.Add(new
+                        {
+                            stepIndex = i,
+                            step = action,
+                            success = false,
+                            error = "参数模板解析失败：" + ex.Message
+                        });
+
+                        return new
+                        {
+                            success = false,
+                            msg = "workflow 执行失败",
+                            failedAt = i,
+                            failedStep = action,
+                            totalSteps = safeSteps.Count,
+                            completedSteps = i,
+                            lastResult,
+                            log
+                        };
+                    }
 
                     return new
                     {
@@ -480,8 +569,7 @@ namespace TangYuan.Controllers
                         failedStep = action,
                         totalSteps = safeSteps.Count,
                         completedSteps = i,
-                        lastResult,
-                        log
+                        lastResult
                     };
                 }
 
@@ -489,34 +577,73 @@ namespace TangYuan.Controllers
                 {
                     _logger.LogInformation("开始执行 workflow 步骤，StepIndex={StepIndex}，Action={Action}", i, action);
 
-                    // 执行当前原子技能
                     var result = await ExecuteSkillInternal(action, resolvedArgs);
 
-                    // 保存当前步骤结果
                     context[$"step{i}"] = result;
                     lastResult = result;
 
-                    log.Add(new
+                    if (debug)
                     {
-                        stepIndex = i,
-                        step = action,
-                        success = true,
-                        args = resolvedArgs,
-                        result
-                    });
+                        string resultType = "";
+                        string resultText = "";
+
+                        try
+                        {
+                            var resultJson = JsonSerializer.Serialize(result);
+                            using var resultDoc = JsonDocument.Parse(resultJson);
+                            var root = resultDoc.RootElement;
+
+                            if (root.TryGetProperty("Type", out var typeEl))
+                                resultType = typeEl.GetString() ?? "";
+
+                            if (root.TryGetProperty("Text", out var textEl))
+                                resultText = textEl.GetString() ?? "";
+                        }
+                        catch
+                        {
+                        }
+
+                        log.Add(new
+                        {
+                            stepIndex = i,
+                            step = action,
+                            success = true,
+                            args = resolvedArgs,
+                            resultSummary = new
+                            {
+                                type = resultType,
+                                text = resultText
+                            }
+                        });
+                    }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "workflow 步骤执行失败，StepIndex={StepIndex}，Action={Action}", i, action);
 
-                    log.Add(new
+                    if (debug)
                     {
-                        stepIndex = i,
-                        step = action,
-                        success = false,
-                        args = resolvedArgs,
-                        error = ex.Message
-                    });
+                        log.Add(new
+                        {
+                            stepIndex = i,
+                            step = action,
+                            success = false,
+                            args = resolvedArgs,
+                            error = ex.Message
+                        });
+
+                        return new
+                        {
+                            success = false,
+                            msg = "workflow 执行失败",
+                            failedAt = i,
+                            failedStep = action,
+                            totalSteps = safeSteps.Count,
+                            completedSteps = i,
+                            lastResult,
+                            log
+                        };
+                    }
 
                     return new
                     {
@@ -526,23 +653,35 @@ namespace TangYuan.Controllers
                         failedStep = action,
                         totalSteps = safeSteps.Count,
                         completedSteps = i,
-                        lastResult,
-                        log
+                        lastResult
                     };
                 }
             }
 
-            // 4. 全部执行完成
+            if (debug)
+            {
+                return new
+                {
+                    success = true,
+                    msg = "workflow 执行完成",
+                    totalSteps = safeSteps.Count,
+                    completedSteps = safeSteps.Count,
+                    lastResult,
+                    log
+                };
+            }
+
             return new
             {
                 success = true,
                 msg = "workflow 执行完成",
                 totalSteps = safeSteps.Count,
                 completedSteps = safeSteps.Count,
-                lastResult,
-                log
+                lastResult
             };
         }
+
+
 
 
         /// <summary>
@@ -683,7 +822,7 @@ namespace TangYuan.Controllers
         }
 
         /// <summary>
-        /// 从对象中读取指定成员值
+        /// 从对象中读取指定成员值（大小写不敏感）
         ///
         /// 支持：
         /// 1. Dictionary<string, object>
@@ -695,31 +834,56 @@ namespace TangYuan.Controllers
             if (obj == null || string.IsNullOrWhiteSpace(memberName))
                 return null;
 
-            // 1. Dictionary<string, object>
+            // 1. Dictionary<string, object>（大小写不敏感查找）
             if (obj is IDictionary<string, object> dict)
             {
-                return dict.TryGetValue(memberName, out var value) ? value : null;
+                // 先直接取
+                if (dict.TryGetValue(memberName, out var value))
+                    return value;
+
+                // 再做大小写不敏感匹配
+                var matchedKey = dict.Keys.FirstOrDefault(k =>
+                    string.Equals(k, memberName, StringComparison.OrdinalIgnoreCase));
+
+                if (matchedKey != null && dict.TryGetValue(matchedKey, out var matchedValue))
+                    return matchedValue;
+
+                return null;
             }
 
-            // 2. JsonElement
+            // 2. JsonElement（对象类型，属性名大小写不敏感）
             if (obj is JsonElement je)
             {
-                if (je.ValueKind == JsonValueKind.Object &&
-                    je.TryGetProperty(memberName, out var child))
+                if (je.ValueKind == JsonValueKind.Object)
                 {
-                    return child;
+                    // 先直接尝试
+                    if (je.TryGetProperty(memberName, out var child))
+                        return child;
+
+                    // 再遍历做大小写不敏感匹配
+                    foreach (var prop in je.EnumerateObject())
+                    {
+                        if (string.Equals(prop.Name, memberName, StringComparison.OrdinalIgnoreCase))
+                            return prop.Value;
+                    }
                 }
 
                 return null;
             }
 
-            // 3. 普通对象 / 匿名对象
-            var prop = obj.GetType().GetProperty(memberName);
-            if (prop != null)
-                return prop.GetValue(obj);
+            // 3. 普通对象 / 匿名对象（属性名大小写不敏感）
+            var propInfo = obj.GetType().GetProperty(
+                memberName,
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.IgnoreCase);
+
+            if (propInfo != null)
+                return propInfo.GetValue(obj);
 
             return null;
         }
+
 
         /// <summary>
         /// 把 object 安全转成字符串
@@ -982,7 +1146,6 @@ namespace TangYuan.Controllers
 
         #endregion
 
-
         #region 原子技能：浏览器
 
         /// <summary>
@@ -998,6 +1161,53 @@ namespace TangYuan.Controllers
         /// 2. 而是调用 BrowserService.ExecuteActionAsync
         /// 3. 最终返回最后一步结果，供工作流引用
         /// </summary>
+        /// <summary>
+        /// 浏览器技能
+        ///
+        /// 参数：
+        /// {
+        ///   "actions": [ ...BrowserAction数组... ]
+        /// }
+        ///
+        /// 说明：
+        /// 1. 这里不再直接调用 BrowserController
+        /// 2. 而是调用 BrowserService.ExecuteActionAsync
+        /// 3. 支持 actions 以 JSON 字符串或 JsonElement 数组传入
+        /// 4. 支持小写字段名：type / url / selector / value
+        /// </summary>
+        /// <summary>
+        /// 浏览器技能（瘦身版返回）
+        ///
+        /// 参数：
+        /// {
+        ///   "actions": [ ...BrowserAction数组... ],
+        ///   "sessionId": "可选",
+        ///   "closeSession": false,
+        ///   "includeOutputs": false
+        /// }
+        ///
+        /// 说明：
+        /// 1. 支持 actions 以 JSON 字符串或 JsonElement 数组传入
+        /// 2. 支持小写字段名：type / url / selector / value
+        /// 3. 默认不返回完整 outputs，避免结果过大
+        /// 4. 最终只返回：sessionId、page、list、result
+        /// </summary>
+        /// <summary>
+        /// 浏览器技能（默认精简版返回）
+        ///
+        /// 参数：
+        /// {
+        ///   "actions": [ ...BrowserAction数组... ],
+        ///   "sessionId": "可选",
+        ///   "closeSession": false,
+        ///   "includeOutputs": false
+        /// }
+        ///
+        /// 说明：
+        /// 1. 默认不返回完整 outputs，避免结果过大
+        /// 2. 最终只返回：sessionId、page、count、list、result
+        /// 3. 当 includeOutputs=true 时，才返回每一步动作明细
+        /// </summary>
         private async Task<object> DoBrowserTaskAsync(Dictionary<string, object> args)
         {
             List<BrowserAction> actions;
@@ -1005,24 +1215,41 @@ namespace TangYuan.Controllers
             if (!args.TryGetValue("actions", out var actionsObj) || actionsObj == null)
                 throw new ArgumentException("browser_task 必须提供 actions");
 
-            if (actionsObj is string actionsJson)
+            try
             {
-                actions = JsonSerializer.Deserialize<List<BrowserAction>>(actionsJson) ?? new List<BrowserAction>();
+                if (actionsObj is string actionsJson)
+                {
+                    actions = JsonSerializer.Deserialize<List<BrowserAction>>(actionsJson, BrowserJsonOptions)
+                              ?? new List<BrowserAction>();
+                }
+                else if (actionsObj is JsonElement je)
+                {
+                    actions = JsonSerializer.Deserialize<List<BrowserAction>>(je.GetRawText(), BrowserJsonOptions)
+                              ?? new List<BrowserAction>();
+                }
+                else
+                {
+                    throw new ArgumentException("actions 格式不正确，必须是 JSON 数组");
+                }
             }
-            else if (actionsObj is JsonElement je)
+            catch (JsonException ex)
             {
-                actions = JsonSerializer.Deserialize<List<BrowserAction>>(je.GetRawText()) ?? new List<BrowserAction>();
-            }
-            else
-            {
-                throw new ArgumentException("actions 格式不正确，必须是 JSON 数组");
+                _logger.LogError(ex, "browser_task 的 actions JSON 解析失败");
+                throw new ArgumentException("actions JSON 解析失败：" + ex.Message);
             }
 
             if (actions.Count == 0)
                 throw new ArgumentException("browser_task 的 actions 不能为空");
 
+            for (int i = 0; i < actions.Count; i++)
+            {
+                if (string.IsNullOrWhiteSpace(actions[i].Type))
+                    throw new ArgumentException($"第 {i + 1} 个 action 的 type 不能为空");
+            }
+
             string sessionId = GetString(args, "sessionId");
             bool closeSession = bool.TryParse(GetString(args, "closeSession", "false"), out var close) && close;
+            bool includeOutputs = bool.TryParse(GetString(args, "includeOutputs", "false"), out var io) && io;
 
             BrowserSession? session = null;
 
@@ -1057,13 +1284,11 @@ namespace TangYuan.Controllers
 
                 var final = _browserService.BuildFinalResult(outputs);
 
-                return new SkillResult
-                {
-                    Success = true,
-                    SkillCode = "browser_task",
-                    Type = final.FinalType,
-                    Text = final.FinalText,
-                    Data = new
+                // 统一补一个 count，方便 workflow 和 AI 直接使用
+                int count = final.FinalList?.Count ?? 0;
+
+                object data = includeOutputs
+                    ? new
                     {
                         sessionId = session.SessionId,
                         page = new
@@ -1071,10 +1296,31 @@ namespace TangYuan.Controllers
                             url = session.CurrentPage.Url,
                             title = await _browserService.SafeGetTitleAsync(session.CurrentPage)
                         },
+                        count,
                         list = final.FinalList,
-                        data = final.FinalData,
+                        result = final.FinalData,
                         outputs
                     }
+                    : new
+                    {
+                        sessionId = session.SessionId,
+                        page = new
+                        {
+                            url = session.CurrentPage.Url,
+                            title = await _browserService.SafeGetTitleAsync(session.CurrentPage)
+                        },
+                        count,
+                        list = final.FinalList,
+                        result = final.FinalData
+                    };
+
+                return new SkillResult
+                {
+                    Success = true,
+                    SkillCode = "browser_task",
+                    Type = final.FinalType,
+                    Text = final.FinalText,
+                    Data = data
                 };
             }
             finally
@@ -1085,6 +1331,10 @@ namespace TangYuan.Controllers
                 }
             }
         }
+
+
+
+
 
 
         #endregion
