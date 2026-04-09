@@ -12,8 +12,6 @@ namespace WebApi
 {
     public class DbTools
     {
-
-
         static public void WriteTxtLog(string msg, string logPath)
         {
             try

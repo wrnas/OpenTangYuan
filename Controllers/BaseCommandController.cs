@@ -31,7 +31,7 @@ namespace TangYuan.Controllers
         // 可重写的连接创建策略（子类可自定义）
         // ==============================
         /// <summary>
-        /// 根据配置获取数据库连接，默认按 Sqlite -> MySql -> SqlConn 顺序取第一个非空配置
+        /// 根据配置获取数据库连接，默认按 Sqlite -> MySql顺序取第一个非空配置
         /// </summary>
         protected virtual DbConnection GetDbConnection()
         {
@@ -49,12 +49,7 @@ namespace TangYuan.Controllers
                 return new MySqlConnection(mysqlConn);
             }
 
-            // 3. 最后 SQL Server
-            var mssqlConn = _config.GetConnectionString("SqlConn");
-            if (!string.IsNullOrEmpty(mssqlConn))
-            {
-                return new SqlConnection(mssqlConn);
-            }
+            
 
             throw new InvalidOperationException("未配置任何数据库连接字符串，请检查 appsettings.json 中的 ConnectionStrings 节点（Sqlite/MySql/SqlConn）");
         }

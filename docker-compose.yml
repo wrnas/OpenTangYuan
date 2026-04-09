@@ -1,13 +1,8 @@
 # 阿里云服务器用
-# 以后发布只需要执行如下内容
+# 只更新代码，那么只需要把发布后的文件上传到服务器上，执行如下内容
+# cd /www/wwwroot/OpenTangYuanDocker
+# docker-compose up -d --build
 
-# 1 构建新版本
-#  docker-compose build
-
-# 2 启动并更新
-#  docker-compose up -d
-
-# 3 放服务器上不能有任何中文
 
 version: '3.8'
 
