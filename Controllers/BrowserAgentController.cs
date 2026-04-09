@@ -80,8 +80,7 @@ namespace AiApi.Controllers
         /// - actions 必须有
         /// - session 自动创建 / 复用
         /// - 同一 session 内部是串行执行（防并发问题）
-        /// </summary>
-        [HttpPost("run")]
+        /// </summary>        
         [HttpPost("run")]
         public async Task<IActionResult> Run([FromBody] BrowserRunRequest request)
         {
