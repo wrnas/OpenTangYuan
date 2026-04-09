@@ -635,3 +635,27 @@ wait_for(导出按钮)
 * 固化标准动作
 * 保持返回结构稳定
 * 让未来的自己一眼就能看懂
+
+
+
+# 19. JSON工作流编排及使用示例
+编排示例
+{
+  "SkillCode": "office_check_unread_and_wechat",
+  "Remark": "登录办公系统，获取未读消息列表，并将列表内容发送到企业微信",
+  "SkillType": "Workflow",
+  "UpdateTime": "2026-04-09 10:00:00",
+  "SkillActions": "[{\"Action\":\"browser_task\",\"Args\":{\"closeSession\":\"false\",\"includeOutputs\":\"false\",\"actions\":[{\"type\":\"goto\",\"url\":\"{{loginUrl}}\"},{\"type\":\"wait\",\"seconds\":1},{\"type\":\"fill\",\"selector\":\"#UserUid\",\"value\":\"{{username}}\"},{\"type\":\"fill\",\"selector\":\"#UserPwd\",\"value\":\"{{password}}\"},{\"type\":\"click_text\",\"value\":\"登 录\"},{\"type\":\"wait_url_contains\",\"value\":\"main\",\"timeoutMs\":15000},{\"type\":\"wait_for\",\"selector\":\"td.bright.tleft20.new\",\"timeoutMs\":15000},{\"type\":\"get_text_list\",\"selector\":\"td.bright.tleft20.new\",\"take\":10}]}},{\"Action\":\"wechat_task\",\"Args\":{\"action\":\"markdown\",\"content\":\"内网未读消息检查完成。\\n未读数量：{{step0.Data.count}}\\n\\n{{step0.Text}}\"}}]"
+}
+
+使用示例
+{
+  "SkillCode": "office_check_unread_and_wechat",
+  "Arguments": {
+    "username": "刘明洋",
+    "password": "Liumingyang@123",
+    "loginUrl": "https://officea.caie.edu.cn/",
+    "take": 10,
+    "debug": false
+  }
+}
