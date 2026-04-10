@@ -38,6 +38,14 @@ namespace TangYuan.Controllers
         private readonly BrowserService _browserService;
         private readonly FileSystemOptions _fsOptions;
 
+
+        // 公共缓存：两个接口共用
+        private static string? _cachedManifestJson;
+        private static JsonDocument? _cachedManifestDoc;
+
+        // 缓存锁（防止并发重复加载）
+        private static readonly object _cacheLock = new();
+
         /// <summary>
         /// 允许执行的外部 exe 白名单
         /// 可执行文件需要在配置文件中配置
@@ -110,13 +118,13 @@ namespace TangYuan.Controllers
         {
             try
             {
-                // 1. 数据库中的组合技能（给 AI 直接调用）
+                // 1. 数据库技能
                 var sql = "SELECT SkillCode, Remark AS AIDesc FROM Skills ORDER BY ID ASC";
                 var workflows = (await QueryAsync<dynamic>(sql)).ToList();
 
-                // 2. 从 manifest 文件中读取内置原子技能
+                // 2. 内置技能列表（从缓存的 JsonDocument 中读取）
                 var builtins = new List<object>();
-                var filePath = Path.Combine(AppContext.BaseDirectory, "Config", "skill-manifest.json");
+                var filePath = Path.Combine(AppContext.BaseDirectory, "AiConfig", "skill-manifest.json");
 
                 if (!System.IO.File.Exists(filePath))
                 {
@@ -124,23 +132,25 @@ namespace TangYuan.Controllers
                 }
                 else
                 {
-                    var json = System.IO.File.ReadAllText(filePath, Encoding.UTF8);
+                    // 确保缓存已加载（使用字节数组，自动处理 BOM）
+                    lock (_cacheLock)
+                    {
+                        if (_cachedManifestDoc == null)
+                        {
+                            byte[] jsonBytes = System.IO.File.ReadAllBytes(filePath);
+                            _cachedManifestDoc = JsonDocument.Parse(jsonBytes);
+                            // 不再使用 _cachedManifestJson，可以置空
+                            _cachedManifestJson = null;
+                        }
+                    }
 
-                    using var doc = JsonDocument.Parse(json);
-
-                    if (doc.RootElement.TryGetProperty("skills", out var skillsElement) &&
-                        skillsElement.ValueKind == JsonValueKind.Array)
+                    // 从缓存的 JsonDocument 中读取 skills
+                    if (_cachedManifestDoc != null && _cachedManifestDoc.RootElement.TryGetProperty("skills", out var skillsElement))
                     {
                         foreach (var item in skillsElement.EnumerateArray())
                         {
-                            string skillCode = "";
-                            string aiDesc = "";
-
-                            if (item.TryGetProperty("skillCode", out var codeElement))
-                                skillCode = codeElement.GetString() ?? "";
-
-                            if (item.TryGetProperty("desc", out var descElement))
-                                aiDesc = descElement.GetString() ?? "";
+                            var skillCode = item.TryGetProperty("skillCode", out var c) ? c.GetString() : "";
+                            var aiDesc = item.TryGetProperty("desc", out var d) ? d.GetString() : "";
 
                             if (!string.IsNullOrWhiteSpace(skillCode))
                             {
@@ -156,13 +166,13 @@ namespace TangYuan.Controllers
 
                 return Ok(ResponseHelper.Success(new
                 {
-                    workflows, // 优先直接调用
-                    builtins   // 没有现成技能时再组合使用
+                    workflows,
+                    builtins
                 }));
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "skill-manifest.json 格式错误");
+                _logger.LogError(ex, "skill-manifest.json 格式错误 at Line {Line}, Pos {Pos}", ex.LineNumber, ex.BytePositionInLine);
                 return StatusCode(500, ResponseHelper.Fail<object>("skill-manifest.json 格式错误"));
             }
             catch (Exception ex)
@@ -172,40 +182,38 @@ namespace TangYuan.Controllers
             }
         }
 
-
-
-
         /// <summary>
         /// 返回系统内置原子技能说明（manifest）
-        ///
-        /// 说明：
-        /// 1. manifest 放在 Config/skill-manifest.json
-        /// 2. 后续新增/修改 builtin skill 时，只改 JSON 文件即可
-        /// 3. AI 读取这个接口后，就知道 browser_task / file_task / email_task 等怎么调用
-        /// </summary>
+        /// </summary>        
         [HttpPost("GetBuiltinSkillManifest")]
         public IActionResult GetBuiltinSkillManifest()
         {
             try
             {
-                var filePath = Path.Combine(AppContext.BaseDirectory, "Config", "skill-manifest.json");
-
+                var filePath = Path.Combine(AppContext.BaseDirectory, "AiConfig", "skill-manifest.json");
                 if (!System.IO.File.Exists(filePath))
                 {
                     _logger.LogWarning("未找到内置技能 manifest 文件：{FilePath}", filePath);
                     return NotFound(ResponseHelper.Fail<object>("skill-manifest.json 不存在"));
                 }
 
-                var json = System.IO.File.ReadAllText(filePath, Encoding.UTF8);
+                // 全局缓存，只加载一次（使用字节数组，自动处理 BOM）
+                lock (_cacheLock)
+                {
+                    if (_cachedManifestDoc == null)
+                    {
+                        byte[] jsonBytes = System.IO.File.ReadAllBytes(filePath);
+                        _cachedManifestDoc = JsonDocument.Parse(jsonBytes);
+                        _cachedManifestJson = null; // 不再使用字符串缓存
+                    }
+                }
 
-                using var doc = JsonDocument.Parse(json);
-                var data = doc.RootElement.Clone();
-
+                var data = _cachedManifestDoc.RootElement.Clone();
                 return Ok(ResponseHelper.Success(data));
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "skill-manifest.json 格式错误");
+                _logger.LogError(ex, "skill-manifest.json 格式错误 at Line {Line}, Pos {Pos}", ex.LineNumber, ex.BytePositionInLine);
                 return StatusCode(500, ResponseHelper.Fail<object>("skill-manifest.json 格式错误"));
             }
             catch (Exception ex)
@@ -216,6 +224,7 @@ namespace TangYuan.Controllers
         }
 
 
+
         /// <summary>
         /// 获取某个 workflow 技能的详细定义
         ///
@@ -224,26 +233,26 @@ namespace TangYuan.Controllers
         /// 2. 再通过本接口读取某个 workflow 的具体步骤
         /// 3. 如果 skillCode 不存在，会明确返回失败
         /// 4. 如果 SkillActions JSON 格式错误，会明确返回失败
-        /// </summary>
+        /// </summary>        
         [HttpPost("GetSkillAction")]
-        public async Task<IActionResult> GetSkillAction([FromBody] SkillModel model)
+        public async Task<IActionResult> GetSkillAction([FromBody] string SkillCode)
         {
-            if (string.IsNullOrWhiteSpace(model?.SkillCode))
+            if (string.IsNullOrWhiteSpace(SkillCode))
                 return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
 
             try
             {
                 var sql = @"
-                            SELECT SkillCode, SkillActions, Remark, SkillType, UpdateTime
-                            FROM Skills
-                            WHERE SkillCode = @SkillCode
-                            LIMIT 1";
+                    SELECT SkillCode, SkillActions, Remark, SkillType, UpdateTime
+                    FROM Skills
+                    WHERE SkillCode = @SkillCode
+                    LIMIT 1";
 
-                var skill = await QueryFirstOrDefaultAsync<dynamic>(sql, new { SkillCode = model.SkillCode });
+                var skill = await QueryFirstOrDefaultAsync<dynamic>(sql, new { SkillCode = SkillCode });
 
                 if (skill == null)
                 {
-                    _logger.LogWarning("未找到技能定义：{SkillCode}", model.SkillCode);
+                    _logger.LogWarning("未找到技能定义：{SkillCode}", SkillCode);
                     return NotFound(ResponseHelper.Fail<object>("未找到该技能"));
                 }
 
@@ -262,7 +271,7 @@ namespace TangYuan.Controllers
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "技能动作 JSON 格式错误，SkillCode={SkillCode}", model.SkillCode);
+                    _logger.LogError(ex, "技能动作 JSON 格式错误，SkillCode={SkillCode}", SkillCode);
                     return StatusCode(500, ResponseHelper.Fail<object>("SkillActions JSON 格式错误"));
                 }
 
@@ -272,27 +281,57 @@ namespace TangYuan.Controllers
                     remark,
                     skillType,
                     updateTime,
-
-                    // 原始 JSON，便于客户端直接使用
                     skillActionsRaw = skillActions,
-
-                    // 解析后的步骤，便于 AI 理解
                     steps
                 }));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "获取技能详情失败，SkillCode={SkillCode}", model.SkillCode);
+                _logger.LogError(ex, "获取技能详情失败，SkillCode={SkillCode}", SkillCode);
                 return StatusCode(500, ResponseHelper.Fail<object>("获取技能详情失败"));
             }
         }
-
 
 
         #endregion
 
 
         #region 执行入口
+
+        #region 兼容coze专用
+        // 🔥 Coze 专用终极接口：只接收一个 JSON 字符串
+        [HttpPost("ExecuteSkillForCoze")]
+        public async Task<IActionResult> ExecuteSkillForCoze([FromBody] CozeSimpleRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Json))
+                return BadRequest(ResponseHelper.Fail<object>("Json 不能为空"));
+
+            // 直接反序列化成你原来的模型
+            ExecSkillModel model;
+            try
+            {
+                model = JsonSerializer.Deserialize<ExecSkillModel>(request.Json)!;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Coze JSON 解析失败");
+                return BadRequest(ResponseHelper.Fail<object>("JSON 格式错误"));
+            }
+
+            // 直接调用你原来的方法！完美复用！
+            return await ExecuteSkill(model);
+        }
+
+        // 最简单的请求体
+        public class CozeSimpleRequest
+        {
+            public string Json { get; set; } = "";
+        }
+
+        #endregion
+
+
+
 
         /// <summary>
         /// 统一执行入口
@@ -303,7 +342,7 @@ namespace TangYuan.Controllers
         /// 3. 如果有，则按数据库 workflow 执行
         /// 4. 如果没有，则按内置原子技能执行
         /// </summary>
-        [HttpPost("ExecuteSkill")]
+        [HttpPost("ExecuteSkill")]        
         public async Task<IActionResult> ExecuteSkill([FromBody] ExecSkillModel model)
         {
             if (model == null)
