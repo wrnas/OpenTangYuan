@@ -235,24 +235,24 @@ namespace TangYuan.Controllers
         /// 4. 如果 SkillActions JSON 格式错误，会明确返回失败
         /// </summary>        
         [HttpPost("GetSkillAction")]
-        public async Task<IActionResult> GetSkillAction([FromBody] string SkillCode)
+        public async Task<IActionResult> GetSkillAction([FromBody] SkillBaseModel request)
         {
-            if (string.IsNullOrWhiteSpace(SkillCode))
+            if (string.IsNullOrWhiteSpace(request.SkillCode))
                 return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
 
             try
             {
                 var sql = @"
-                    SELECT SkillCode, SkillActions, Remark, SkillType, UpdateTime
-                    FROM Skills
-                    WHERE SkillCode = @SkillCode
-                    LIMIT 1";
+            SELECT SkillCode, SkillActions, Remark, SkillType, UpdateTime
+            FROM Skills
+            WHERE SkillCode = @SkillCode
+            LIMIT 1";
 
-                var skill = await QueryFirstOrDefaultAsync<dynamic>(sql, new { SkillCode = SkillCode });
+                var skill = await QueryFirstOrDefaultAsync<dynamic>(sql, new { SkillCode = request.SkillCode });
 
                 if (skill == null)
                 {
-                    _logger.LogWarning("未找到技能定义：{SkillCode}", SkillCode);
+                    _logger.LogWarning("未找到技能定义：{SkillCode}", request.SkillCode);
                     return NotFound(ResponseHelper.Fail<object>("未找到该技能"));
                 }
 
@@ -271,7 +271,7 @@ namespace TangYuan.Controllers
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "技能动作 JSON 格式错误，SkillCode={SkillCode}", SkillCode);
+                    _logger.LogError(ex, "技能动作 JSON 格式错误，SkillCode={SkillCode}", request.SkillCode);
                     return StatusCode(500, ResponseHelper.Fail<object>("SkillActions JSON 格式错误"));
                 }
 
@@ -287,7 +287,8 @@ namespace TangYuan.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "获取技能详情失败，SkillCode={SkillCode}", SkillCode);
+                // 🔥 这里修复成 request.SkillCode
+                _logger.LogError(ex, "获取技能详情失败，SkillCode={SkillCode}", request.SkillCode);
                 return StatusCode(500, ResponseHelper.Fail<object>("获取技能详情失败"));
             }
         }
@@ -1913,7 +1914,7 @@ VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
         }
 
         [HttpPost("DeleteSkill")]
-        public async Task<IActionResult> DeleteSkill([FromBody] SkillModel model)
+        public async Task<IActionResult> DeleteSkill([FromBody] SkillBaseModel model)
         {
             if (model == null || (model.ID <= 0 && string.IsNullOrWhiteSpace(model.SkillCode)))
                 return BadRequest();
@@ -1936,6 +1937,18 @@ VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
     }
 
     #region 模型
+
+
+    public class SkillBaseModel
+    {
+        public int ID { get; set; }
+
+        public string SkillCode { get; set; } = "";
+
+        public string Remark { get; set; } = "";
+        
+    }
+
 
     public class SkillModel
     {
