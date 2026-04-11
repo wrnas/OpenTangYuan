@@ -1,44 +1,69 @@
 {
-  "version": "1.0",
-  "note": "优先使用 workflows；没有现成技能时，再使用 builtins 组合调用 ExecuteSkill。",
+  "version": "1.1",
+  "note": "优先使用 workflows；没有现成 workflow 或 workflow 只能完成一部分时，再使用 builtins 组合调用 ExecuteSkill。",
   "skills": [
     {
       "skillCode": "browser_task",
-      "desc": "执行浏览器自动化动作序列，适用于登录、查询、读取页面、截图、下载等场景",
+      "desc": "执行浏览器自动化动作序列，适用于登录、查询、读取页面、截图、下载、多轮页面操作等场景",
       "args": {
-        "sessionId": "可选，会话ID，不传则自动新建",
-        "closeSession": "可选，是否执行后关闭会话 true/false",
-        "actions": "浏览器动作数组"
+        "sessionId": "可选，会话ID，不传则自动新建；同一网站后续追问应优先复用",
+        "closeSession": "可选，是否执行后关闭会话 true/false，默认 false",
+        "includeOutputs": "可选，是否返回每一步动作明细 true/false，默认 false",
+        "actions": "浏览器动作数组；可直接传 JSON 数组，或以 JSON 字符串形式传入"
       },
       "actionsV1": [
         "goto",
+        "goto_attr",
         "back",
         "forward",
         "refresh",
         "click",
+        "click_index",
+        "click_text",
+        "click_if_exists",
         "fill",
         "press",
+        "hover",
         "select_option",
         "wait",
         "wait_for",
         "wait_for_load_state",
         "wait_url_contains",
+        "scroll_bottom",
+        "scroll_until_text",
         "get_text",
         "get_text_list",
         "get_attr",
+        "get_attr_list",
+        "get_links",
+        "get_links_structured",
+        "get_html",
+        "check_text",
         "exists",
         "count",
+        "analyze_page",
+        "extract_article",
+        "extract_list",
         "screenshot",
+        "screenshot_base64",
         "screenshot_element",
         "download",
         "new_tab",
         "switch_tab",
-        "get_tabs"
+        "get_tabs",
+        "clear_cookies",
+        "auto_detect_login",
+        "auto_login_form",
+        "evaluate",
+        "detect_captcha",
+        "capture_captcha",
+        "submit_captcha"
       ],
       "example": {
         "SkillCode": "browser_task",
         "Arguments": {
-          "closeSession": true,
+          "closeSession": false,
+          "includeOutputs": false,
           "actions": [
             {
               "type": "goto",
@@ -50,7 +75,7 @@
             },
             {
               "type": "get_text",
-              "selector": "title"
+              "selector": "body"
             }
           ]
         }
@@ -58,13 +83,14 @@
     },
     {
       "skillCode": "file_task",
-      "desc": "文件搜索、复制、移动、创建目录",
+      "desc": "文件搜索、复制、移动、重命名、创建目录",
       "args": {
-        "action": "search | copy | move | mkdir",
-        "from": "源路径；copy/move/mkdir 时使用",
+        "action": "search | copy | move | rename | mkdir",
+        "from": "源路径；copy/move/rename/mkdir 时使用",
         "to": "目标路径；copy/move 时使用",
         "keyword": "搜索关键词；search 时使用",
-        "ext": "扩展名；search 时使用，默认 *"
+        "ext": "扩展名；search 时使用，默认 *",
+        "newName": "新文件名；rename 时使用"
       },
       "actions": [
         {
@@ -80,6 +106,11 @@
         {
           "action": "move",
           "required": [ "from", "to" ],
+          "optional": []
+        },
+        {
+          "action": "rename",
+          "required": [ "from", "newName" ],
           "optional": []
         },
         {
@@ -128,56 +159,44 @@
     {
       "skillCode": "open_task",
       "desc": "打开文件、程序、文件夹",
-      "args": {
-        "path": "文件路径、目录路径或程序路径"
-      },
+      "args": { "path": "文件路径、目录路径或程序路径" },
       "example": {
         "SkillCode": "open_task",
-        "Arguments": {
-          "path": "C:\\Temp"
-        }
+        "Arguments": { "path": "C:\\Temp" }
       }
     },
     {
       "skillCode": "print_task",
       "desc": "打印文件",
-      "args": {
-        "path": "待打印文件完整路径"
-      },
+      "args": { "path": "待打印文件完整路径" },
       "example": {
         "SkillCode": "print_task",
-        "Arguments": {
-          "path": "C:\\Temp\\a.pdf"
-        }
+        "Arguments": { "path": "C:\\Temp\\a.pdf" }
       }
     },
     {
       "skillCode": "folder_task",
       "desc": "按后缀归类文件",
-      "args": {
-        "source": "源目录"
-      },
+      "args": { "source": "源目录" },
       "example": {
         "SkillCode": "folder_task",
-        "Arguments": {
-          "source": "C:\\Temp"
-        }
+        "Arguments": { "source": "C:\\Temp" }
       }
     },
     {
       "skillCode": "tool_task",
-      "desc": "调用白名单外部工具 exe",
+      "desc": "调用白名单中的外部 exe 工具",
       "args": {
-        "exePath": "exe 完整路径",
-        "arguments": "命令行参数",
-        "timeout": "超时秒数，默认 10"
+        "exePath": "exe 完整路径，必填",
+        "arguments": "命令行参数，选填",
+        "timeout": "超时时间秒数，选填，默认 10"
       },
       "example": {
         "SkillCode": "tool_task",
         "Arguments": {
-          "exePath": "C:\\Tools\\magick.exe",
-          "arguments": "-version",
-          "timeout": "10"
+          "exePath": "D:\\LmyTools.exe",
+          "arguments": "--input \"D:\\学生成绩.xlsx\" --output \"D:\\拆分结果.xlsx\"",
+          "timeout": "60"
         }
       }
     },
@@ -188,23 +207,6 @@
       "example": {
         "SkillCode": "lock_task",
         "Arguments": {}
-      }
-    },
-    {
-      "skillCode": "tool_task",
-      "desc": "调用白名单中的外部 exe 工具",
-      "args": {
-        "exePath": "exe 完整路径，必填",
-        "arguments": "命令行参数，选填",
-        "timeout": "超时时间秒数，选填"
-      },
-      "example": {
-        "SkillCode": "tool_task",
-        "Arguments": {
-          "exePath": "D:\\LmyTools.exe",
-          "arguments": "--input \"D:\\学生成绩.xlsx\" --output \"D:\\拆分结果.xlsx\"",
-          "timeout": "60"
-        }
       }
     },
     {
