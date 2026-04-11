@@ -120,61 +120,13 @@ namespace TangYuan.Controllers
             {
                 // 1. 数据库技能
                 var sql = "SELECT SkillCode, Remark AS AIDesc FROM Skills ORDER BY ID ASC";
-                var workflows = (await QueryAsync<dynamic>(sql)).ToList();
-
-                // 2. 内置技能列表（从缓存的 JsonDocument 中读取）
-                var builtins = new List<object>();
-                var filePath = Path.Combine(AppContext.BaseDirectory, "AiConfig", "skill-manifest.json");
-
-                if (!System.IO.File.Exists(filePath))
-                {
-                    _logger.LogWarning("未找到内置技能 manifest 文件：{FilePath}", filePath);
-                }
-                else
-                {
-                    // 确保缓存已加载（使用字节数组，自动处理 BOM）
-                    lock (_cacheLock)
-                    {
-                        if (_cachedManifestDoc == null)
-                        {
-                            byte[] jsonBytes = System.IO.File.ReadAllBytes(filePath);
-                            _cachedManifestDoc = JsonDocument.Parse(jsonBytes);
-                            // 不再使用 _cachedManifestJson，可以置空
-                            _cachedManifestJson = null;
-                        }
-                    }
-
-                    // 从缓存的 JsonDocument 中读取 skills
-                    if (_cachedManifestDoc != null && _cachedManifestDoc.RootElement.TryGetProperty("skills", out var skillsElement))
-                    {
-                        foreach (var item in skillsElement.EnumerateArray())
-                        {
-                            var skillCode = item.TryGetProperty("skillCode", out var c) ? c.GetString() : "";
-                            var aiDesc = item.TryGetProperty("desc", out var d) ? d.GetString() : "";
-
-                            if (!string.IsNullOrWhiteSpace(skillCode))
-                            {
-                                builtins.Add(new
-                                {
-                                    SkillCode = skillCode,
-                                    AIDesc = aiDesc
-                                });
-                            }
-                        }
-                    }
-                }
+                var workflows = (await QueryAsync<dynamic>(sql)).ToList();               
 
                 return Ok(ResponseHelper.Success(new
                 {
-                    workflows,
-                    builtins
+                    workflows
                 }));
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogError(ex, "skill-manifest.json 格式错误 at Line {Line}, Pos {Pos}", ex.LineNumber, ex.BytePositionInLine);
-                return StatusCode(500, ResponseHelper.Fail<object>("skill-manifest.json 格式错误"));
-            }
+            }            
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取 AI 技能列表失败");
