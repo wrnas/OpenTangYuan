@@ -81,16 +81,20 @@
         }
       }
     },
+
     {
       "skillCode": "file_task",
-      "desc": "文件搜索、复制、移动、重命名、创建目录",
+      "desc": "文件搜索、复制、移动、重命名、创建目录、批量复制、批量移动",
       "args": {
-        "action": "search | copy | move | rename | mkdir",
+        "action": "search | copy | move | copy_many | move_many | mkdir | rename",
         "from": "源路径；copy/move/rename/mkdir 时使用",
         "to": "目标路径；copy/move 时使用",
         "keyword": "搜索关键词；search 时使用",
         "ext": "扩展名；search 时使用，默认 *",
-        "newName": "新文件名；rename 时使用"
+        "paths": "文件路径数组；copy_many/move_many 时使用",
+        "toDir": "目标目录；copy_many/move_many 时使用",
+        "overwrite": "是否覆盖，true/false，默认 true",
+        "newName": "重命名后的文件名；rename 时使用"
       },
       "actions": [
         {
@@ -109,6 +113,16 @@
           "optional": []
         },
         {
+          "action": "copy_many",
+          "required": [ "paths", "toDir" ],
+          "optional": [ "overwrite" ]
+        },
+        {
+          "action": "move_many",
+          "required": [ "paths", "toDir" ],
+          "optional": [ "overwrite" ]
+        },
+        {
           "action": "rename",
           "required": [ "from", "newName" ],
           "optional": []
@@ -122,12 +136,17 @@
       "example": {
         "SkillCode": "file_task",
         "Arguments": {
-          "action": "copy",
-          "from": "C:\\Temp\\a.png",
-          "to": "D:\\a.png"
+          "action": "copy_many",
+          "paths": [
+            "C:\\Temp\\a.png",
+            "C:\\Temp\\b.png"
+          ],
+          "toDir": "D:\\备份",
+          "overwrite": "true"
         }
       }
     },
+
     {
       "skillCode": "email_task",
       "desc": "发送邮件，可带单个附件",
