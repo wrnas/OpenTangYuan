@@ -1504,10 +1504,13 @@ namespace TangYuan.Controllers
                 "search" => await SearchFileAsync(keyword, ext),
                 "copy" => await CopyAsync(from, to),
                 "move" => await MoveAsync(from, to),
+                "copy_many" => await CopyManyAsync(args),
+                "move_many" => await MoveManyAsync(args),
                 "rename" => await RenameAsync(from, newName),
                 "mkdir" => await CreateDirAsync(from),
                 _ => throw new NotSupportedException($"file_task 不支持的操作：{action}")
             };
+
         }
 
 
@@ -2369,6 +2372,153 @@ namespace TangYuan.Controllers
             };
         }
 
+        #region 批量文件操作
+        private async Task<SkillResult> CopyManyAsync(Dictionary<string, object> args)
+        {
+            var paths = GetStringList(args, "paths");
+            string toDir = GetString(args, "toDir");
+            bool overwrite = bool.TryParse(GetString(args, "overwrite", "true"), out var ov) && ov;
+
+            if (paths.Count == 0)
+                throw new ArgumentException("paths 不能为空");
+
+            if (string.IsNullOrWhiteSpace(toDir))
+                throw new ArgumentException("toDir 不能为空");
+
+            var fullTargetDir = ValidatePath(toDir, mustExist: false);
+
+            int successCount = 0;
+            var copied = new List<string>();
+            var failed = new List<object>();
+
+            await Task.Run(() =>
+            {
+                Directory.CreateDirectory(fullTargetDir);
+
+                foreach (var item in paths)
+                {
+                    try
+                    {
+                        var source = ValidatePath(item, mustExist: true);
+                        if (!System.IO.File.Exists(source))
+                            throw new FileNotFoundException($"文件不存在: {source}");
+
+                        var target = Path.Combine(fullTargetDir, Path.GetFileName(source));
+                        var validatedTarget = ValidatePath(target, mustExist: false);
+
+                        System.IO.File.Copy(source, validatedTarget, overwrite);
+                        copied.Add(validatedTarget);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        failed.Add(new
+                        {
+                            path = item,
+                            error = ex.Message
+                        });
+                    }
+                }
+            });
+
+            return new SkillResult
+            {
+                Success = successCount > 0,
+                SkillCode = "file_task",
+                Type = "copy_many",
+                Text = successCount > 0
+                    ? $"批量复制完成，成功 {successCount} 个，失败 {failed.Count} 个"
+                    : "批量复制失败",
+                Data = new
+                {
+                    toDir = fullTargetDir,
+                    successCount,
+                    failedCount = failed.Count,
+                    copied,
+                    failed
+                },
+                Error = successCount > 0 ? "" : "没有文件复制成功"
+            };
+        }
+
+        private async Task<SkillResult> MoveManyAsync(Dictionary<string, object> args)
+        {
+            var paths = GetStringList(args, "paths");
+            string toDir = GetString(args, "toDir");
+            bool overwrite = bool.TryParse(GetString(args, "overwrite", "true"), out var ov) && ov;
+
+            if (paths.Count == 0)
+                throw new ArgumentException("paths 不能为空");
+
+            if (string.IsNullOrWhiteSpace(toDir))
+                throw new ArgumentException("toDir 不能为空");
+
+            var fullTargetDir = ValidatePath(toDir, mustExist: false);
+
+            int successCount = 0;
+            var moved = new List<string>();
+            var failed = new List<object>();
+
+            await Task.Run(() =>
+            {
+                Directory.CreateDirectory(fullTargetDir);
+
+                foreach (var item in paths)
+                {
+                    try
+                    {
+                        var source = ValidatePath(item, mustExist: true);
+                        if (!System.IO.File.Exists(source))
+                            throw new FileNotFoundException($"文件不存在: {source}");
+
+                        var target = Path.Combine(fullTargetDir, Path.GetFileName(source));
+                        var validatedTarget = ValidatePath(target, mustExist: false);
+
+                        if (System.IO.File.Exists(validatedTarget))
+                        {
+                            if (overwrite)
+                                System.IO.File.Delete(validatedTarget);
+                            else
+                                throw new IOException($"目标文件已存在: {validatedTarget}");
+                        }
+
+                        System.IO.File.Move(source, validatedTarget);
+                        moved.Add(validatedTarget);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        failed.Add(new
+                        {
+                            path = item,
+                            error = ex.Message
+                        });
+                    }
+                }
+            });
+
+            return new SkillResult
+            {
+                Success = successCount > 0,
+                SkillCode = "file_task",
+                Type = "move_many",
+                Text = successCount > 0
+                    ? $"批量移动完成，成功 {successCount} 个，失败 {failed.Count} 个"
+                    : "批量移动失败",
+                Data = new
+                {
+                    toDir = fullTargetDir,
+                    successCount,
+                    failedCount = failed.Count,
+                    moved,
+                    failed
+                },
+                Error = successCount > 0 ? "" : "没有文件移动成功"
+            };
+        }
+
+        #endregion
+
 
         #endregion
 
@@ -2386,7 +2536,55 @@ namespace TangYuan.Controllers
             return ConvertObjectToString(value, defaultValue).Trim();
         }
 
-        
+        private List<string> GetStringList(Dictionary<string, object>? args, string key)
+        {
+            var result = new List<string>();
+
+            if (args == null || !args.TryGetValue(key, out var value) || value == null)
+                return result;
+
+            if (value is JsonElement je)
+            {
+                if (je.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in je.EnumerateArray())
+                    {
+                        var text = ConvertObjectToString(item).Trim();
+                        if (!string.IsNullOrWhiteSpace(text))
+                            result.Add(text);
+                    }
+                    return result;
+                }
+
+                if (je.ValueKind == JsonValueKind.String)
+                {
+                    var text = je.GetString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(text))
+                        result.Add(text);
+                    return result;
+                }
+            }
+
+            if (value is System.Collections.IEnumerable enumerable && value is not string)
+            {
+                foreach (var item in enumerable)
+                {
+                    var text = ConvertObjectToString(item).Trim();
+                    if (!string.IsNullOrWhiteSpace(text))
+                        result.Add(text);
+                }
+                return result;
+            }
+
+            var single = ConvertObjectToString(value).Trim();
+            if (!string.IsNullOrWhiteSpace(single))
+                result.Add(single);
+
+            return result;
+        }
+
+
+
 
         #endregion
 
