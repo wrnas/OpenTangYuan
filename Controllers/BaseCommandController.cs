@@ -5,6 +5,7 @@ using MySqlConnector;
 using System.Data;
 using System.Data.Common;
 using System.Data.SqlClient;
+using System.Text.RegularExpressions;
 using TangYuan.Models;
 
 namespace TangYuan.Controllers
@@ -39,7 +40,8 @@ namespace TangYuan.Controllers
             var sqliteConn = _config.GetConnectionString("Sqlite");
             if (!string.IsNullOrEmpty(sqliteConn))
             {
-                return new SqliteConnection(sqliteConn);
+                var resolvedConn = ResolveSqliteConnectionString(sqliteConn);
+                return new SqliteConnection(resolvedConn);
             }
 
             // 2. 其次 MySQL
@@ -49,9 +51,33 @@ namespace TangYuan.Controllers
                 return new MySqlConnection(mysqlConn);
             }
 
-            
+            throw new InvalidOperationException("未配置任何数据库连接字符串，请检查 appsettings.json 中的 ConnectionStrings 节点（Sqlite/MySql）");
+        }
 
-            throw new InvalidOperationException("未配置任何数据库连接字符串，请检查 appsettings.json 中的 ConnectionStrings 节点（Sqlite/MySql/SqlConn）");
+        /// <summary>
+        /// 将 SQLite 连接字符串中的相对路径转换为基于程序基目录的绝对路径
+        /// </summary>
+        private string ResolveSqliteConnectionString(string connectionString)
+        {
+            // 匹配 Data Source=xxx; 部分（忽略大小写和空格）
+            var pattern = @"Data\s*Source\s*=\s*(?<path>[^;]+)";
+            var match = Regex.Match(connectionString, pattern, RegexOptions.IgnoreCase);
+            if (!match.Success)
+                return connectionString;
+
+            var originalPath = match.Groups["path"].Value.Trim();
+            if (string.IsNullOrEmpty(originalPath))
+                return connectionString;
+
+            // 如果是绝对路径（Windows 盘符或 Linux 根路径），则直接使用
+            if (Path.IsPathRooted(originalPath))
+                return connectionString;
+
+            // 相对路径 → 转换为程序所在目录的绝对路径
+            var absolutePath = Path.Combine(AppContext.BaseDirectory, originalPath);
+            // 替换原字符串中的路径部分
+            var newConnString = Regex.Replace(connectionString, pattern, $"Data Source={absolutePath}", RegexOptions.IgnoreCase);
+            return newConnString;
         }
 
         // ==================== 事务控制（增强资源管理） ====================
