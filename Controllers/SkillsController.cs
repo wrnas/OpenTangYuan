@@ -431,13 +431,35 @@ namespace TangYuan.Controllers
                     SkillCode = string.IsNullOrWhiteSpace(skill.SkillCode) ? skillCode : skill.SkillCode,
                     ExecuteMode = executeMode,
                     ResultType = skill.Type ?? "",
-                    ResultText = skill.Text ?? "",
+                    ResultText = !string.IsNullOrWhiteSpace(skill.ResultText) ? skill.ResultText : (skill.Text ?? ""),
+                    ResultList = skill.ResultList ?? new List<string>(),
+                    ResultValue = skill.ResultValue ?? "",
                     ResultData = skill.Data,
                     ErrorCode = skill.Success ? "" : "SKILL_EXECUTION_FAILED",
                     ErrorMessage = skill.Error ?? ""
                 };
 
                 FillResultListAndSession(response, skill.Data);
+
+                // 兜底：如果 Data 里没有解析出来，就保留 SkillResult 自己的扁平字段
+                if ((response.ResultList == null || response.ResultList.Count == 0) &&
+                    skill.ResultList != null && skill.ResultList.Count > 0)
+                {
+                    response.ResultList = skill.ResultList;
+                }
+
+                if (string.IsNullOrWhiteSpace(response.ResultValue) &&
+                    !string.IsNullOrWhiteSpace(skill.ResultValue))
+                {
+                    response.ResultValue = skill.ResultValue;
+                }
+
+                if (string.IsNullOrWhiteSpace(response.ResultText) &&
+                    !string.IsNullOrWhiteSpace(skill.Text))
+                {
+                    response.ResultText = skill.Text;
+                }
+
                 return response;
             }
 
@@ -472,15 +494,36 @@ namespace TangYuan.Controllers
             });
         }
 
+
         private void FillResultListAndSession(CozeSkillResponse response, object? data)
         {
             if (data == null) return;
 
+            // 1. 常见列表字段
             if (TryGetPropertyValue(data, "list", out var listObj) && listObj != null)
             {
                 response.ResultList = ConvertToStringList(listObj);
             }
+            else if (TryGetPropertyValue(data, "paths", out var pathsObj) && pathsObj != null)
+            {
+                response.ResultList = ConvertToStringList(pathsObj);
+            }
+            else if (TryGetPropertyValue(data, "items", out var itemsObj) && itemsObj != null)
+            {
+                response.ResultList = ConvertToStringList(itemsObj);
+            }
 
+            // 2. 常见单值字段
+            if (TryGetPropertyValue(data, "firstPath", out var firstPathObj) && firstPathObj != null)
+            {
+                response.ResultValue = ConvertObjectToString(firstPathObj);
+            }
+            else if (TryGetPropertyValue(data, "path", out var pathObj) && pathObj != null)
+            {
+                response.ResultValue = ConvertObjectToString(pathObj);
+            }
+
+            // 3. 浏览器 session / page
             if (TryGetPropertyValue(data, "sessionId", out var sessionIdObj) && sessionIdObj != null)
             {
                 response.SessionId = ConvertObjectToString(sessionIdObj);
@@ -496,20 +539,60 @@ namespace TangYuan.Controllers
                 response.Session = ParseBrowserSessionState(sessionObj);
             }
 
+            // 4. Data.result.path（典型如 browser_task screenshot）
+            if (TryGetPropertyValue(data, "result", out var resultObj) && resultObj != null)
+            {
+                if (string.IsNullOrWhiteSpace(response.ResultValue) &&
+                    TryGetPropertyValue(resultObj, "path", out var nestedPathObj) && nestedPathObj != null)
+                {
+                    response.ResultValue = ConvertObjectToString(nestedPathObj);
+                }
+            }
+
+            // 5. workflow 的 lastResult 继续兜底
             if (TryGetPropertyValue(data, "lastResult", out var lastResultObj) && lastResultObj != null)
             {
                 if (response.ResultData == null)
                     response.ResultData = data;
 
-                if (response.ResultList.Count == 0 && TryGetPropertyValue(lastResultObj, "Data", out var innerData) && innerData != null)
+                if (TryGetPropertyValue(lastResultObj, "Data", out var innerData) && innerData != null)
                 {
-                    if (TryGetPropertyValue(innerData, "list", out var innerList) && innerList != null)
+                    if (response.ResultList.Count == 0)
                     {
-                        response.ResultList = ConvertToStringList(innerList);
+                        if (TryGetPropertyValue(innerData, "list", out var innerList) && innerList != null)
+                        {
+                            response.ResultList = ConvertToStringList(innerList);
+                        }
+                        else if (TryGetPropertyValue(innerData, "paths", out var innerPaths) && innerPaths != null)
+                        {
+                            response.ResultList = ConvertToStringList(innerPaths);
+                        }
+                        else if (TryGetPropertyValue(innerData, "items", out var innerItems) && innerItems != null)
+                        {
+                            response.ResultList = ConvertToStringList(innerItems);
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(response.ResultValue))
+                    {
+                        if (TryGetPropertyValue(innerData, "firstPath", out var innerFirstPath) && innerFirstPath != null)
+                        {
+                            response.ResultValue = ConvertObjectToString(innerFirstPath);
+                        }
+                        else if (TryGetPropertyValue(innerData, "path", out var innerPath) && innerPath != null)
+                        {
+                            response.ResultValue = ConvertObjectToString(innerPath);
+                        }
+                        else if (TryGetPropertyValue(innerData, "result", out var innerResult) && innerResult != null &&
+                                 TryGetPropertyValue(innerResult, "path", out var innerNestedPath) && innerNestedPath != null)
+                        {
+                            response.ResultValue = ConvertObjectToString(innerNestedPath);
+                        }
                     }
                 }
             }
         }
+
 
         private BrowserPageState? ParseBrowserPageState(object pageObj)
         {
@@ -1907,10 +1990,6 @@ namespace TangYuan.Controllers
         }
 
 
-
-
-
-
         #endregion
 
         #region 原子技能：外部工具
@@ -2024,7 +2103,13 @@ namespace TangYuan.Controllers
                 resultList = await SearchFallbackAsync(keyword, ext);
             }
 
-            if (resultList == null || resultList.Count == 0)
+            // 去重
+            resultList = resultList
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (resultList.Count == 0)
             {
                 return new SkillResult
                 {
@@ -2032,6 +2117,9 @@ namespace TangYuan.Controllers
                     SkillCode = "file_task",
                     Type = "search",
                     Text = "未找到文件",
+                    ResultText = "未找到文件",
+                    ResultList = new List<string>(),
+                    ResultValue = "",
                     Data = new
                     {
                         keyword,
@@ -2044,22 +2132,28 @@ namespace TangYuan.Controllers
                 };
             }
 
+            var firstPath = resultList.FirstOrDefault() ?? "";
+
             return new SkillResult
             {
                 Success = true,
                 SkillCode = "file_task",
                 Type = "search",
                 Text = $"找到 {resultList.Count} 个文件",
+                ResultText = $"找到 {resultList.Count} 个文件",
+                ResultList = resultList,
+                ResultValue = firstPath,
                 Data = new
                 {
                     keyword,
                     ext,
-                    firstPath = resultList.FirstOrDefault() ?? "",
+                    firstPath,
                     paths = resultList,
                     count = resultList.Count
                 }
             };
         }
+
 
 
         /// <summary>
@@ -2078,17 +2172,36 @@ namespace TangYuan.Controllers
             {
                 try
                 {
-                    string path = item.Path;
+                    // 注意：很多 Everything SDK 中：
+                    // item.Path = 目录
+                    // item.Name = 文件名
+                    string dir = item.Path ?? "";
+                    string name = item.Name ?? "";
+
+                    string fullPath = string.IsNullOrWhiteSpace(name)
+                        ? dir
+                        : Path.Combine(dir, name);
+
+                    if (string.IsNullOrWhiteSpace(fullPath))
+                        continue;
+
+                    // 只保留真实文件，不要目录
+                    if (!System.IO.File.Exists(fullPath))
+                        continue;
+
+                    // 过滤快捷方式，避免返回 Recent 里的 .lnk
+                    if (fullPath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+                        continue;
 
                     if (!string.IsNullOrWhiteSpace(ext) &&
                         ext != "*" &&
-                        !path.EndsWith($".{ext.Trim('.')}", StringComparison.OrdinalIgnoreCase))
+                        !fullPath.EndsWith($".{ext.Trim('.')}", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
 
-                    ValidatePath(path, mustExist: true);
-                    list.Add(path);
+                    ValidatePath(fullPath, mustExist: true);
+                    list.Add(fullPath);
                 }
                 catch
                 {
@@ -2098,6 +2211,7 @@ namespace TangYuan.Controllers
 
             return list;
         }
+
 
         /// <summary>
         /// Windows Search 搜索
@@ -2149,11 +2263,11 @@ namespace TangYuan.Controllers
 
             var dirs = new[]
             {
-                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                @"D:\",
-                @"E:\"
-            };
+        Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+        @"D:\",
+        @"E:\"
+    };
 
             var options = new EnumerationOptions
             {
@@ -2179,6 +2293,10 @@ namespace TangYuan.Controllers
                     {
                         try
                         {
+                            // 过滤快捷方式
+                            if (file.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+                                continue;
+
                             ValidatePath(file, mustExist: true);
                             list.Add(file);
                         }
@@ -2196,6 +2314,7 @@ namespace TangYuan.Controllers
 
             return await Task.FromResult(list);
         }
+
 
         /// <summary>
         /// 文件列表格式化为多行文本，方便 AI 阅读

@@ -149,23 +149,30 @@
 
     {
       "skillCode": "email_task",
-      "desc": "发送邮件，可带单个附件",
+      "desc": "发送邮件，支持多个收件人和多个附件",
       "args": {
-        "to": "收件人邮箱，必填",
+        "to": "收件人邮箱，必填；支持多个，使用逗号或分号分隔",
         "subject": "邮件主题，可空",
-        "body": "邮件正文，可空",
-        "attachment": "附件完整路径，可空"
+        "body": "邮件正文，可空；content 也可兼容",
+        "attachment": "单个附件完整路径，可空",
+        "attachments": "多个附件完整路径数组，可空"
       },
       "example": {
         "SkillCode": "email_task",
         "Arguments": {
-          "to": "214634166@qq.com",
+          "to": "214634166@qq.com,example1@qq.com",
           "subject": "测试邮件",
           "body": "这是测试正文",
-          "attachment": "D:\\a.png"
+          "attachments": [
+            "D:\\a.png",
+            "D:\\b.xlsx"
+          ]
         }
       }
     },
+
+
+
     {
       "skillCode": "screenshot_task",
       "desc": "全屏截图",

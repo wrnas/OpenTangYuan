@@ -156,7 +156,7 @@ namespace AiApi.Models
         public object? FinalData { get; set; }
     }
 
-   public class CozeSkillResponse
+    public class CozeSkillResponse
     {
         public bool Success { get; set; }
         public string Message { get; set; } = "";
@@ -165,6 +165,7 @@ namespace AiApi.Models
         public string ResultType { get; set; } = "";
         public string ResultText { get; set; } = "";
         public List<string> ResultList { get; set; } = new();
+        public string ResultValue { get; set; } = "";
         public object? ResultData { get; set; }
         public string SessionId { get; set; } = "";
         public BrowserPageState? Page { get; set; }
@@ -196,6 +197,8 @@ namespace AiApi.Models
             };
         }
     }
+
+
 
     public class BrowserPageState
     {

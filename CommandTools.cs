@@ -169,30 +169,144 @@ namespace TangYuan.Tools
                     };
                 }
 
-                string toEmail = GetValue("to");
-                string subject = GetValue("subject", "系统邮件");
-                string body = GetValue("body", "");
-                string attachment = GetValue("attachment");
+                List<string> GetStringList(string key)
+                {
+                    var result = new List<string>();
 
-                if (string.IsNullOrWhiteSpace(toEmail))
+                    if (args == null || !args.TryGetValue(key, out var value) || value == null)
+                        return result;
+
+                    if (value is JsonElement je)
+                    {
+                        if (je.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var item in je.EnumerateArray())
+                            {
+                                if (item.ValueKind == JsonValueKind.String)
+                                {
+                                    var text = item.GetString()?.Trim();
+                                    if (!string.IsNullOrWhiteSpace(text))
+                                        result.Add(text);
+                                }
+                            }
+
+                            return result;
+                        }
+
+                        if (je.ValueKind == JsonValueKind.String)
+                        {
+                            var text = je.GetString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(text))
+                                result.Add(text);
+
+                            return result;
+                        }
+                    }
+
+                    if (value is string s)
+                    {
+                        if (!string.IsNullOrWhiteSpace(s))
+                            result.Add(s.Trim());
+
+                        return result;
+                    }
+
+                    if (value is IEnumerable<object> list)
+                    {
+                        foreach (var item in list)
+                        {
+                            var text = item?.ToString()?.Trim();
+                            if (!string.IsNullOrWhiteSpace(text))
+                                result.Add(text);
+                        }
+
+                        return result;
+                    }
+
+                    var single = value.ToString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(single))
+                        result.Add(single);
+
+                    return result;
+                }
+
+                List<string> SplitEmails(string input)
+                {
+                    return (input ?? "")
+                        .Split(new[] { ',', ';', '，', '；' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+
+                string toRaw = GetValue("to");
+                string subject = GetValue("subject", "系统邮件");
+
+                // 兼容 body / content
+                string body = GetValue("body");
+                if (string.IsNullOrWhiteSpace(body))
+                    body = GetValue("content", "");
+
+                // 收件人支持：单个 / 多个（逗号、分号分隔）
+                var toList = SplitEmails(toRaw);
+                if (toList.Count == 0)
                     throw new ArgumentException("收件人邮箱不能为空");
+
+                // 附件支持：attachment / attachments
+                var attachmentList = new List<string>();
+
+                string singleAttachment = GetValue("attachment");
+                if (!string.IsNullOrWhiteSpace(singleAttachment))
+                    attachmentList.Add(singleAttachment);
+
+                var attachments = GetStringList("attachments");
+                foreach (var item in attachments)
+                {
+                    if (!string.IsNullOrWhiteSpace(item))
+                        attachmentList.Add(item);
+                }
+
+                attachmentList = attachmentList
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
                 var message = new MimeMessage();
                 message.From.Add(new MailboxAddress("系统助手", "l00f@163.com"));
-                message.To.Add(new MailboxAddress("", toEmail));
+
+                foreach (var email in toList)
+                {
+                    message.To.Add(MailboxAddress.Parse(email));
+                }
+
                 message.Subject = subject;
 
-                var builder = new BodyBuilder { TextBody = body };
-
-                if (!string.IsNullOrWhiteSpace(attachment) && File.Exists(attachment))
+                var builder = new BodyBuilder
                 {
-                    builder.Attachments.Add(attachment);
+                    TextBody = body
+                };
+
+                var attachedFiles = new List<string>();
+                var missingFiles = new List<string>();
+
+                foreach (var file in attachmentList)
+                {
+                    if (System.IO.File.Exists(file))
+                    {
+                        builder.Attachments.Add(file);
+                        attachedFiles.Add(file);
+                    }
+                    else
+                    {
+                        missingFiles.Add(file);
+                    }
                 }
+
+                bool attachmentAdded = attachedFiles.Count > 0;
 
                 message.Body = builder.ToMessageBody();
 
-                using var client = new SmtpClient();
-                await client.ConnectAsync("smtp.163.com", 465, SecureSocketOptions.SslOnConnect);
+                using var client = new MailKit.Net.Smtp.SmtpClient();
+                await client.ConnectAsync("smtp.163.com", 465, MailKit.Security.SecureSocketOptions.SslOnConnect);
                 await client.AuthenticateAsync("l00f@163.com", "KYfLX3B7tj8tGE6A");
                 await client.SendAsync(message);
                 await client.DisconnectAsync(true);
@@ -202,12 +316,15 @@ namespace TangYuan.Tools
                     Success = true,
                     SkillCode = "email_task",
                     Type = "send_email",
-                    Text = "邮件发送成功",
+                    Text = attachmentAdded ? "邮件发送成功（含附件）" : "邮件发送成功",
                     Data = new
                     {
-                        to = toEmail,
+                        to = toList,
                         subject,
-                        attachment
+                        body,
+                        attachments = attachedFiles,
+                        missingAttachments = missingFiles,
+                        attachmentAdded
                     }
                 };
             }
@@ -216,6 +333,8 @@ namespace TangYuan.Tools
                 throw new Exception("邮件发送失败：" + ex.Message, ex);
             }
         }
+
+
         #endregion
     }
 
