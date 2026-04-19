@@ -184,6 +184,49 @@ namespace AiApi.Models
         public string Error { get; set; } = "";
     }
 
+    public class CozeSkillResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = "";
+        public string SkillCode { get; set; } = "";
+        public string ExecuteMode { get; set; } = "";
+        public string ResultType { get; set; } = "";
+        public string ResultText { get; set; } = "";
+        public List<string> ResultList { get; set; } = new();
+        public string ResultValue { get; set; } = "";
+        public object? ResultData { get; set; }
+        public string SessionId { get; set; } = "";
+        public BrowserPageState? Page { get; set; }
+        public BrowserSessionState? Session { get; set; }
+        public bool NeedMoreInput { get; set; }
+        public List<string> MissingArgs { get; set; } = new();
+        public string ErrorCode { get; set; } = "";
+        public string ErrorMessage { get; set; } = "";
 
-    
+        public static CozeSkillResponse Fail(
+            string message,
+            string skillCode,
+            string executeMode,
+            string errorCode,
+            string errorMessage,
+            bool needMoreInput = false,
+            List<string>? missingArgs = null)
+        {
+            return new CozeSkillResponse
+            {
+                Success = false,
+                Message = message,
+                SkillCode = skillCode,
+                ExecuteMode = executeMode,
+                ErrorCode = errorCode,
+                ErrorMessage = errorMessage,
+                NeedMoreInput = needMoreInput,
+                MissingArgs = missingArgs ?? new List<string>(),
+                ResultText = errorMessage
+            };
+        }
+    }
+
+
+
 }

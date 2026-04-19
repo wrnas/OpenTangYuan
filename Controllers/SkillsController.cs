@@ -314,7 +314,16 @@ namespace TangYuan.Controllers
         public async Task<IActionResult> ExecuteSkillForCoze([FromBody] CozeSimpleRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Json))
-                return BadRequest("Json 不能为空");
+            {
+                return Ok(CozeSkillResponse.Fail(
+                    message: "缺少请求 JSON",
+                    skillCode: "",
+                    executeMode: "unknown",
+                    errorCode: "INVALID_REQUEST",
+                    errorMessage: "Json 不能为空",
+                    needMoreInput: true,
+                    missingArgs: new List<string> { "Json" }));
+            }
 
             ExecSkillModel model;
             try
@@ -327,69 +336,233 @@ namespace TangYuan.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Coze JSON 解析失败");
-                return BadRequest("请求 JSON 解析失败：" + ex.Message);
+                return Ok(CozeSkillResponse.Fail(
+                    message: "请求 JSON 解析失败",
+                    skillCode: "",
+                    executeMode: "unknown",
+                    errorCode: "INVALID_JSON",
+                    errorMessage: ex.Message,
+                    needMoreInput: true,
+                    missingArgs: new List<string> { "Json" }));
             }
 
             try
             {
-                var (_, _, result) = await ExecuteSkillCoreAsync(model);
-                return Ok(result);
+                var (skillCode, executeMode, result) = await ExecuteSkillCoreAsync(model);
+                return Ok(BuildCozeSkillResponse(skillCode, executeMode, result));
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new
-                {
-                    Success = false,
-                    Error = ex.Message,
-                    ResultText = ex.Message
-                });
+                var code = model?.SkillCode?.Trim() ?? "";
+                var args = model?.Arguments ?? new Dictionary<string, object>();
+                var missingArgs = TryInferMissingArgs(code, args, ex.Message);
+                bool needMoreInput = missingArgs.Count > 0;
+
+                return Ok(CozeSkillResponse.Fail(
+                    message: needMoreInput ? "缺少必要参数" : "参数错误",
+                    skillCode: code,
+                    executeMode: "builtin",
+                    errorCode: needMoreInput ? "MISSING_ARGUMENTS" : "INVALID_ARGUMENTS",
+                    errorMessage: ex.Message,
+                    needMoreInput: needMoreInput,
+                    missingArgs: missingArgs));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return StatusCode(403, new
-                {
-                    Success = false,
-                    Error = ex.Message,
-                    ResultText = ex.Message
-                });
+                return Ok(CozeSkillResponse.Fail(
+                    message: "没有权限执行该技能",
+                    skillCode: model?.SkillCode ?? "",
+                    executeMode: "builtin",
+                    errorCode: "FORBIDDEN",
+                    errorMessage: ex.Message));
             }
             catch (FileNotFoundException ex)
             {
-                return NotFound(new
-                {
-                    Success = false,
-                    Error = ex.Message,
-                    ResultText = ex.Message
-                });
+                return Ok(CozeSkillResponse.Fail(
+                    message: "目标文件不存在",
+                    skillCode: model?.SkillCode ?? "",
+                    executeMode: "builtin",
+                    errorCode: "FILE_NOT_FOUND",
+                    errorMessage: ex.Message));
             }
             catch (NotSupportedException ex)
             {
-                return BadRequest(new
-                {
-                    Success = false,
-                    Error = ex.Message,
-                    ResultText = ex.Message
-                });
+                return Ok(CozeSkillResponse.Fail(
+                    message: "不支持的技能或操作",
+                    skillCode: model?.SkillCode ?? "",
+                    executeMode: "builtin",
+                    errorCode: "NOT_SUPPORTED",
+                    errorMessage: ex.Message));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ExecuteSkillForCoze 执行失败");
-                return StatusCode(500, new
-                {
-                    Success = false,
-                    Error = ex.Message,
-                    ResultText = "服务器内部错误"
-                });
+                return Ok(CozeSkillResponse.Fail(
+                    message: "服务器内部错误",
+                    skillCode: model?.SkillCode ?? "",
+                    executeMode: "unknown",
+                    errorCode: "INTERNAL_ERROR",
+                    errorMessage: ex.Message));
             }
         }
 
-        // 最简单的请求体
         public class CozeSimpleRequest
         {
             public string Json { get; set; } = "";
         }
 
+        private CozeSkillResponse BuildCozeSkillResponse(string skillCode, string executeMode, object rawResult)
+        {
+            // 1. builtin 结果：直接从 SkillResult 映射
+            if (rawResult is SkillResult skill)
+            {
+                var response = new CozeSkillResponse
+                {
+                    Success = skill.Success,
+                    Message = skill.Success ? "执行成功" : (string.IsNullOrWhiteSpace(skill.Error) ? "执行失败" : skill.Error),
+                    SkillCode = string.IsNullOrWhiteSpace(skill.SkillCode) ? skillCode : skill.SkillCode,
+                    ExecuteMode = executeMode,
+                    ResultType = skill.Type ?? "",
+                    ResultText = !string.IsNullOrWhiteSpace(skill.ResultText) ? skill.ResultText : (skill.Text ?? ""),
+                    ResultList = skill.ResultList ?? new List<string>(),
+                    ResultValue = skill.ResultValue ?? "",
+                    ResultData = skill.Data,
+                    ErrorCode = skill.Success ? "" : "SKILL_EXECUTION_FAILED",
+                    ErrorMessage = skill.Error ?? ""
+                };
+
+                // 尝试补 session / page
+                FillCozeExtraFields(response, skill.Data);
+                return response;
+            }
+
+            // 2. workflow / temp_workflow 结果：从 lastResult 扁平化
+            var responseWorkflow = new CozeSkillResponse
+            {
+                Success = TryGetBoolProperty(rawResult, "success"),
+                Message = TryGetStringProperty(rawResult, "msg", "执行完成"),
+                SkillCode = skillCode,
+                ExecuteMode = executeMode,
+                ResultType = "workflow",
+                ResultData = rawResult
+            };
+
+            if (!responseWorkflow.Success)
+            {
+                responseWorkflow.ErrorCode = "WORKFLOW_EXECUTION_FAILED";
+                responseWorkflow.ErrorMessage = responseWorkflow.Message;
+                responseWorkflow.ResultText = responseWorkflow.Message;
+                return responseWorkflow;
+            }
+
+            if (TryGetPropertyValue(rawResult, "lastResult", out var lastResultObj) && lastResultObj != null)
+            {
+                responseWorkflow.ResultText =
+                    TryGetStringProperty(lastResultObj, "ResultText",
+                    TryGetStringProperty(lastResultObj, "Text", responseWorkflow.Message));
+
+                responseWorkflow.ResultValue =
+                    TryGetStringProperty(lastResultObj, "ResultValue", "");
+
+                if (TryGetPropertyValue(lastResultObj, "ResultList", out var resultListObj) && resultListObj != null)
+                {
+                    responseWorkflow.ResultList = ConvertToStringList(resultListObj);
+                }
+
+                if (TryGetPropertyValue(lastResultObj, "Data", out var innerData) && innerData != null)
+                {
+                    if ((responseWorkflow.ResultList == null || responseWorkflow.ResultList.Count == 0))
+                    {
+                        if (TryGetPropertyValue(innerData, "list", out var innerList) && innerList != null)
+                        {
+                            responseWorkflow.ResultList = ConvertToStringList(innerList);
+                        }
+                        else if (TryGetPropertyValue(innerData, "paths", out var innerPaths) && innerPaths != null)
+                        {
+                            responseWorkflow.ResultList = ConvertToStringList(innerPaths);
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(responseWorkflow.ResultValue))
+                    {
+                        if (TryGetPropertyValue(innerData, "firstPath", out var firstPathObj) && firstPathObj != null)
+                        {
+                            responseWorkflow.ResultValue = ConvertObjectToString(firstPathObj);
+                        }
+                        else if (TryGetPropertyValue(innerData, "path", out var pathObj) && pathObj != null)
+                        {
+                            responseWorkflow.ResultValue = ConvertObjectToString(pathObj);
+                        }
+                        else if (TryGetPropertyValue(innerData, "result", out var resultObj) && resultObj != null &&
+                                 TryGetPropertyValue(resultObj, "path", out var nestedPathObj) && nestedPathObj != null)
+                        {
+                            responseWorkflow.ResultValue = ConvertObjectToString(nestedPathObj);
+                        }
+                    }
+
+                    FillCozeExtraFields(responseWorkflow, innerData);
+                }
+
+                if (string.IsNullOrWhiteSpace(responseWorkflow.ResultValue) &&
+                    responseWorkflow.ResultList != null && responseWorkflow.ResultList.Count > 0)
+                {
+                    responseWorkflow.ResultValue = responseWorkflow.ResultList[0];
+                }
+            }
+            else
+            {
+                responseWorkflow.ResultText = responseWorkflow.Message;
+            }
+
+            return responseWorkflow;
+        }
+
+
+        private void FillCozeExtraFields(CozeSkillResponse response, object? data)
+        {
+            if (data == null) return;
+
+            if (string.IsNullOrWhiteSpace(response.SessionId) &&
+                TryGetPropertyValue(data, "sessionId", out var sessionIdObj) && sessionIdObj != null)
+            {
+                response.SessionId = ConvertObjectToString(sessionIdObj);
+            }
+
+            if (response.Page == null &&
+                TryGetPropertyValue(data, "page", out var pageObj) && pageObj != null)
+            {
+                response.Page = ParseBrowserPageState(pageObj);
+            }
+
+            if (response.Session == null &&
+                TryGetPropertyValue(data, "session", out var sessionObj) && sessionObj != null)
+            {
+                response.Session = ParseBrowserSessionState(sessionObj);
+            }
+        }
+
+
+        private string TryGetStringProperty(object obj, string propertyName, string defaultValue = "")
+        {
+            if (TryGetPropertyValue(obj, propertyName, out var value) && value != null)
+                return ConvertObjectToString(value, defaultValue);
+            return defaultValue;
+        }
+
+        private bool TryGetBoolProperty(object obj, string propertyName, bool defaultValue = false)
+        {
+            if (TryGetPropertyValue(obj, propertyName, out var value) && value != null)
+            {
+                var text = ConvertObjectToString(value, defaultValue ? "true" : "false");
+                if (bool.TryParse(text, out var b))
+                    return b;
+            }
+            return defaultValue;
+        }
+
+
         #endregion
+
 
 
 
@@ -443,44 +616,26 @@ namespace TangYuan.Controllers
         }
 
 
-        //private string TryGetStringProperty(object obj, string propertyName, string defaultValue = "")
-        //{
-        //    if (TryGetPropertyValue(obj, propertyName, out var value) && value != null)
-        //        return ConvertObjectToString(value, defaultValue);
-        //    return defaultValue;
-        //}
+        private BrowserPageState? ParseBrowserPageState(object pageObj)
+        {
+            var state = new BrowserPageState();
+            if (TryGetPropertyValue(pageObj, "url", out var url)) state.Url = ConvertObjectToString(url);
+            if (TryGetPropertyValue(pageObj, "title", out var title)) state.Title = ConvertObjectToString(title);
+            return string.IsNullOrWhiteSpace(state.Url) && string.IsNullOrWhiteSpace(state.Title) ? null : state;
+        }
 
-        //private bool TryGetBoolProperty(object obj, string propertyName, bool defaultValue = false)
-        //{
-        //    if (TryGetPropertyValue(obj, propertyName, out var value) && value != null)
-        //    {
-        //        var text = ConvertObjectToString(value, defaultValue ? "true" : "false");
-        //        if (bool.TryParse(text, out var b))
-        //            return b;
-        //    }
-        //    return defaultValue;
-        //}
+        private BrowserSessionState? ParseBrowserSessionState(object sessionObj)
+        {
+            var state = new BrowserSessionState();
+            if (TryGetPropertyValue(sessionObj, "sessionId", out var sessionId)) state.SessionId = ConvertObjectToString(sessionId);
+            if (TryGetPropertyValue(sessionObj, "reusable", out var reusable)) state.Reusable = TryConvertBool(reusable);
+            if (TryGetPropertyValue(sessionObj, "keepAliveSuggested", out var keepAlive)) state.KeepAliveSuggested = TryConvertBool(keepAlive);
+            if (TryGetPropertyValue(sessionObj, "timeoutMinutes", out var timeout)) state.TimeoutMinutes = TryConvertInt(timeout);
+            if (TryGetPropertyValue(sessionObj, "followUpHint", out var hint)) state.FollowUpHint = ConvertObjectToString(hint);
+            return string.IsNullOrWhiteSpace(state.SessionId) && string.IsNullOrWhiteSpace(state.FollowUpHint) ? null : state;
+        }
 
-        //private BrowserPageState? ParseBrowserPageState(object pageObj)
-        //{
-        //    var state = new BrowserPageState();
-        //    if (TryGetPropertyValue(pageObj, "url", out var url)) state.Url = ConvertObjectToString(url);
-        //    if (TryGetPropertyValue(pageObj, "title", out var title)) state.Title = ConvertObjectToString(title);
-        //    return string.IsNullOrWhiteSpace(state.Url) && string.IsNullOrWhiteSpace(state.Title) ? null : state;
-        //}
 
-        //private BrowserSessionState? ParseBrowserSessionState(object sessionObj)
-        //{
-        //    var state = new BrowserSessionState();
-        //    if (TryGetPropertyValue(sessionObj, "sessionId", out var sessionId)) state.SessionId = ConvertObjectToString(sessionId);
-        //    if (TryGetPropertyValue(sessionObj, "reusable", out var reusable)) state.Reusable = TryConvertBool(reusable);
-        //    if (TryGetPropertyValue(sessionObj, "keepAliveSuggested", out var keepAlive)) state.KeepAliveSuggested = TryConvertBool(keepAlive);
-        //    if (TryGetPropertyValue(sessionObj, "timeoutMinutes", out var timeout)) state.TimeoutMinutes = TryConvertInt(timeout);
-        //    if (TryGetPropertyValue(sessionObj, "followUpHint", out var hint)) state.FollowUpHint = ConvertObjectToString(hint);
-        //    return string.IsNullOrWhiteSpace(state.SessionId) && string.IsNullOrWhiteSpace(state.FollowUpHint) ? null : state;
-        //}
-
-        
 
         #endregion
 
