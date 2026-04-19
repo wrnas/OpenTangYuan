@@ -146,7 +146,6 @@
         }
       }
     },
-
     {
       "skillCode": "email_task",
       "desc": "发送邮件，支持多个收件人和多个附件",
@@ -170,7 +169,7 @@
         }
       }
     },
-       {
+    {
       "skillCode": "screenshot_task",
       "desc": "全屏截图",
       "args": {},

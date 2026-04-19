@@ -122,19 +122,72 @@ namespace TangYuan.Controllers
             {
                 // 1. 数据库技能
                 var sql = "SELECT SkillCode, Remark AS AIDesc FROM Skills ORDER BY ID ASC";
-                var workflows = (await QueryAsync<dynamic>(sql)).ToList();               
+                var workflows = (await QueryAsync<dynamic>(sql)).ToList();
 
                 return Ok(ResponseHelper.Success(new
                 {
                     workflows
                 }));
-            }            
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取 AI 技能列表失败");
                 return StatusCode(500, ResponseHelper.Fail<object>("获取技能列表失败"));
             }
         }
+        #region 保留备用
+        [HttpPost("GetSkillListWithBuiltinForAI")]
+        public async Task<IActionResult> GetSkillListWithBuiltinForAI()
+        {
+            try
+            {
+                // 1. 数据库技能
+                var sql = "SELECT SkillCode, Remark AS AIDesc FROM Skills ORDER BY ID ASC";
+                var workflows = (await QueryAsync<dynamic>(sql)).ToList();
+
+                // 2. 内置原子技能（复用缓存）
+                JsonElement builtins = default;
+                try
+                {
+                    var filePath = Path.Combine(AppContext.BaseDirectory, "AiConfig", "skill-manifest.json");
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        lock (_cacheLock)
+                        {
+                            if (_cachedManifestDoc == null)
+                            {
+                                byte[] jsonBytes = System.IO.File.ReadAllBytes(filePath);
+                                _cachedManifestDoc = JsonDocument.Parse(jsonBytes);
+                            }
+                            // 克隆一份，避免外部修改
+                            builtins = _cachedManifestDoc.RootElement.Clone();
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("skill-manifest.json 不存在，builtins 将返回空对象");
+                        builtins = JsonDocument.Parse("{}").RootElement.Clone();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "读取 skill-manifest.json 失败，builtins 将返回空对象");
+                    builtins = JsonDocument.Parse("{}").RootElement.Clone();
+                }
+
+                return Ok(ResponseHelper.Success(new
+                {
+                    workflows,
+                    builtins
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "获取 AI 技能列表失败");
+                return StatusCode(500, ResponseHelper.Fail<object>("获取技能列表失败"));
+            }
+        }
+        #endregion
 
         /// <summary>
         /// 返回系统内置原子技能说明（manifest）
