@@ -96,7 +96,11 @@ namespace TangYuan.Tools
 
             try
             {
-                string savePath = $"D:\\screen_{DateTime.Now:yyyyMMddHHmmss}.png";
+                string baseDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshotImg");
+                if (!Directory.Exists(baseDir))
+                    Directory.CreateDirectory(baseDir);
+                string savePath = Path.Combine(baseDir, $"screen_{DateTime.Now:yyyyMMddHHmmss}.png");
+
                 int screenWidth = GetSystemMetrics(SM_CXSCREEN);
                 int screenHeight = GetSystemMetrics(SM_CYSCREEN);
 
@@ -122,7 +126,7 @@ namespace TangYuan.Tools
                         path = savePath,
                         fileName = Path.GetFileName(savePath)
                     }
-                };
+                }.WithValue(savePath);
             }
             catch (Exception ex)
             {
@@ -326,7 +330,7 @@ namespace TangYuan.Tools
                         missingAttachments = missingFiles,
                         attachmentAdded
                     }
-                };
+                }.Normalize();
             }
             catch (Exception ex)
             {

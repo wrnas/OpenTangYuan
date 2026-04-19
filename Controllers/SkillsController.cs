@@ -254,20 +254,14 @@ namespace TangYuan.Controllers
         #region 执行入口
 
         #region 兼容coze专用
+
+        #region 兼容coze专用
+
         [HttpPost("ExecuteSkillForCoze")]
         public async Task<IActionResult> ExecuteSkillForCoze([FromBody] CozeSimpleRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Json))
-            {
-                return Ok(CozeSkillResponse.Fail(
-                    message: "缺少请求 JSON",
-                    skillCode: "",
-                    executeMode: "unknown",
-                    errorCode: "INVALID_REQUEST",
-                    errorMessage: "Json 不能为空",
-                    needMoreInput: true,
-                    missingArgs: new List<string> { "Json" }));
-            }
+                return BadRequest("Json 不能为空");
 
             ExecSkillModel model;
             try
@@ -280,494 +274,238 @@ namespace TangYuan.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Coze JSON 解析失败");
-                return Ok(CozeSkillResponse.Fail(
-                    message: "请求 JSON 解析失败",
-                    skillCode: "",
-                    executeMode: "unknown",
-                    errorCode: "INVALID_JSON",
-                    errorMessage: ex.Message,
-                    needMoreInput: true,
-                    missingArgs: new List<string> { "Json" }));
+                return BadRequest("请求 JSON 解析失败：" + ex.Message);
             }
 
-            var response = await ExecuteSkillForCozeCoreAsync(model);
-            return Ok(response);
+            try
+            {
+                var (_, _, result) = await ExecuteSkillCoreAsync(model);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new
+                {
+                    Success = false,
+                    Error = ex.Message,
+                    ResultText = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new
+                {
+                    Success = false,
+                    Error = ex.Message,
+                    ResultText = ex.Message
+                });
+            }
+            catch (FileNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    Success = false,
+                    Error = ex.Message,
+                    ResultText = ex.Message
+                });
+            }
+            catch (NotSupportedException ex)
+            {
+                return BadRequest(new
+                {
+                    Success = false,
+                    Error = ex.Message,
+                    ResultText = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExecuteSkillForCoze 执行失败");
+                return StatusCode(500, new
+                {
+                    Success = false,
+                    Error = ex.Message,
+                    ResultText = "服务器内部错误"
+                });
+            }
         }
 
-        private async Task<CozeSkillResponse> ExecuteSkillForCozeCoreAsync(ExecSkillModel model)
+        // 最简单的请求体
+        public class CozeSimpleRequest
+        {
+            public string Json { get; set; } = "";
+        }
+
+        #endregion
+
+
+
+
+        private async Task<(string skillCode, string executeMode, object result)> ExecuteSkillCoreAsync(ExecSkillModel model)
         {
             if (model == null)
-            {
-                return CozeSkillResponse.Fail(
-                    message: "请求体不能为空",
-                    skillCode: "",
-                    executeMode: "unknown",
-                    errorCode: "INVALID_REQUEST",
-                    errorMessage: "请求体不能为空");
-            }
+                throw new ArgumentException("请求体不能为空");
 
             string code = model.SkillCode?.Trim() ?? "";
             var args = model.Arguments ?? new Dictionary<string, object>();
 
-            try
+            // 1. 临时 workflow
+            if (model.Steps != null && model.Steps.Count > 0)
             {
-                object rawResult;
-                string executeMode;
-
-                if (model.Steps != null && model.Steps.Count > 0)
-                {
-                    rawResult = await RunWorkflowAsync(model.Steps, args, code);
-                    executeMode = "temp_workflow";
-                }
-                else
-                {
-                    var skillJson = await QueryFirstOrDefaultAsync<string>(
-                        "SELECT SkillActions FROM Skills WHERE SkillCode = @SkillCode LIMIT 1",
-                        new { SkillCode = code });
-
-                    if (!string.IsNullOrWhiteSpace(skillJson))
-                    {
-                        List<SkillStep> steps;
-                        try
-                        {
-                            steps = JsonSerializer.Deserialize<List<SkillStep>>(skillJson) ?? new List<SkillStep>();
-                        }
-                        catch (JsonException ex)
-                        {
-                            _logger.LogError(ex, "SkillActions JSON 格式错误，SkillCode={SkillCode}", code);
-                            return CozeSkillResponse.Fail(
-                                message: "workflow 定义格式错误",
-                                skillCode: code,
-                                executeMode: "workflow",
-                                errorCode: "INVALID_WORKFLOW_JSON",
-                                errorMessage: ex.Message);
-                        }
-
-                        rawResult = await RunWorkflowAsync(steps, args, code);
-                        executeMode = "workflow";
-                    }
-                    else
-                    {
-                        if (string.IsNullOrWhiteSpace(code))
-                        {
-                            return CozeSkillResponse.Fail(
-                                message: "缺少 SkillCode",
-                                skillCode: "",
-                                executeMode: "unknown",
-                                errorCode: "MISSING_SKILL_CODE",
-                                errorMessage: "SkillCode 不能为空，或者请直接传 Steps",
-                                needMoreInput: true,
-                                missingArgs: new List<string> { "SkillCode" });
-                        }
-
-                        rawResult = await ExecuteSkillInternal(code, args);
-                        executeMode = "builtin";
-                    }
-                }
-
-                return await BuildCozeSkillResponseAsync(code, executeMode, rawResult);
-            }
-            catch (ArgumentException ex)
-            {
-                var missingArgs = TryInferMissingArgs(code, args, ex.Message);
-                bool needMoreInput = missingArgs.Count > 0;
-
-                return CozeSkillResponse.Fail(
-                    message: needMoreInput ? "缺少必要参数" : "参数错误",
-                    skillCode: code,
-                    executeMode: "builtin",
-                    errorCode: needMoreInput ? "MISSING_ARGUMENTS" : "INVALID_ARGUMENTS",
-                    errorMessage: ex.Message,
-                    needMoreInput: needMoreInput,
-                    missingArgs: missingArgs);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return CozeSkillResponse.Fail(
-                    message: "没有权限执行该技能",
-                    skillCode: code,
-                    executeMode: "builtin",
-                    errorCode: "FORBIDDEN",
-                    errorMessage: ex.Message);
-            }
-            catch (FileNotFoundException ex)
-            {
-                return CozeSkillResponse.Fail(
-                    message: "目标文件不存在",
-                    skillCode: code,
-                    executeMode: "builtin",
-                    errorCode: "FILE_NOT_FOUND",
-                    errorMessage: ex.Message);
-            }
-            catch (NotSupportedException ex)
-            {
-                return CozeSkillResponse.Fail(
-                    message: "不支持的技能或操作",
-                    skillCode: code,
-                    executeMode: "builtin",
-                    errorCode: "NOT_SUPPORTED",
-                    errorMessage: ex.Message);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "ExecuteSkillForCozeCoreAsync 执行失败，SkillCode={SkillCode}", code);
-                return CozeSkillResponse.Fail(
-                    message: "服务器内部错误",
-                    skillCode: code,
-                    executeMode: "unknown",
-                    errorCode: "INTERNAL_ERROR",
-                    errorMessage: ex.Message);
-            }
-        }
-
-        private async Task<CozeSkillResponse> BuildCozeSkillResponseAsync(string skillCode, string executeMode, object rawResult)
-        {
-            if (rawResult is SkillResult skill)
-            {
-                var response = new CozeSkillResponse
-                {
-                    Success = skill.Success,
-                    Message = skill.Success ? "执行成功" : (string.IsNullOrWhiteSpace(skill.Error) ? "执行失败" : skill.Error),
-                    SkillCode = string.IsNullOrWhiteSpace(skill.SkillCode) ? skillCode : skill.SkillCode,
-                    ExecuteMode = executeMode,
-                    ResultType = skill.Type ?? "",
-                    ResultText = !string.IsNullOrWhiteSpace(skill.ResultText) ? skill.ResultText : (skill.Text ?? ""),
-                    ResultList = skill.ResultList ?? new List<string>(),
-                    ResultValue = skill.ResultValue ?? "",
-                    ResultData = skill.Data,
-                    ErrorCode = skill.Success ? "" : "SKILL_EXECUTION_FAILED",
-                    ErrorMessage = skill.Error ?? ""
-                };
-
-                FillResultListAndSession(response, skill.Data);
-
-                // 兜底：如果 Data 里没有解析出来，就保留 SkillResult 自己的扁平字段
-                if ((response.ResultList == null || response.ResultList.Count == 0) &&
-                    skill.ResultList != null && skill.ResultList.Count > 0)
-                {
-                    response.ResultList = skill.ResultList;
-                }
-
-                if (string.IsNullOrWhiteSpace(response.ResultValue) &&
-                    !string.IsNullOrWhiteSpace(skill.ResultValue))
-                {
-                    response.ResultValue = skill.ResultValue;
-                }
-
-                if (string.IsNullOrWhiteSpace(response.ResultText) &&
-                    !string.IsNullOrWhiteSpace(skill.Text))
-                {
-                    response.ResultText = skill.Text;
-                }
-
-                return response;
+                _logger.LogInformation("开始执行临时 workflow，SkillCode={SkillCode}", code);
+                var result = await RunWorkflowAsync(model.Steps, args);
+                return (code, "temp_workflow", result);
             }
 
-            if (rawResult is WorkflowSkillResult workflow)
+            // 2. 数据库 workflow
+            var skillJson = await QueryFirstOrDefaultAsync<string>(
+                "SELECT SkillActions FROM Skills WHERE SkillCode = @SkillCode LIMIT 1",
+                new { SkillCode = code });
+
+            if (!string.IsNullOrWhiteSpace(skillJson))
             {
-                var response = new CozeSkillResponse
-                {
-                    Success = workflow.Success,
-                    Message = workflow.Success ? "执行成功" : (string.IsNullOrWhiteSpace(workflow.Error) ? "执行失败" : workflow.Error),
-                    SkillCode = string.IsNullOrWhiteSpace(workflow.SkillCode) ? skillCode : workflow.SkillCode,
-                    ExecuteMode = executeMode,
-                    ResultType = workflow.Type ?? "workflow",
-                    ResultText = workflow.Text ?? "",
-                    ResultData = workflow.Data,
-                    ErrorCode = workflow.Success ? "" : "WORKFLOW_EXECUTION_FAILED",
-                    ErrorMessage = workflow.Error ?? ""
-                };
-
-                FillResultListAndSession(response, workflow.Data);
-                return response;
-            }
-
-            return await Task.FromResult(new CozeSkillResponse
-            {
-                Success = true,
-                Message = "执行成功",
-                SkillCode = skillCode,
-                ExecuteMode = executeMode,
-                ResultType = "object",
-                ResultText = rawResult?.ToString() ?? "",
-                ResultData = rawResult
-            });
-        }
-
-
-        private void FillResultListAndSession(CozeSkillResponse response, object? data)
-        {
-            if (data == null) return;
-
-            // 1. 常见列表字段
-            if (TryGetPropertyValue(data, "list", out var listObj) && listObj != null)
-            {
-                response.ResultList = ConvertToStringList(listObj);
-            }
-            else if (TryGetPropertyValue(data, "paths", out var pathsObj) && pathsObj != null)
-            {
-                response.ResultList = ConvertToStringList(pathsObj);
-            }
-            else if (TryGetPropertyValue(data, "items", out var itemsObj) && itemsObj != null)
-            {
-                response.ResultList = ConvertToStringList(itemsObj);
-            }
-
-            // 2. 常见单值字段
-            if (TryGetPropertyValue(data, "firstPath", out var firstPathObj) && firstPathObj != null)
-            {
-                response.ResultValue = ConvertObjectToString(firstPathObj);
-            }
-            else if (TryGetPropertyValue(data, "path", out var pathObj) && pathObj != null)
-            {
-                response.ResultValue = ConvertObjectToString(pathObj);
-            }
-
-            // 3. 浏览器 session / page
-            if (TryGetPropertyValue(data, "sessionId", out var sessionIdObj) && sessionIdObj != null)
-            {
-                response.SessionId = ConvertObjectToString(sessionIdObj);
-            }
-
-            if (TryGetPropertyValue(data, "page", out var pageObj) && pageObj != null)
-            {
-                response.Page = ParseBrowserPageState(pageObj);
-            }
-
-            if (TryGetPropertyValue(data, "session", out var sessionObj) && sessionObj != null)
-            {
-                response.Session = ParseBrowserSessionState(sessionObj);
-            }
-
-            // 4. Data.result.path（典型如 browser_task screenshot）
-            if (TryGetPropertyValue(data, "result", out var resultObj) && resultObj != null)
-            {
-                if (string.IsNullOrWhiteSpace(response.ResultValue) &&
-                    TryGetPropertyValue(resultObj, "path", out var nestedPathObj) && nestedPathObj != null)
-                {
-                    response.ResultValue = ConvertObjectToString(nestedPathObj);
-                }
-            }
-
-            // 5. workflow 的 lastResult 继续兜底
-            if (TryGetPropertyValue(data, "lastResult", out var lastResultObj) && lastResultObj != null)
-            {
-                if (response.ResultData == null)
-                    response.ResultData = data;
-
-                if (TryGetPropertyValue(lastResultObj, "Data", out var innerData) && innerData != null)
-                {
-                    if (response.ResultList.Count == 0)
-                    {
-                        if (TryGetPropertyValue(innerData, "list", out var innerList) && innerList != null)
-                        {
-                            response.ResultList = ConvertToStringList(innerList);
-                        }
-                        else if (TryGetPropertyValue(innerData, "paths", out var innerPaths) && innerPaths != null)
-                        {
-                            response.ResultList = ConvertToStringList(innerPaths);
-                        }
-                        else if (TryGetPropertyValue(innerData, "items", out var innerItems) && innerItems != null)
-                        {
-                            response.ResultList = ConvertToStringList(innerItems);
-                        }
-                    }
-
-                    if (string.IsNullOrWhiteSpace(response.ResultValue))
-                    {
-                        if (TryGetPropertyValue(innerData, "firstPath", out var innerFirstPath) && innerFirstPath != null)
-                        {
-                            response.ResultValue = ConvertObjectToString(innerFirstPath);
-                        }
-                        else if (TryGetPropertyValue(innerData, "path", out var innerPath) && innerPath != null)
-                        {
-                            response.ResultValue = ConvertObjectToString(innerPath);
-                        }
-                        else if (TryGetPropertyValue(innerData, "result", out var innerResult) && innerResult != null &&
-                                 TryGetPropertyValue(innerResult, "path", out var innerNestedPath) && innerNestedPath != null)
-                        {
-                            response.ResultValue = ConvertObjectToString(innerNestedPath);
-                        }
-                    }
-                }
-            }
-        }
-
-
-        private BrowserPageState? ParseBrowserPageState(object pageObj)
-        {
-            var state = new BrowserPageState();
-            if (TryGetPropertyValue(pageObj, "url", out var url)) state.Url = ConvertObjectToString(url);
-            if (TryGetPropertyValue(pageObj, "title", out var title)) state.Title = ConvertObjectToString(title);
-            return string.IsNullOrWhiteSpace(state.Url) && string.IsNullOrWhiteSpace(state.Title) ? null : state;
-        }
-
-        private BrowserSessionState? ParseBrowserSessionState(object sessionObj)
-        {
-            var state = new BrowserSessionState();
-            if (TryGetPropertyValue(sessionObj, "sessionId", out var sessionId)) state.SessionId = ConvertObjectToString(sessionId);
-            if (TryGetPropertyValue(sessionObj, "reusable", out var reusable)) state.Reusable = TryConvertBool(reusable);
-            if (TryGetPropertyValue(sessionObj, "keepAliveSuggested", out var keepAlive)) state.KeepAliveSuggested = TryConvertBool(keepAlive);
-            if (TryGetPropertyValue(sessionObj, "timeoutMinutes", out var timeout)) state.TimeoutMinutes = TryConvertInt(timeout);
-            if (TryGetPropertyValue(sessionObj, "followUpHint", out var hint)) state.FollowUpHint = ConvertObjectToString(hint);
-            return string.IsNullOrWhiteSpace(state.SessionId) && string.IsNullOrWhiteSpace(state.FollowUpHint) ? null : state;
-        }
-
-        private async Task<WorkflowSkillResult> RunWorkflowAsync(List<SkillStep>? steps, Dictionary<string, object>? input, string workflowCode)
-        {
-            var safeSteps = steps ?? new List<SkillStep>();
-            var context = input != null
-                ? new Dictionary<string, object>(input, StringComparer.OrdinalIgnoreCase)
-                : new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-
-            bool debug = false;
-            if (input != null && input.TryGetValue("debug", out var debugObj))
-            {
-                debug = bool.TryParse(ConvertObjectToString(debugObj, "false"), out var dbg) && dbg;
-            }
-
-            var log = new List<object>();
-            object? lastResult = null;
-
-            if (safeSteps.Count == 0)
-            {
-                return new WorkflowSkillResult
-                {
-                    Success = true,
-                    SkillCode = workflowCode,
-                    Type = "workflow",
-                    Text = "workflow 没有可执行步骤",
-                    Data = new
-                    {
-                        totalSteps = 0,
-                        completedSteps = 0,
-                        lastResult = (object?)null,
-                        log = debug ? log : null
-                    }
-                };
-            }
-
-            for (int i = 0; i < safeSteps.Count; i++)
-            {
-                var step = safeSteps[i];
-                var action = step?.Action?.Trim() ?? "";
-                var stepArgs = step?.Args ?? new Dictionary<string, object>();
-
-                if (string.IsNullOrWhiteSpace(action))
-                {
-                    return new WorkflowSkillResult
-                    {
-                        Success = false,
-                        SkillCode = workflowCode,
-                        Type = "workflow",
-                        Text = "workflow 执行失败",
-                        Error = "步骤 Action 不能为空",
-                        Data = new
-                        {
-                            failedAt = i,
-                            failedStep = "",
-                            totalSteps = safeSteps.Count,
-                            completedSteps = i,
-                            lastResult,
-                            log = debug ? log : null
-                        }
-                    };
-                }
-
-                Dictionary<string, object> resolvedArgs;
+                List<SkillStep> steps;
                 try
                 {
-                    resolvedArgs = ResolveTemplateVariables(stepArgs, context);
+                    steps = JsonSerializer.Deserialize<List<SkillStep>>(skillJson) ?? new List<SkillStep>();
                 }
-                catch (Exception ex)
+                catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "步骤参数模板解析失败，StepIndex={StepIndex}，Action={Action}", i, action);
-                    return new WorkflowSkillResult
-                    {
-                        Success = false,
-                        SkillCode = workflowCode,
-                        Type = "workflow",
-                        Text = "workflow 执行失败",
-                        Error = "参数模板解析失败：" + ex.Message,
-                        Data = new
-                        {
-                            failedAt = i,
-                            failedStep = action,
-                            totalSteps = safeSteps.Count,
-                            completedSteps = i,
-                            lastResult,
-                            log = debug ? log : null
-                        }
-                    };
+                    _logger.LogError(ex, "SkillActions JSON 格式错误，SkillCode={SkillCode}", code);
+                    throw new ArgumentException("SkillActions JSON 格式错误");
                 }
 
-                try
-                {
-                    var result = await ExecuteSkillInternal(action, resolvedArgs);
-                    context[$"step{i}"] = result!;
-                    lastResult = result;
-
-                    if (debug)
-                    {
-                        log.Add(new
-                        {
-                            stepIndex = i,
-                            step = action,
-                            success = true,
-                            args = resolvedArgs
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "workflow 步骤执行失败，StepIndex={StepIndex}，Action={Action}", i, action);
-                    return new WorkflowSkillResult
-                    {
-                        Success = false,
-                        SkillCode = workflowCode,
-                        Type = "workflow",
-                        Text = "workflow 执行失败",
-                        Error = ex.Message,
-                        Data = new
-                        {
-                            failedAt = i,
-                            failedStep = action,
-                            totalSteps = safeSteps.Count,
-                            completedSteps = i,
-                            lastResult,
-                            log = debug ? log : null
-                        }
-                    };
-                }
+                _logger.LogInformation("开始执行 workflow 技能，SkillCode={SkillCode}", code);
+                var result = await RunWorkflowAsync(steps, args);
+                return (code, "workflow", result);
             }
 
-            var workflowText = ExtractReadableText(lastResult) ?? "workflow 执行完成";
+            // 3. builtin
+            if (string.IsNullOrWhiteSpace(code))
+                throw new ArgumentException("SkillCode 不能为空，或者请直接传 Steps");
 
-            return new WorkflowSkillResult
-            {
-                Success = true,
-                SkillCode = workflowCode,
-                Type = "workflow",
-                Text = workflowText,
-                Data = new
-                {
-                    totalSteps = safeSteps.Count,
-                    completedSteps = safeSteps.Count,
-                    lastResult,
-                    log = debug ? log : null
-                }
-            };
+            _logger.LogInformation("开始执行 builtin 技能，SkillCode={SkillCode}", code);
+            var builtinResult = await ExecuteSkillInternal(code, args);
+            return (code, "builtin", builtinResult);
         }
 
-        private string? ExtractReadableText(object? result)
-        {
-            if (result == null) return null;
-            if (result is SkillResult sr) return sr.Text;
-            if (TryGetPropertyValue(result, "Text", out var textObj)) return ConvertObjectToString(textObj);
-            return result.ToString();
-        }
+
+        //private string TryGetStringProperty(object obj, string propertyName, string defaultValue = "")
+        //{
+        //    if (TryGetPropertyValue(obj, propertyName, out var value) && value != null)
+        //        return ConvertObjectToString(value, defaultValue);
+        //    return defaultValue;
+        //}
+
+        //private bool TryGetBoolProperty(object obj, string propertyName, bool defaultValue = false)
+        //{
+        //    if (TryGetPropertyValue(obj, propertyName, out var value) && value != null)
+        //    {
+        //        var text = ConvertObjectToString(value, defaultValue ? "true" : "false");
+        //        if (bool.TryParse(text, out var b))
+        //            return b;
+        //    }
+        //    return defaultValue;
+        //}
+
+        //private BrowserPageState? ParseBrowserPageState(object pageObj)
+        //{
+        //    var state = new BrowserPageState();
+        //    if (TryGetPropertyValue(pageObj, "url", out var url)) state.Url = ConvertObjectToString(url);
+        //    if (TryGetPropertyValue(pageObj, "title", out var title)) state.Title = ConvertObjectToString(title);
+        //    return string.IsNullOrWhiteSpace(state.Url) && string.IsNullOrWhiteSpace(state.Title) ? null : state;
+        //}
+
+        //private BrowserSessionState? ParseBrowserSessionState(object sessionObj)
+        //{
+        //    var state = new BrowserSessionState();
+        //    if (TryGetPropertyValue(sessionObj, "sessionId", out var sessionId)) state.SessionId = ConvertObjectToString(sessionId);
+        //    if (TryGetPropertyValue(sessionObj, "reusable", out var reusable)) state.Reusable = TryConvertBool(reusable);
+        //    if (TryGetPropertyValue(sessionObj, "keepAliveSuggested", out var keepAlive)) state.KeepAliveSuggested = TryConvertBool(keepAlive);
+        //    if (TryGetPropertyValue(sessionObj, "timeoutMinutes", out var timeout)) state.TimeoutMinutes = TryConvertInt(timeout);
+        //    if (TryGetPropertyValue(sessionObj, "followUpHint", out var hint)) state.FollowUpHint = ConvertObjectToString(hint);
+        //    return string.IsNullOrWhiteSpace(state.SessionId) && string.IsNullOrWhiteSpace(state.FollowUpHint) ? null : state;
+        //}
 
         
+
+        #endregion
+
+
+        #region 转换工具
+
+        private List<string> ConvertToStringList(object value)
+        {
+            if (value == null) return new List<string>();
+            if (value is List<string> list) return list;
+            if (value is string s) return new List<string> { s };
+            if (value is JsonElement je)
+            {
+                if (je.ValueKind == JsonValueKind.Array)
+                    return je.EnumerateArray().Select(x => x.ToString()).ToList();
+                return new List<string> { je.ToString() };
+            }
+            if (value is System.Collections.IEnumerable enumerable)
+            {
+                var result = new List<string>();
+                foreach (var item in enumerable)
+                {
+                    if (item != null) result.Add(item.ToString() ?? "");
+                }
+                return result;
+            }
+            return new List<string> { value.ToString() ?? "" };
+        }
+
+
+
+        private bool TryConvertBool(object? value)
+        {
+            return bool.TryParse(ConvertObjectToString(value), out var b) && b;
+        }
+
+        private int TryConvertInt(object? value)
+        {
+            return int.TryParse(ConvertObjectToString(value), out var i) ? i : 0;
+        }
+
+        private bool TryGetPropertyValue(object obj, string propertyName, out object? value)
+        {
+            value = null;
+            if (obj == null) return false;
+
+            if (obj is JsonElement je)
+            {
+                if (je.ValueKind == JsonValueKind.Object)
+                {
+                    if (je.TryGetProperty(propertyName, out var child))
+                    {
+                        value = child;
+                        return true;
+                    }
+                    // 这里重命名为 jsonProp
+                    foreach (var jsonProp in je.EnumerateObject())
+                    {
+                        if (string.Equals(jsonProp.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            value = jsonProp.Value;
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            // 这里保留 prop 或重命名为 property 都可以
+            var prop = obj.GetType().GetProperty(propertyName,
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.IgnoreCase);
+            if (prop == null) return false;
+            value = prop.GetValue(obj);
+            return true;
+        }
+
         private List<string> TryInferMissingArgs(string skillCode, Dictionary<string, object>? args, string errorMessage)
         {
             var safeArgs = args ?? new Dictionary<string, object>();
@@ -861,89 +599,8 @@ namespace TangYuan.Controllers
 
             return missing.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
-        
-
-        private List<string> ConvertToStringList(object value)
-        {
-            if (value == null) return new List<string>();
-            if (value is List<string> list) return list;
-            if (value is string s) return new List<string> { s };
-            if (value is JsonElement je)
-            {
-                if (je.ValueKind == JsonValueKind.Array)
-                    return je.EnumerateArray().Select(x => x.ToString()).ToList();
-                return new List<string> { je.ToString() };
-            }
-            if (value is System.Collections.IEnumerable enumerable)
-            {
-                var result = new List<string>();
-                foreach (var item in enumerable)
-                {
-                    if (item != null) result.Add(item.ToString() ?? "");
-                }
-                return result;
-            }
-            return new List<string> { value.ToString() ?? "" };
-        }
-
-        private bool TryGetPropertyValue(object obj, string propertyName, out object? value)
-        {
-            value = null;
-            if (obj == null) return false;
-
-            if (obj is JsonElement je)
-            {
-                if (je.ValueKind == JsonValueKind.Object)
-                {
-                    if (je.TryGetProperty(propertyName, out var child))
-                    {
-                        value = child;
-                        return true;
-                    }
-                    // 这里重命名为 jsonProp
-                    foreach (var jsonProp in je.EnumerateObject())
-                    {
-                        if (string.Equals(jsonProp.Name, propertyName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            value = jsonProp.Value;
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            }
-
-            // 这里保留 prop 或重命名为 property 都可以
-            var prop = obj.GetType().GetProperty(propertyName,
-                System.Reflection.BindingFlags.Public |
-                System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.IgnoreCase);
-            if (prop == null) return false;
-            value = prop.GetValue(obj);
-            return true;
-        }
-
-
-
-        private bool TryConvertBool(object? value)
-        {
-            return bool.TryParse(ConvertObjectToString(value), out var b) && b;
-        }
-
-        private int TryConvertInt(object? value)
-        {
-            return int.TryParse(ConvertObjectToString(value), out var i) ? i : 0;
-        }
-
-        
-
-        // 最简单的请求体
-        public class CozeSimpleRequest
-        {
-            public string Json { get; set; } = "";
-        }
-
         #endregion
+
 
 
 
@@ -957,90 +614,50 @@ namespace TangYuan.Controllers
         /// 3. 如果有，则按数据库 workflow 执行
         /// 4. 如果没有，则按内置原子技能执行
         /// </summary>
-        [HttpPost("ExecuteSkill")]        
+        [HttpPost("ExecuteSkill")]
         public async Task<IActionResult> ExecuteSkill([FromBody] ExecSkillModel model)
         {
             if (model == null)
                 return BadRequest(ResponseHelper.Fail<object>("请求体不能为空"));
 
-            string code = model.SkillCode?.Trim() ?? "";
-            var args = model.Arguments ?? new Dictionary<string, object>();
-
             try
             {
-                object result;
-                string executeMode;
-
-                // 1. 优先执行请求中直接传入的临时 workflow
-                if (model.Steps != null && model.Steps.Count > 0)
-                {
-                    _logger.LogInformation("开始执行临时 workflow，SkillCode={SkillCode}", code);
-                    result = await RunWorkflowAsync(model.Steps, args);
-                    executeMode = "temp_workflow";
-                }
-                else
-                {
-                    // 2. 再尝试读取数据库中的 workflow 技能定义
-                    var skillJson = await QueryFirstOrDefaultAsync<string>(
-                        "SELECT SkillActions FROM Skills WHERE SkillCode = @SkillCode LIMIT 1",
-                        new { SkillCode = code });
-
-                    if (!string.IsNullOrWhiteSpace(skillJson))
-                    {
-                        List<SkillStep> steps;
-                        try
-                        {
-                            steps = JsonSerializer.Deserialize<List<SkillStep>>(skillJson) ?? new List<SkillStep>();
-                        }
-                        catch (JsonException ex)
-                        {
-                            _logger.LogError(ex, "SkillActions JSON 格式错误，SkillCode={SkillCode}", code);
-                            return StatusCode(500, ResponseHelper.Fail<object>("SkillActions JSON 格式错误"));
-                        }
-
-                        _logger.LogInformation("开始执行 workflow 技能，SkillCode={SkillCode}", code);
-                        result = await RunWorkflowAsync(steps, args);
-                        executeMode = "workflow";
-                    }
-                    else
-                    {
-                        if (string.IsNullOrWhiteSpace(code))
-                            return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空，或者请直接传 Steps"));
-
-                        _logger.LogInformation("开始执行 builtin 技能，SkillCode={SkillCode}", code);
-                        result = await ExecuteSkillInternal(code, args);
-                        executeMode = "builtin";
-                    }
-                }
-
+                var (skillCode, executeMode, result) = await ExecuteSkillCoreAsync(model);
+                
                 return Ok(ResponseHelper.Success(new
                 {
-                    skillCode = code,
-                    executeMode, // temp_workflow / workflow / builtin
+                    skillCode,
+                    executeMode,
                     result
                 }));
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning(ex, "安全限制，SkillCode={SkillCode}，Message={Message}", code, ex.Message);
+                _logger.LogWarning(ex, "安全限制，Message={Message}", ex.Message);
                 return StatusCode(403, ResponseHelper.Fail<object>(ex.Message));
             }
             catch (FileNotFoundException ex)
             {
-                _logger.LogWarning(ex, "文件不存在，SkillCode={SkillCode}，Message={Message}", code, ex.Message);
+                _logger.LogWarning(ex, "文件不存在，Message={Message}", ex.Message);
                 return NotFound(ResponseHelper.Fail<object>(ex.Message));
             }
             catch (NotSupportedException ex)
             {
-                _logger.LogWarning(ex, "不支持的技能，SkillCode={SkillCode}，Message={Message}", code, ex.Message);
+                _logger.LogWarning(ex, "不支持的技能，Message={Message}", ex.Message);
+                return BadRequest(ResponseHelper.Fail<object>(ex.Message));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "参数错误，Message={Message}", ex.Message);
                 return BadRequest(ResponseHelper.Fail<object>(ex.Message));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "执行技能异常，SkillCode={SkillCode}", code);
+                _logger.LogError(ex, "执行技能异常");
                 return StatusCode(500, ResponseHelper.Fail<object>("服务器内部错误"));
             }
         }
+
 
 
 
@@ -1421,8 +1038,15 @@ namespace TangYuan.Controllers
                 }
 
                 // 4. 替换模板变量
-                //    例如：{{step0.data.path}}
+                // 先替换 {{ ... }}
                 var replaced = Regex.Replace(rawText, @"\{\{\s*([^}]+?)\s*\}\}", match =>
+                {
+                    var expr = match.Groups[1].Value.Trim();
+                    return ResolveTemplateExpression(expr, context);
+                });
+
+                // 再兼容 ${ ... }
+                replaced = Regex.Replace(replaced, @"\$\{\s*([^}]+?)\s*\}", match =>
                 {
                     var expr = match.Groups[1].Value.Trim();
                     return ResolveTemplateExpression(expr, context);
@@ -1736,7 +1360,7 @@ namespace TangYuan.Controllers
                                 atUsers
                             },
                             Error = result.StartsWith("成功") ? "" : result
-                        };
+                        }.Normalize();
                     }
 
                 case "markdown":
@@ -1759,7 +1383,7 @@ namespace TangYuan.Controllers
                                 content
                             },
                             Error = result.StartsWith("成功") ? "" : result
-                        };
+                        }.Normalize();
                     }
 
                 case "card":
@@ -1793,7 +1417,7 @@ namespace TangYuan.Controllers
                                 picUrl
                             },
                             Error = result.StartsWith("成功") ? "" : result
-                        };
+                        }.Normalize();
                     }
 
                 default:
@@ -2072,7 +1696,7 @@ namespace TangYuan.Controllers
                     error = string.IsNullOrWhiteSpace(error) ? "" : error
                 },
                 Error = process.ExitCode == 0 ? "" : error
-            };
+            }.Normalize();
         }
 
 
@@ -2129,7 +1753,7 @@ namespace TangYuan.Controllers
                         count = 0
                     },
                     Error = "未找到文件"
-                };
+                }.Normalize();
             }
 
             var firstPath = resultList.FirstOrDefault() ?? "";
@@ -2151,7 +1775,7 @@ namespace TangYuan.Controllers
                     paths = resultList,
                     count = resultList.Count
                 }
-            };
+            }.WithList(resultList);
         }
 
 
@@ -2398,7 +2022,7 @@ namespace TangYuan.Controllers
                     from = source,
                     to = target
                 }
-            };
+            }.Normalize();
         }
 
 
@@ -2430,7 +2054,7 @@ namespace TangYuan.Controllers
                     from = source,
                     to = target
                 }
-            };
+            }.Normalize();
         }
 
         private async Task<SkillResult> RenameAsync(string path, string newName)
@@ -2469,7 +2093,7 @@ namespace TangYuan.Controllers
                     from = source,
                     to = target
                 }
-            };
+            }.Normalize();
         }
 
 
@@ -2488,7 +2112,7 @@ namespace TangYuan.Controllers
                 {
                     path = fullPath
                 }
-            };
+            }.WithValue(fullPath);
         }
 
         #region 批量文件操作
@@ -2557,7 +2181,7 @@ namespace TangYuan.Controllers
                     failed
                 },
                 Error = successCount > 0 ? "" : "没有文件复制成功"
-            };
+            }.Normalize();
         }
 
         private async Task<SkillResult> MoveManyAsync(Dictionary<string, object> args)
@@ -2633,7 +2257,7 @@ namespace TangYuan.Controllers
                     failed
                 },
                 Error = successCount > 0 ? "" : "没有文件移动成功"
-            };
+            }.Normalize();
         }
 
         #endregion

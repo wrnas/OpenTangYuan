@@ -170,10 +170,7 @@
         }
       }
     },
-
-
-
-    {
+       {
       "skillCode": "screenshot_task",
       "desc": "全屏截图",
       "args": {},
