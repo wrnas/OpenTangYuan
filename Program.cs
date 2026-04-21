@@ -22,9 +22,10 @@ namespace TangYuan
     {
         public static void Main(string[] args)
         {
-            var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
+            
             try
             {
+                var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
                 logger.Debug("初始化应用程序");
 
                 var builder = WebApplication.CreateBuilder(args);
@@ -39,7 +40,7 @@ namespace TangYuan
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "应用程序启动失败");
+                //logger.Error(ex, "应用程序启动失败");
                 throw;
             }
             finally

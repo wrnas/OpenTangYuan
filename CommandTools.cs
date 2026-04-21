@@ -159,6 +159,19 @@ namespace TangYuan.Tools
         {
             try
             {
+                // ========== 读取配置 ==========
+                var config = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+                    .Build();
+
+                var emailSection = config.GetSection("EmailSettings");
+                string smtpServer = emailSection["SmtpServer"] ?? throw new Exception("配置缺失: SmtpServer");
+                int smtpPort = int.Parse(emailSection["SmtpPort"] ?? "465");
+                string senderEmail = emailSection["SenderEmail"] ?? throw new Exception("配置缺失: SenderEmail");
+                string senderPassword = emailSection["SenderPassword"] ?? throw new Exception("配置缺失: SenderPassword");
+
+                // ========== 原有辅助方法（不变） ==========
                 string GetValue(string key, string defaultValue = "")
                 {
                     if (args == null || !args.TryGetValue(key, out var value) || value == null)
@@ -193,16 +206,13 @@ namespace TangYuan.Tools
                                         result.Add(text);
                                 }
                             }
-
                             return result;
                         }
-
                         if (je.ValueKind == JsonValueKind.String)
                         {
                             var text = je.GetString()?.Trim();
                             if (!string.IsNullOrWhiteSpace(text))
                                 result.Add(text);
-
                             return result;
                         }
                     }
@@ -211,7 +221,6 @@ namespace TangYuan.Tools
                     {
                         if (!string.IsNullOrWhiteSpace(s))
                             result.Add(s.Trim());
-
                         return result;
                     }
 
@@ -223,7 +232,6 @@ namespace TangYuan.Tools
                             if (!string.IsNullOrWhiteSpace(text))
                                 result.Add(text);
                         }
-
                         return result;
                     }
 
@@ -243,52 +251,38 @@ namespace TangYuan.Tools
                         .ToList();
                 }
 
+                // ========== 业务逻辑（使用配置中的发件人） ==========
                 string toRaw = GetValue("to");
                 string subject = GetValue("subject", "系统邮件");
-
-                // 兼容 body / content
                 string body = GetValue("body");
                 if (string.IsNullOrWhiteSpace(body))
                     body = GetValue("content", "");
 
-                // 收件人支持：单个 / 多个（逗号、分号分隔）
                 var toList = SplitEmails(toRaw);
                 if (toList.Count == 0)
                     throw new ArgumentException("收件人邮箱不能为空");
 
-                // 附件支持：attachment / attachments
                 var attachmentList = new List<string>();
-
                 string singleAttachment = GetValue("attachment");
                 if (!string.IsNullOrWhiteSpace(singleAttachment))
                     attachmentList.Add(singleAttachment);
 
                 var attachments = GetStringList("attachments");
                 foreach (var item in attachments)
-                {
                     if (!string.IsNullOrWhiteSpace(item))
                         attachmentList.Add(item);
-                }
 
-                attachmentList = attachmentList
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                attachmentList = attachmentList.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
                 var message = new MimeMessage();
-                message.From.Add(new MailboxAddress("系统助手", "l00f@163.com"));
+                message.From.Add(new MailboxAddress("系统助手", senderEmail));   // ✅ 从配置读取
 
                 foreach (var email in toList)
-                {
                     message.To.Add(MailboxAddress.Parse(email));
-                }
 
                 message.Subject = subject;
 
-                var builder = new BodyBuilder
-                {
-                    TextBody = body
-                };
-
+                var builder = new BodyBuilder { TextBody = body };
                 var attachedFiles = new List<string>();
                 var missingFiles = new List<string>();
 
@@ -305,16 +299,15 @@ namespace TangYuan.Tools
                     }
                 }
 
-                bool attachmentAdded = attachedFiles.Count > 0;
-
                 message.Body = builder.ToMessageBody();
 
                 using var client = new MailKit.Net.Smtp.SmtpClient();
-                await client.ConnectAsync("smtp.163.com", 465, MailKit.Security.SecureSocketOptions.SslOnConnect);
-                await client.AuthenticateAsync("l00f@163.com", "KYfLX3B7tj8tGE6A");
+                await client.ConnectAsync(smtpServer, smtpPort, MailKit.Security.SecureSocketOptions.SslOnConnect);
+                await client.AuthenticateAsync(senderEmail, senderPassword);    // ✅ 从配置读取
                 await client.SendAsync(message);
                 await client.DisconnectAsync(true);
 
+                bool attachmentAdded = attachedFiles.Count > 0;
                 return new SkillResult
                 {
                     Success = true,
