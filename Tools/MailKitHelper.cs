@@ -11,6 +11,9 @@ using MailKit.Net.Smtp;
 using MailKit.Search;
 using Microsoft.Extensions.Configuration;
 using MimeKit;
+using MailKit.Security;
+using System.Text;
+
 
 /// <summary>
 /// MailKit 邮件通用操作封装（静态类，从 appsettings.json 读取配置）
@@ -34,7 +37,7 @@ public static class MailKitHelper
                     if (_configuration == null)
                     {
                         _configuration = new ConfigurationBuilder()
-                            .SetBasePath(Directory.GetCurrentDirectory())
+                            .SetBasePath(AppContext.BaseDirectory)
                             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
                             .Build();
                     }
@@ -171,16 +174,20 @@ public static class MailKitHelper
     ///   - embeddedImages: 内嵌图片字典，键为 cid，值为本地图片路径（可选，提供此键则自动使用HTML模式）
     ///   - htmlBody: 当使用内嵌图片时，HTML正文（可选，若未提供则使用 body）
     /// </param>
+    /// <summary>
+    /// 发送邮件（支持纯文本、HTML、普通附件、内嵌图片）
+    /// 兼容两种模式：
+    /// 1. 传统模式：embeddedImages + htmlBody
+    /// 2. AI友好模式：insertImagePaths 自动插入正文
+    /// </summary>
     public static async Task<object> SendEmailAsync(Dictionary<string, object> args)
     {
-        // 读取配置
         string smtpServer = GetEmailSetting("SmtpServer");
         int smtpPort = GetEmailSettingInt("SmtpPort");
         bool smtpUseSsl = GetEmailSettingBool("SmtpUseSsl");
         string senderEmail = GetEmailSetting("SenderEmail");
         string senderPassword = GetEmailSetting("SenderPassword");
 
-        // 解析基础参数
         string toRaw = GetString(args, "to");
         string subject = GetString(args, "subject", "系统邮件");
         if (string.IsNullOrWhiteSpace(toRaw))
@@ -190,18 +197,23 @@ public static class MailKitHelper
         var ccList = SplitEmails(GetString(args, "cc"));
         var bccList = SplitEmails(GetString(args, "bcc"));
 
-        // 附件列表
         var attachmentList = new List<string>();
         string singleAttachment = GetString(args, "attachment");
         if (!string.IsNullOrWhiteSpace(singleAttachment))
             attachmentList.Add(singleAttachment);
         attachmentList.AddRange(GetStringList(args, "attachments"));
-        attachmentList = attachmentList.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        attachmentList = attachmentList
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        // 检测是否需要内嵌图片
+        var insertImagePaths = GetStringList(args, "insertImagePaths")
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         bool hasEmbeddedImages = args.TryGetValue("embeddedImages", out var embValue) && embValue != null;
 
-        // 构建邮件
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress("", senderEmail));
         foreach (var email in toList) message.To.Add(MailboxAddress.Parse(email));
@@ -213,7 +225,6 @@ public static class MailKitHelper
         var attachedFiles = new List<string>();
         var missingFiles = new List<string>();
 
-        // 添加普通附件
         foreach (var file in attachmentList)
         {
             if (File.Exists(file))
@@ -227,60 +238,91 @@ public static class MailKitHelper
             }
         }
 
+        // 方案 A：兼容旧版 embeddedImages
         if (hasEmbeddedImages)
         {
-            // 解析内嵌图片字典
-            var embeddedImages = new Dictionary<string, string>();
+            var embeddedImages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
             if (embValue is Dictionary<string, string> dict)
+            {
                 embeddedImages = dict;
+            }
             else if (embValue is JsonElement je && je.ValueKind == JsonValueKind.Object)
             {
                 foreach (var prop in je.EnumerateObject())
                 {
-                    string path = prop.Value.GetString();
-                    if (!string.IsNullOrEmpty(path))
+                    string path = prop.Value.GetString() ?? "";
+                    if (!string.IsNullOrWhiteSpace(path))
                         embeddedImages[prop.Name] = path;
                 }
             }
 
-            // 添加内嵌图片资源
-            foreach (var (cid, imagePath) in embeddedImages)
+            foreach (var kv in embeddedImages)
             {
-                if (File.Exists(imagePath))
-                {
-                    var image = builder.LinkedResources.Add(imagePath);
-                    image.ContentId = cid;
-                }
-                else
-                {
+                var cid = kv.Key;
+                var imagePath = kv.Value;
+
+                if (!File.Exists(imagePath))
                     throw new FileNotFoundException($"内嵌图片不存在: {imagePath}");
-                }
+
+                var image = builder.LinkedResources.Add(imagePath);
+                image.ContentId = cid;
             }
 
-            // 获取 HTML 正文：优先 htmlBody，否则使用 body
             string htmlBody = GetString(args, "htmlBody");
-            if (string.IsNullOrEmpty(htmlBody))
+            if (string.IsNullOrWhiteSpace(htmlBody))
                 htmlBody = GetString(args, "body", "");
-            if (string.IsNullOrEmpty(htmlBody))
+
+            if (string.IsNullOrWhiteSpace(htmlBody))
                 throw new ArgumentException("使用内嵌图片时必须提供 htmlBody 或 body 作为 HTML 内容");
+
             builder.HtmlBody = htmlBody;
         }
         else
         {
-            // 普通模式：根据 isBodyHtml 决定
+            // 方案 B：AI友好模式 insertImagePaths
             bool isBodyHtml = GetBool(args, "isBodyHtml", true);
             string body = GetString(args, "body", "");
-            if (isBodyHtml)
-                builder.HtmlBody = body;
+
+            if (insertImagePaths.Count > 0)
+            {
+                var sb = new StringBuilder();
+                if (isBodyHtml)
+                {
+                    sb.Append(string.IsNullOrWhiteSpace(body) ? "" : body);
+                }
+                else
+                {
+                    sb.Append(System.Net.WebUtility.HtmlEncode(body).Replace("\r\n", "<br/>").Replace("\n", "<br/>"));
+                }
+
+                int idx = 1;
+                foreach (var imgPath in insertImagePaths)
+                {
+                    var image = builder.LinkedResources.Add(imgPath);
+                    image.ContentId = $"img{idx}";
+                    if (sb.Length > 0) sb.Append("<br/>");
+                    sb.Append($"<img src=\"cid:img{idx}\" />");
+                    idx++;
+                }
+
+                builder.HtmlBody = sb.ToString();
+                if (!string.IsNullOrWhiteSpace(body))
+                    builder.TextBody = body;
+            }
             else
-                builder.TextBody = body;
+            {
+                if (isBodyHtml)
+                    builder.HtmlBody = body;
+                else
+                    builder.TextBody = body;
+            }
         }
 
         message.Body = builder.ToMessageBody();
 
-        // 发送
         using var client = new SmtpClient();
-        await client.ConnectAsync(smtpServer, smtpPort, smtpUseSsl);
+        await client.ConnectAsync(smtpServer, smtpPort, smtpUseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable);
         await client.AuthenticateAsync(senderEmail, senderPassword);
         await client.SendAsync(message);
         await client.DisconnectAsync(true);
@@ -290,7 +332,11 @@ public static class MailKitHelper
             Success = true,
             SkillCode = "email_task",
             Type = "send_email",
-            Text = hasEmbeddedImages ? "邮件发送成功（含内嵌图片）" : (attachedFiles.Count > 0 ? "邮件发送成功（含附件）" : "邮件发送成功"),
+            Text = insertImagePaths.Count > 0
+                ? "邮件发送成功（正文含图片）"
+                : (hasEmbeddedImages
+                    ? "邮件发送成功（含内嵌图片）"
+                    : (attachedFiles.Count > 0 ? "邮件发送成功（含附件）" : "邮件发送成功")),
             Data = new
             {
                 to = toList,
@@ -299,10 +345,12 @@ public static class MailKitHelper
                 subject,
                 attachments = attachedFiles,
                 missingAttachments = missingFiles,
+                insertImagePaths,
                 hasEmbeddedImages
             }
         };
     }
+
 
     #endregion
 
@@ -317,10 +365,34 @@ public static class MailKitHelper
         string password = GetEmailSetting("SenderPassword");
 
         var client = new ImapClient();
-        await client.ConnectAsync(imapServer, imapPort, imapUseSsl, cancellationToken);
+
+        await client.ConnectAsync(
+            imapServer,
+            imapPort,
+            imapUseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable,
+            cancellationToken);
+
         await client.AuthenticateAsync(account, password, cancellationToken);
+
+        // 解决网易邮箱 "EXAMINE Unsafe Login" 问题
+        try
+        {
+            var clientImplementation = new ImapImplementation
+            {
+                Name = "TangYuan",
+                Version = "1.0.0",
+                Vendor = "TangYuan",
+            };
+            await client.IdentifyAsync(clientImplementation, cancellationToken);
+        }
+        catch
+        {
+            // 某些 IMAP 服务器不支持 ID 命令，忽略即可
+        }
+
         return client;
     }
+
 
     #endregion
 
@@ -408,18 +480,31 @@ public static class MailKitHelper
 
         foreach (var attachment in message.Attachments)
         {
-            if (attachment is MimePart part && part.IsAttachment)
-            {
-                string fileName = part.FileName ?? "unnamed.bin";
-                string safeName = SanitizeFileName(fileName);
-                string filePath = Path.Combine(savePath, safeName);
-                filePath = GetUniqueFilePath(filePath);
+            string fileName = GetAttachmentFileName(attachment);
+            string safeName = SanitizeFileName(fileName);
+            string filePath = Path.Combine(savePath, safeName);
+            filePath = GetUniqueFilePath(filePath);
 
-                using var stream = File.Create(filePath);
-                await part.Content.DecodeToAsync(stream, cancellationToken);
-                downloaded.Add(filePath);
+            switch (attachment)
+            {
+                case MimePart part:
+                    using (var stream = File.Create(filePath))
+                    {
+                        await part.Content.DecodeToAsync(stream, cancellationToken);
+                    }
+                    downloaded.Add(filePath);
+                    break;
+
+                case MessagePart messagePart:
+                    using (var stream = File.Create(filePath))
+                    {
+                        await messagePart.Message.WriteToAsync(stream, cancellationToken);
+                    }
+                    downloaded.Add(filePath);
+                    break;
             }
         }
+
         return downloaded;
     }
 
@@ -600,4 +685,220 @@ public static class MailKitHelper
     }
 
     #endregion
+
+
+    #region AI友好封装
+
+    public static string BuildMailRef(UniqueId uid) => $"INBOX:{uid.Id}";
+
+    public static bool TryParseMailRef(string mailRef, out UniqueId uid)
+    {
+        uid = UniqueId.Invalid;
+
+        if (string.IsNullOrWhiteSpace(mailRef))
+            return false;
+
+        var parts = mailRef.Split(':', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2)
+            return false;
+
+        if (!uint.TryParse(parts[1], out var id))
+            return false;
+
+        uid = new UniqueId(id);
+        return uid.IsValid;
+    }
+
+    public static async Task<List<EmailListItemDto>> SearchEmailsForAiAsync(
+    string subjectKeyword = "",
+    string fromKeyword = "",
+    string bodyKeyword = "",
+    bool unreadOnly = false,
+    bool hasAttachments = false,
+    int maxCount = 10,
+    CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var client = await ConnectImapAsync(cancellationToken);
+            var inbox = client.Inbox;
+            await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+
+            SearchQuery query = SearchQuery.All;
+
+            if (!string.IsNullOrWhiteSpace(subjectKeyword))
+                query = query.And(SearchQuery.SubjectContains(subjectKeyword));
+
+            if (!string.IsNullOrWhiteSpace(fromKeyword))
+                query = query.And(SearchQuery.FromContains(fromKeyword));
+
+            if (!string.IsNullOrWhiteSpace(bodyKeyword))
+                query = query.And(SearchQuery.BodyContains(bodyKeyword));
+
+            if (unreadOnly)
+                query = query.And(SearchQuery.NotSeen);
+
+            var uids = await inbox.SearchAsync(query, cancellationToken);
+            var orderedUids = uids.Reverse().Take(maxCount).ToArray();
+
+            if (orderedUids.Length == 0)
+                return new List<EmailListItemDto>();
+
+            var summaries = await inbox.FetchAsync(
+                orderedUids,
+                MessageSummaryItems.Envelope |
+                MessageSummaryItems.Flags |
+                MessageSummaryItems.InternalDate |
+                MessageSummaryItems.UniqueId,
+                cancellationToken);
+
+            var items = new List<EmailListItemDto>();
+
+            foreach (var summary in summaries.OrderByDescending(x => x.InternalDate ?? DateTimeOffset.MinValue))
+            {
+                var message = await inbox.GetMessageAsync(summary.UniqueId, cancellationToken);
+                bool realHasAttachments = message.Attachments.Any();
+
+                if (hasAttachments && !realHasAttachments)
+                    continue;
+
+                items.Add(new EmailListItemDto
+                {
+                    Index = items.Count + 1,
+                    MailRef = BuildMailRef(summary.UniqueId),
+                    Uid = summary.UniqueId.Id.ToString(),
+                    Subject = summary.Envelope?.Subject ?? "(无主题)",
+                    From = string.Join("; ", summary.Envelope?.From?.Select(f => f.ToString()) ?? Enumerable.Empty<string>()),
+                    DateText = (summary.InternalDate?.LocalDateTime ?? DateTime.MinValue).ToString("yyyy-MM-dd HH:mm:ss"),
+                    IsUnread = summary.Flags == null || !summary.Flags.Value.HasFlag(MessageFlags.Seen),
+                    HasAttachments = realHasAttachments
+                });
+            }
+
+            return items;
+        }
+        catch (Exception exp)
+        {
+
+            throw;
+        }
+    }
+
+
+    public static async Task<EmailDetailDto> ReadEmailForAiAsync(UniqueId uid, CancellationToken cancellationToken = default)
+    {
+        using var client = await ConnectImapAsync(cancellationToken);
+        var inbox = client.Inbox;
+        await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+
+        var message = await inbox.GetMessageAsync(uid, cancellationToken);
+
+        var summaries = await inbox.FetchAsync(
+            new[] { uid },
+            MessageSummaryItems.Flags |
+            MessageSummaryItems.UniqueId |
+            MessageSummaryItems.Envelope |
+            MessageSummaryItems.InternalDate,
+            cancellationToken);
+
+        var summary = summaries.FirstOrDefault();
+
+        var attachmentNames = new List<string>();
+        foreach (var attachment in message.Attachments)
+        {
+            attachmentNames.Add(GetAttachmentFileName(attachment));
+        }
+
+        string textBody = message.TextBody ?? "";
+        string htmlBody = message.HtmlBody ?? "";
+        string htmlPreview = StripHtmlToText(htmlBody);
+
+        return new EmailDetailDto
+        {
+            MailRef = BuildMailRef(uid),
+            Uid = uid.Id.ToString(),
+            Subject = message.Subject ?? "(无主题)",
+            From = string.Join("; ", message.From.Select(x => x.ToString())),
+            To = string.Join("; ", message.To.Select(x => x.ToString())),
+            Cc = string.Join("; ", message.Cc.Select(x => x.ToString())),
+            DateText = message.Date.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            HasAttachments = attachmentNames.Count > 0,
+            IsUnread = summary?.Flags == null || !summary.Flags.Value.HasFlag(MessageFlags.Seen),
+            TextBody = textBody,
+            HtmlBody = htmlBody,
+            HtmlPreview = htmlPreview,
+            Attachments = attachmentNames
+        };
+    }
+
+
+    
+
+    private static string GetAttachmentFileName(MimeEntity entity)
+    {
+        if (entity is MimePart part)
+        {
+            return part.FileName
+                   ?? part.ContentDisposition?.FileName
+                   ?? part.ContentType?.Name
+                   ?? "unnamed.bin";
+        }
+
+        if (entity is MessagePart messagePart)
+        {
+            return messagePart.ContentDisposition?.FileName
+                   ?? messagePart.ContentType?.Name
+                   ?? "attached-message.eml";
+        }
+
+        return "attachment.bin";
+    }
+
+    private static string StripHtmlToText(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return "";
+
+        string text = System.Text.RegularExpressions.Regex.Replace(html, "<br\\s*/?>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        text = System.Text.RegularExpressions.Regex.Replace(text, "</p>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        text = System.Text.RegularExpressions.Regex.Replace(text, "<.*?>", "");
+        text = System.Net.WebUtility.HtmlDecode(text);
+        return text.Trim();
+    }
+
+
+
+
+
+    #endregion
+
+}
+
+public class EmailListItemDto
+{
+    public int Index { get; set; }
+    public string MailRef { get; set; } = "";
+    public string Uid { get; set; } = "";
+    public string Subject { get; set; } = "";
+    public string From { get; set; } = "";
+    public string DateText { get; set; } = "";
+    public bool IsUnread { get; set; }
+    public bool HasAttachments { get; set; }
+}
+
+public class EmailDetailDto
+{
+    public string MailRef { get; set; } = "";
+    public string Uid { get; set; } = "";
+    public string Subject { get; set; } = "";
+    public string From { get; set; } = "";
+    public string To { get; set; } = "";
+    public string Cc { get; set; } = "";
+    public string DateText { get; set; } = "";
+    public bool HasAttachments { get; set; }
+    public bool IsUnread { get; set; }
+    public string TextBody { get; set; } = "";
+    public string HtmlBody { get; set; } = "";
+    public string HtmlPreview { get; set; } = "";
+    public List<string> Attachments { get; set; } = new();
 }

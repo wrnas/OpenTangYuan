@@ -13,6 +13,9 @@ using TangYuan.Models;
 using TangYuan.Tools;
 using WebApi.Tools;
 using TangYuan.Tools;
+using System.Collections.Concurrent;
+using MailKit;
+using MailKit.Search;
 
 
 namespace TangYuan.Controllers
@@ -45,6 +48,14 @@ namespace TangYuan.Controllers
 
         // 缓存锁（防止并发重复加载）
         private static readonly object _cacheLock = new();
+
+        /// <summary>
+        /// 邮件搜索结果上下文缓存
+        /// 用于支持“第一封”“上一封”这类后续对话引用
+        /// key 建议用 contextKey
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, List<EmailListItemDto>> _mailContextCache = new(StringComparer.OrdinalIgnoreCase);
+
 
         /// <summary>
         /// 允许执行的外部 exe 白名单
@@ -792,8 +803,69 @@ namespace TangYuan.Controllers
                         break;
                     }
                 case "email_task":
-                    Check("to");
-                    break;
+                    {
+                        var action = GetString(safeArgs, "action").Trim().ToLowerInvariant();
+                        if (string.IsNullOrWhiteSpace(action))
+                        {
+                            // 兼容旧逻辑：默认 send
+                            Check("to");
+                            break;
+                        }
+
+                        switch (action)
+                        {
+                            case "send":
+                                Check("to");
+                                break;
+                            case "read":
+                            case "mark_read":
+                            case "save_eml":
+                                {
+                                    bool hasMailRef = safeArgs.TryGetValue("mailRef", out var mailRefObj) &&
+                                                      !string.IsNullOrWhiteSpace(ConvertObjectToString(mailRefObj));
+                                    bool hasIndex = safeArgs.TryGetValue("index", out var indexObj) &&
+                                                    !string.IsNullOrWhiteSpace(ConvertObjectToString(indexObj));
+                                    if (!hasMailRef && !hasIndex)
+                                        missing.Add("mailRef 或 index");
+                                    if (action == "save_eml")
+                                        Check("filePath");
+                                    break;
+                                }
+                            case "download_attachments":
+                                {
+                                    bool hasMailRef = safeArgs.TryGetValue("mailRef", out var mailRefObj) &&
+                                                      !string.IsNullOrWhiteSpace(ConvertObjectToString(mailRefObj));
+                                    bool hasIndex = safeArgs.TryGetValue("index", out var indexObj) &&
+                                                    !string.IsNullOrWhiteSpace(ConvertObjectToString(indexObj));
+                                    if (!hasMailRef && !hasIndex)
+                                        missing.Add("mailRef 或 index");
+                                    Check("savePath");
+                                    break;
+                                }
+                            case "reply":
+                                {
+                                    bool hasMailRef = safeArgs.TryGetValue("mailRef", out var mailRefObj) &&
+                                                      !string.IsNullOrWhiteSpace(ConvertObjectToString(mailRefObj));
+                                    bool hasIndex = safeArgs.TryGetValue("index", out var indexObj) &&
+                                                    !string.IsNullOrWhiteSpace(ConvertObjectToString(indexObj));
+                                    if (!hasMailRef && !hasIndex)
+                                        missing.Add("mailRef 或 index");
+
+                                    bool hasReplyText = safeArgs.TryGetValue("replyText", out var replyTextObj) &&
+                                                        !string.IsNullOrWhiteSpace(ConvertObjectToString(replyTextObj));
+                                    bool hasReplyHtml = safeArgs.TryGetValue("replyHtml", out var replyHtmlObj) &&
+                                                        !string.IsNullOrWhiteSpace(ConvertObjectToString(replyHtmlObj));
+                                    if (!hasReplyText && !hasReplyHtml)
+                                        missing.Add("replyText 或 replyHtml");
+                                    break;
+                                }
+                            case "search":
+                                break;
+                        }
+
+                        break;
+                    }
+
             }
 
             if (missing.Count == 0 && !string.IsNullOrWhiteSpace(errorMessage))
@@ -1185,7 +1257,8 @@ namespace TangYuan.Controllers
                 "tool_task" => await RunExternalToolAsync(safeArgs),
                 "lock_task" => await CommandTools.LockScreenAsync(),
                 "screenshot_task" => await CommandTools.CaptureScreenAsync(),
-                "email_task" => await CommandTools.SendEmailAsync(safeArgs),
+                "email_task" => await DoEmailTaskAsync(safeArgs),
+
                 "browser_task" => await DoBrowserTaskAsync(safeArgs),
                 "wechat_task" => await DoWechatTaskAsync(safeArgs),
                 _ => throw new NotSupportedException($"不支持的技能：{skillCode}")
@@ -1397,6 +1470,336 @@ namespace TangYuan.Controllers
         #endregion
 
         #endregion
+
+        #region 原子技能：邮件
+
+        private async Task<object> DoEmailTaskAsync(Dictionary<string, object> args)
+        {
+            string action = GetString(args, "action").Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(action))
+                action = "send"; // 兼容老调用：没传 action 时默认发邮件
+
+            switch (action)
+            {
+                case "search":
+                    {
+                        string subjectKeyword = GetString(args, "subjectKeyword");
+                        string fromKeyword = GetString(args, "fromKeyword");
+                        string bodyKeyword = GetString(args, "bodyKeyword");
+                        bool unreadOnly = GetBoolArg(args, "unreadOnly", false);
+                        bool hasAttachments = GetBoolArg(args, "hasAttachments", false);
+                        int maxCount = GetIntArg(args, "maxCount", 10);
+                        maxCount = Math.Clamp(maxCount, 1, 100);
+
+                        bool saveContext = GetBoolArg(args, "saveContext", true);
+                        string contextKey = GetString(args, "contextKey", "default");
+
+                        var items = await MailKitHelper.SearchEmailsForAiAsync(
+                            subjectKeyword: subjectKeyword,
+                            fromKeyword: fromKeyword,
+                            bodyKeyword: bodyKeyword,
+                            unreadOnly: unreadOnly,
+                            hasAttachments: hasAttachments,
+                            maxCount: maxCount);
+
+                        for (int i = 0; i < items.Count; i++)
+                        {
+                            items[i].Index = i + 1;
+                        }
+
+                        if (saveContext)
+                        {
+                            _mailContextCache[contextKey] = items;
+                        }
+
+                        var resultList = items.Select(x =>
+                            $"{x.Index}. {x.Subject} | {x.From} | {x.DateText} | {(x.HasAttachments ? "有附件" : "无附件")} | {(x.IsUnread ? "未读" : "已读")}"
+                        ).ToList();
+
+                        return new SkillResult
+                        {
+                            Success = true,
+                            SkillCode = "email_task",
+                            Type = "search_email",
+                            Text = items.Count > 0 ? $"找到 {items.Count} 封邮件" : "未找到符合条件的邮件",
+                            ResultText = items.Count > 0 ? $"找到 {items.Count} 封邮件" : "未找到符合条件的邮件",
+                            ResultList = resultList,
+                            ResultValue = items.FirstOrDefault()?.MailRef ?? "",
+                            Data = new
+                            {
+                                action = "search",
+                                count = items.Count,
+                                contextKey = saveContext ? contextKey : "",
+                                items
+                            },
+                            Error = ""
+                        }.Normalize();
+                    }
+
+                case "read":
+                    {
+                        var target = ResolveMailTarget(args);
+
+                        var detail = await MailKitHelper.ReadEmailForAiAsync(target.Uid);
+
+                        return new SkillResult
+                        {
+                            Success = true,
+                            SkillCode = "email_task",
+                            Type = "read_email",
+                            Text = $"已读取邮件：{detail.Subject}",
+                            ResultText = string.IsNullOrWhiteSpace(detail.TextBody)
+                                ? (detail.HtmlPreview ?? "邮件无正文")
+                                : detail.TextBody,
+                            ResultValue = detail.MailRef,
+                            Data = new
+                            {
+                                action = "read",
+                                detail
+                            },
+                            Error = ""
+                        }.Normalize();
+                    }
+
+                case "download_attachments":
+                    {
+                        var target = ResolveMailTarget(args);
+
+                        string savePath = GetString(args, "savePath");
+                        if (string.IsNullOrWhiteSpace(savePath))
+                            throw new ArgumentException("savePath 不能为空");
+
+                        var fullSavePath = ValidatePath(savePath, mustExist: false);
+
+                        var files = await MailKitHelper.DownloadAttachmentsAsync(target.Uid, fullSavePath);
+
+                        return new SkillResult
+                        {
+                            Success = true,
+                            SkillCode = "email_task",
+                            Type = "download_attachments",
+                            Text = files.Count > 0 ? $"已下载 {files.Count} 个附件" : "该邮件没有附件",
+                            ResultText = files.Count > 0 ? $"已下载 {files.Count} 个附件" : "该邮件没有附件",
+                            ResultList = files,
+                            ResultValue = files.FirstOrDefault() ?? "",
+                            Data = new
+                            {
+                                action = "download_attachments",
+                                mailRef = target.MailRef,
+                                savePath = fullSavePath,
+                                count = files.Count,
+                                files
+                            },
+                            Error = ""
+                        }.Normalize();
+                    }
+
+                case "mark_read":
+                    {
+                        var target = ResolveMailTarget(args);
+                        await MailKitHelper.MarkAsReadAsync(target.Uid);
+
+                        return new SkillResult
+                        {
+                            Success = true,
+                            SkillCode = "email_task",
+                            Type = "mark_read",
+                            Text = "已标记为已读",
+                            ResultText = "已标记为已读",
+                            ResultValue = target.MailRef,
+                            Data = new
+                            {
+                                action = "mark_read",
+                                mailRef = target.MailRef
+                            },
+                            Error = ""
+                        }.Normalize();
+                    }
+
+                case "reply":
+                    {
+                        var target = ResolveMailTarget(args);
+
+                        string replyText = GetString(args, "replyText");
+                        string replyHtml = GetString(args, "replyHtml");
+                        bool replyToAll = GetBoolArg(args, "replyToAll", false);
+
+                        if (string.IsNullOrWhiteSpace(replyText) && string.IsNullOrWhiteSpace(replyHtml))
+                            throw new ArgumentException("replyText 或 replyHtml 至少提供一个");
+
+                        var attachments = GetStringList(args, "attachments");
+                        var safeAttachments = new List<string>();
+                        foreach (var file in attachments)
+                        {
+                            safeAttachments.Add(ValidatePath(file, mustExist: true));
+                        }
+
+                        await MailKitHelper.ReplyToEmailAsync(
+                            originalUid: target.Uid,
+                            replyText: replyText,
+                            replyHtml: string.IsNullOrWhiteSpace(replyHtml) ? null : replyHtml,
+                            replyToAll: replyToAll,
+                            attachments: safeAttachments);
+
+                        return new SkillResult
+                        {
+                            Success = true,
+                            SkillCode = "email_task",
+                            Type = "reply_email",
+                            Text = "邮件回复成功",
+                            ResultText = "邮件回复成功",
+                            ResultValue = target.MailRef,
+                            Data = new
+                            {
+                                action = "reply",
+                                mailRef = target.MailRef,
+                                replyToAll,
+                                attachments = safeAttachments
+                            },
+                            Error = ""
+                        }.Normalize();
+                    }
+
+                case "send":
+                    {
+                        // 发送前做路径安全校验
+                        var attachments = GetStringList(args, "attachments");
+                        var insertImagePaths = GetStringList(args, "insertImagePaths");
+
+                        if (args.TryGetValue("attachment", out var singleAttachmentObj))
+                        {
+                            var singleAttachment = ConvertObjectToString(singleAttachmentObj).Trim();
+                            if (!string.IsNullOrWhiteSpace(singleAttachment) && !attachments.Contains(singleAttachment, StringComparer.OrdinalIgnoreCase))
+                                attachments.Add(singleAttachment);
+                        }
+
+                        var safeAttachments = new List<string>();
+                        foreach (var file in attachments)
+                        {
+                            safeAttachments.Add(ValidatePath(file, mustExist: true));
+                        }
+
+                        var safeInsertImages = new List<string>();
+                        foreach (var file in insertImagePaths)
+                        {
+                            safeInsertImages.Add(ValidatePath(file, mustExist: true));
+                        }
+
+                        var sendArgs = new Dictionary<string, object>(args, StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["attachments"] = safeAttachments,
+                            ["insertImagePaths"] = safeInsertImages
+                        };
+
+                        var sendResult = await MailKitHelper.SendEmailAsync(sendArgs);
+                        return sendResult;
+                    }
+
+                case "save_eml":
+                    {
+                        var target = ResolveMailTarget(args);
+                        string filePath = GetString(args, "filePath");
+                        if (string.IsNullOrWhiteSpace(filePath))
+                            throw new ArgumentException("filePath 不能为空");
+
+                        var fullPath = ValidatePath(filePath, mustExist: false);
+                        var dir = Path.GetDirectoryName(fullPath);
+                        if (!string.IsNullOrWhiteSpace(dir))
+                            Directory.CreateDirectory(dir);
+
+                        await MailKitHelper.SaveToEmlAsync(target.Uid, fullPath);
+
+                        return new SkillResult
+                        {
+                            Success = true,
+                            SkillCode = "email_task",
+                            Type = "save_eml",
+                            Text = "邮件已保存为 eml",
+                            ResultText = "邮件已保存为 eml",
+                            ResultValue = fullPath,
+                            Data = new
+                            {
+                                action = "save_eml",
+                                mailRef = target.MailRef,
+                                filePath = fullPath
+                            },
+                            Error = ""
+                        }.Normalize();
+                    }
+
+                default:
+                    throw new NotSupportedException($"email_task 不支持的操作：{action}");
+            }
+        }
+
+        private (string MailRef, UniqueId Uid) ResolveMailTarget(Dictionary<string, object> args)
+        {
+            string mailRef = GetString(args, "mailRef");
+            if (!string.IsNullOrWhiteSpace(mailRef))
+            {
+                if (!MailKitHelper.TryParseMailRef(mailRef, out var uid))
+                    throw new ArgumentException("mailRef 格式不正确");
+                return (mailRef, uid);
+            }
+
+            int index = GetIntArg(args, "index", 0);
+            string contextKey = GetString(args, "contextKey", "default");
+
+            if (index <= 0)
+                throw new ArgumentException("必须提供 mailRef 或 index");
+
+            if (!_mailContextCache.TryGetValue(contextKey, out var items) || items == null || items.Count == 0)
+                throw new ArgumentException("未找到邮件上下文，请先执行 search");
+
+            var item = items.FirstOrDefault(x => x.Index == index);
+            if (item == null)
+                throw new ArgumentException($"上下文中不存在第 {index} 封邮件");
+
+            if (!MailKitHelper.TryParseMailRef(item.MailRef, out var uid2))
+                throw new ArgumentException("缓存中的 mailRef 无效");
+
+            return (item.MailRef, uid2);
+        }
+
+        private bool GetBoolArg(Dictionary<string, object>? args, string key, bool defaultValue = false)
+        {
+            if (args == null || !args.TryGetValue(key, out var value) || value == null)
+                return defaultValue;
+
+            if (value is bool b) return b;
+
+            if (value is JsonElement je)
+            {
+                if (je.ValueKind == JsonValueKind.True) return true;
+                if (je.ValueKind == JsonValueKind.False) return false;
+                if (je.ValueKind == JsonValueKind.String && bool.TryParse(je.GetString(), out var bj))
+                    return bj;
+            }
+
+            return bool.TryParse(ConvertObjectToString(value), out var parsed) ? parsed : defaultValue;
+        }
+
+        private int GetIntArg(Dictionary<string, object>? args, string key, int defaultValue = 0)
+        {
+            if (args == null || !args.TryGetValue(key, out var value) || value == null)
+                return defaultValue;
+
+            if (value is int i) return i;
+
+            if (value is JsonElement je)
+            {
+                if (je.ValueKind == JsonValueKind.Number && je.TryGetInt32(out var ji))
+                    return ji;
+                if (je.ValueKind == JsonValueKind.String && int.TryParse(je.GetString(), out var js))
+                    return js;
+            }
+
+            return int.TryParse(ConvertObjectToString(value), out var parsed) ? parsed : defaultValue;
+        }
+
+        #endregion
+
+
 
         #region 原子技能：文件
 

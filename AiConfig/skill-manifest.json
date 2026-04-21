@@ -146,29 +146,194 @@
         }
       }
     },
+
     {
       "skillCode": "email_task",
-      "desc": "发送邮件，支持多个收件人和多个附件",
-      "args": {
-        "to": "收件人邮箱，必填；支持多个，使用逗号或分号分隔",
-        "subject": "邮件主题，可空",
-        "body": "邮件正文，可空；content 也可兼容",
-        "attachment": "单个附件完整路径，可空",
-        "attachments": "多个附件完整路径数组，可空"
-      },
-      "example": {
-        "SkillCode": "email_task",
-        "Arguments": {
-          "to": "214634166@qq.com,example1@qq.com",
-          "subject": "测试邮件",
-          "body": "这是测试正文",
-          "attachments": [
-            "D:\\a.png",
-            "D:\\b.xlsx"
-          ]
+      "AIDesc": "邮箱相关操作。支持发邮件、搜索邮件、读取邮件正文、下载附件、回复邮件、标记已读、保存eml。调用时请传 action 和对应参数。",
+      "args": [
+        {
+          "name": "action",
+          "type": "string",
+          "required": true,
+          "desc": "操作类型。可选：send, search, read, download_attachments, reply, mark_read, save_eml"
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "required": false,
+          "desc": "收件人邮箱，多个可用逗号或分号分隔。action=send 时需要"
+        },
+        {
+          "name": "subject",
+          "type": "string",
+          "required": false,
+          "desc": "邮件主题。action=send 时可传"
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "required": false,
+          "desc": "邮件正文。action=send 时可传"
+        },
+        {
+          "name": "attachments",
+          "type": "array",
+          "required": false,
+          "desc": "附件路径数组。action=send 或 reply 时可传"
+        },
+        {
+          "name": "insertImagePaths",
+          "type": "array",
+          "required": false,
+          "desc": "插入到邮件正文里的图片路径数组。action=send 时可传"
+        },
+        {
+          "name": "subjectKeyword",
+          "type": "string",
+          "required": false,
+          "desc": "搜索邮件时按主题关键词过滤。action=search 时可传"
+        },
+        {
+          "name": "fromKeyword",
+          "type": "string",
+          "required": false,
+          "desc": "搜索邮件时按发件人关键词过滤。action=search 时可传"
+        },
+        {
+          "name": "bodyKeyword",
+          "type": "string",
+          "required": false,
+          "desc": "搜索邮件时按正文关键词过滤。action=search 时可传"
+        },
+        {
+          "name": "unreadOnly",
+          "type": "bool",
+          "required": false,
+          "desc": "是否只搜索未读邮件。action=search 时可传"
+        },
+        {
+          "name": "hasAttachments",
+          "type": "bool",
+          "required": false,
+          "desc": "是否只搜索带附件的邮件。action=search 时可传"
+        },
+        {
+          "name": "maxCount",
+          "type": "int",
+          "required": false,
+          "desc": "搜索最多返回多少封。action=search 时可传，建议 10"
+        },
+        {
+          "name": "contextKey",
+          "type": "string",
+          "required": false,
+          "desc": "搜索结果上下文标识。search/read/download_attachments/reply/mark_read/save_eml 可传，默认 default"
+        },
+        {
+          "name": "index",
+          "type": "int",
+          "required": false,
+          "desc": "邮件序号。通常在先 search 后，再 read/download_attachments/reply/mark_read/save_eml 时传，例如第 1 封"
+        },
+        {
+          "name": "mailRef",
+          "type": "string",
+          "required": false,
+          "desc": "邮件引用标识，例如 INBOX:12345。可代替 index 使用"
+        },
+        {
+          "name": "savePath",
+          "type": "string",
+          "required": false,
+          "desc": "附件保存目录。action=download_attachments 时需要"
+        },
+        {
+          "name": "replyText",
+          "type": "string",
+          "required": false,
+          "desc": "回复正文。action=reply 时需要"
+        },
+        {
+          "name": "replyHtml",
+          "type": "string",
+          "required": false,
+          "desc": "回复 HTML 正文。action=reply 时可传"
+        },
+        {
+          "name": "replyToAll",
+          "type": "bool",
+          "required": false,
+          "desc": "是否回复所有人。action=reply 时可传"
+        },
+        {
+          "name": "filePath",
+          "type": "string",
+          "required": false,
+          "desc": "保存 eml 的文件路径。action=save_eml 时需要"
         }
-      }
-    },
+      ],
+      "examples": [
+        {
+          "title": "搜索主题包含 2026 的未读邮件",
+          "json": {
+            "skillCode": "email_task",
+            "arguments": {
+              "action": "search",
+              "subjectKeyword": "2026",
+              "unreadOnly": true,
+              "maxCount": 10,
+              "contextKey": "mail_default"
+            }
+          }
+        },
+        {
+          "title": "读取刚才搜索结果中的第一封邮件",
+          "json": {
+            "skillCode": "email_task",
+            "arguments": {
+              "action": "read",
+              "index": 1,
+              "contextKey": "mail_default"
+            }
+          }
+        },
+        {
+          "title": "下载第一封邮件附件到 D 盘",
+          "json": {
+            "skillCode": "email_task",
+            "arguments": {
+              "action": "download_attachments",
+              "index": 1,
+              "contextKey": "mail_default",
+              "savePath": "D:\\MailDownloads"
+            }
+          }
+        },
+        {
+          "title": "发送带正文图片的邮件",
+          "json": {
+            "skillCode": "email_task",
+            "arguments": {
+              "action": "send",
+              "to": "someone@example.com",
+              "subject": "测试邮件",
+              "body": "你好，下面这张图请查看：",
+              "insertImagePaths": [
+                "C:\\a.png"
+              ]
+            }
+          }
+        }
+      ],
+      "tips": [
+        "先用 search 获取邮件列表，再用 index 或 mailRef 做后续操作。",
+        "当用户说“第一封邮件”时，优先传 index=1 和 contextKey。",
+        "发送正文带图片的邮件时，优先使用 insertImagePaths，不要自己拼 cid。",
+        "调用 ExecuteSkillForCoze 时，可把整个对象转成 Json 字符串后传入 Json 字段。"
+      ]
+    }
+,
+
     {
       "skillCode": "screenshot_task",
       "desc": "全屏截图",
