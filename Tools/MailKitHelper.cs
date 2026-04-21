@@ -718,71 +718,81 @@ public static class MailKitHelper
     int maxCount = 10,
     CancellationToken cancellationToken = default)
     {
-        try
+        using var client = await ConnectImapAsync(cancellationToken);
+        var inbox = client.Inbox;
+        await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+
+        // 服务器端只做最宽松的查询，避免 163 的 SEARCH 不稳定
+        SearchQuery query = SearchQuery.All;
+
+        if (!string.IsNullOrWhiteSpace(fromKeyword))
+            query = query.And(SearchQuery.FromContains(fromKeyword));
+
+        var uids = await inbox.SearchAsync(query, cancellationToken);
+
+        // 多取一些，后面本地过滤
+        int fetchCount = Math.Max(maxCount * 10, 100);
+        var orderedUids = uids.Reverse().Take(fetchCount).ToArray();
+
+        if (orderedUids.Length == 0)
+            return new List<EmailListItemDto>();
+
+        var summaries = await inbox.FetchAsync(
+            orderedUids,
+            MessageSummaryItems.Envelope |
+            MessageSummaryItems.Flags |
+            MessageSummaryItems.InternalDate |
+            MessageSummaryItems.UniqueId,
+            cancellationToken);
+
+        var items = new List<EmailListItemDto>();
+
+        foreach (var summary in summaries.OrderByDescending(x => x.InternalDate ?? DateTimeOffset.MinValue))
         {
-            using var client = await ConnectImapAsync(cancellationToken);
-            var inbox = client.Inbox;
-            await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+            var message = await inbox.GetMessageAsync(summary.UniqueId, cancellationToken);
 
-            SearchQuery query = SearchQuery.All;
+            string subject = message.Subject ?? "";
+            string textBody = message.TextBody ?? "";
+            string htmlBody = message.HtmlBody ?? "";
+            string mergedBody = !string.IsNullOrWhiteSpace(textBody) ? textBody : StripHtmlToText(htmlBody);
 
-            if (!string.IsNullOrWhiteSpace(subjectKeyword))
-                query = query.And(SearchQuery.SubjectContains(subjectKeyword));
+            bool isUnread = summary.Flags == null || !summary.Flags.Value.HasFlag(MessageFlags.Seen);
+            bool realHasAttachments = message.Attachments.Any();
 
-            if (!string.IsNullOrWhiteSpace(fromKeyword))
-                query = query.And(SearchQuery.FromContains(fromKeyword));
+            if (unreadOnly && !isUnread)
+                continue;
 
-            if (!string.IsNullOrWhiteSpace(bodyKeyword))
-                query = query.And(SearchQuery.BodyContains(bodyKeyword));
+            if (!string.IsNullOrWhiteSpace(subjectKeyword) &&
+                subject.IndexOf(subjectKeyword, StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
 
-            if (unreadOnly)
-                query = query.And(SearchQuery.NotSeen);
+            if (!string.IsNullOrWhiteSpace(bodyKeyword) &&
+                mergedBody.IndexOf(bodyKeyword, StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
 
-            var uids = await inbox.SearchAsync(query, cancellationToken);
-            var orderedUids = uids.Reverse().Take(maxCount).ToArray();
+            if (hasAttachments && !realHasAttachments)
+                continue;
 
-            if (orderedUids.Length == 0)
-                return new List<EmailListItemDto>();
-
-            var summaries = await inbox.FetchAsync(
-                orderedUids,
-                MessageSummaryItems.Envelope |
-                MessageSummaryItems.Flags |
-                MessageSummaryItems.InternalDate |
-                MessageSummaryItems.UniqueId,
-                cancellationToken);
-
-            var items = new List<EmailListItemDto>();
-
-            foreach (var summary in summaries.OrderByDescending(x => x.InternalDate ?? DateTimeOffset.MinValue))
+            items.Add(new EmailListItemDto
             {
-                var message = await inbox.GetMessageAsync(summary.UniqueId, cancellationToken);
-                bool realHasAttachments = message.Attachments.Any();
+                Index = items.Count + 1,
+                MailRef = BuildMailRef(summary.UniqueId),
+                Uid = summary.UniqueId.Id.ToString(),
+                Subject = string.IsNullOrWhiteSpace(subject) ? "(无主题)" : subject,
+                From = string.Join("; ", summary.Envelope?.From?.Select(f => f.ToString()) ?? Enumerable.Empty<string>()),
+                DateText = (summary.InternalDate?.LocalDateTime ?? DateTime.MinValue).ToString("yyyy-MM-dd HH:mm:ss"),
+                IsUnread = isUnread,
+                HasAttachments = realHasAttachments
+            });
 
-                if (hasAttachments && !realHasAttachments)
-                    continue;
-
-                items.Add(new EmailListItemDto
-                {
-                    Index = items.Count + 1,
-                    MailRef = BuildMailRef(summary.UniqueId),
-                    Uid = summary.UniqueId.Id.ToString(),
-                    Subject = summary.Envelope?.Subject ?? "(无主题)",
-                    From = string.Join("; ", summary.Envelope?.From?.Select(f => f.ToString()) ?? Enumerable.Empty<string>()),
-                    DateText = (summary.InternalDate?.LocalDateTime ?? DateTime.MinValue).ToString("yyyy-MM-dd HH:mm:ss"),
-                    IsUnread = summary.Flags == null || !summary.Flags.Value.HasFlag(MessageFlags.Seen),
-                    HasAttachments = realHasAttachments
-                });
-            }
-
-            return items;
+            if (items.Count >= maxCount)
+                break;
         }
-        catch (Exception exp)
-        {
 
-            throw;
-        }
+        return items;
     }
+
+
 
 
     public static async Task<EmailDetailDto> ReadEmailForAiAsync(UniqueId uid, CancellationToken cancellationToken = default)
