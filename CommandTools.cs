@@ -141,6 +141,8 @@ namespace TangYuan.Tools
         }
         #endregion
 
+        #region 邮箱相关
+
         #region MailKit 发送邮件（带附件）
         /// <summary>
         /// 发送邮件（支持文本 + 附件）
@@ -331,6 +333,8 @@ namespace TangYuan.Tools
             }
         }
 
+
+        #endregion
 
         #endregion
     }
