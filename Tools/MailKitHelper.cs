@@ -15,10 +15,6 @@ using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using MimeKit;
 
-/// <summary>
-/// MailKit 邮件通用操作封装（静态类，从 appsettings.json 读取配置）
-/// 适配 .NET 8 + MailKit/MimeKit 4.16.0
-/// </summary>
 public static class MailKitHelper
 {
     #region 配置加载
@@ -66,7 +62,7 @@ public static class MailKitHelper
 
     #endregion
 
-    #region 基础辅助方法
+    #region 基础辅助
 
     private static string GetString(Dictionary<string, object>? args, string key, string defaultValue = "")
     {
@@ -130,6 +126,7 @@ public static class MailKitHelper
                 if (!string.IsNullOrWhiteSpace(text))
                     result.Add(text);
             }
+
             return result;
         }
 
@@ -152,8 +149,8 @@ public static class MailKitHelper
         {
             if (je.ValueKind == JsonValueKind.True) return true;
             if (je.ValueKind == JsonValueKind.False) return false;
-            if (je.ValueKind == JsonValueKind.String && bool.TryParse(je.GetString(), out var parsedFromJe))
-                return parsedFromJe;
+            if (je.ValueKind == JsonValueKind.String && bool.TryParse(je.GetString(), out var parsedJe))
+                return parsedJe;
         }
 
         return bool.TryParse(value.ToString(), out var parsed) ? parsed : defaultValue;
@@ -295,7 +292,7 @@ public static class MailKitHelper
 
     #endregion
 
-    #region SMTP / IMAP 连接
+    #region 连接
 
     private static async Task<ImapClient> ConnectImapAsync(CancellationToken cancellationToken = default)
     {
@@ -317,7 +314,6 @@ public static class MailKitHelper
 
             await client.AuthenticateAsync(account, password, cancellationToken);
 
-            // 网易系邮箱常见要求：在 EXAMINE/SELECT 前发送 IMAP ID
             try
             {
                 var impl = new ImapImplementation
@@ -331,7 +327,6 @@ public static class MailKitHelper
             }
             catch
             {
-                // 某些服务器不支持，可忽略
             }
 
             return client;
@@ -346,15 +341,6 @@ public static class MailKitHelper
 
     #region 发送邮件
 
-    /// <summary>
-    /// 发送邮件。
-    /// 支持：
-    /// 1. 普通正文 body
-    /// 2. HTML 正文 isBodyHtml=true
-    /// 3. 普通附件 attachments / attachment
-    /// 4. AI 友好的正文插图 insertImagePaths
-    /// 5. 兼容旧版 embeddedImages + htmlBody
-    /// </summary>
     public static async Task<object> SendEmailAsync(Dictionary<string, object> args)
     {
         string smtpServer = GetEmailSetting("SmtpServer");
@@ -540,11 +526,11 @@ public static class MailKitHelper
 
     #endregion
 
-    #region 邮件引用标识
+    #region 邮件引用
 
     public static string BuildMailRef(UniqueId uid) => $"INBOX:{uid.Id}";
 
-    public static bool TryParseMailRef(string mailRef, out UniqueId uid)
+    public static bool TryParseMailRef(string? mailRef, out UniqueId uid)
     {
         uid = UniqueId.Invalid;
 
@@ -564,15 +550,8 @@ public static class MailKitHelper
 
     #endregion
 
-    #region 搜索邮件（AI友好）
+    #region 搜索邮件
 
-    /// <summary>
-    /// 搜索邮件摘要（AI友好 DTO）
-    /// 注意：
-    /// - 不依赖服务器端中文 SEARCH，避免 163 等服务器对中文主题搜索不稳定
-    /// - 先取最近一批邮件，再在本地做中文主题/正文匹配
-    /// - 对可能出现的 GBK/GB18030 乱码主题做修复
-    /// </summary>
     public static async Task<List<EmailListItemDto>> SearchEmailsForAiAsync(
         string subjectKeyword = "",
         string fromKeyword = "",
@@ -580,6 +559,9 @@ public static class MailKitHelper
         bool unreadOnly = false,
         bool hasAttachments = false,
         int maxCount = 10,
+        int scanCount = 100,
+        DateTime? dateFrom = null,
+        DateTime? dateTo = null,
         CancellationToken cancellationToken = default)
     {
         using var client = await ConnectImapAsync(cancellationToken);
@@ -593,7 +575,9 @@ public static class MailKitHelper
 
         var uids = await inbox.SearchAsync(query, cancellationToken);
 
-        int fetchCount = Math.Max(maxCount * 10, 100);
+        int fetchCount = Math.Max(scanCount, maxCount);
+        fetchCount = Math.Clamp(fetchCount, 1, 1000);
+
         var orderedUids = uids.Reverse().Take(fetchCount).ToArray();
 
         if (orderedUids.Length == 0)
@@ -623,6 +607,14 @@ public static class MailKitHelper
             bool isUnread = summary.Flags == null || !summary.Flags.Value.HasFlag(MessageFlags.Seen);
             bool realHasAttachments = message.Attachments.Any();
 
+            var mailDate = (summary.InternalDate?.LocalDateTime ?? DateTime.MinValue);
+
+            if (dateFrom.HasValue && mailDate < dateFrom.Value)
+                continue;
+
+            if (dateTo.HasValue && mailDate > dateTo.Value)
+                continue;
+
             if (unreadOnly && !isUnread)
                 continue;
 
@@ -637,6 +629,8 @@ public static class MailKitHelper
             if (hasAttachments && !realHasAttachments)
                 continue;
 
+            var fromMailbox = summary.Envelope?.From?.Mailboxes?.FirstOrDefault();
+
             items.Add(new EmailListItemDto
             {
                 Index = items.Count + 1,
@@ -644,9 +638,12 @@ public static class MailKitHelper
                 Uid = summary.UniqueId.Id.ToString(),
                 Subject = string.IsNullOrWhiteSpace(subject) ? "(无主题)" : subject,
                 From = string.Join("; ", summary.Envelope?.From?.Select(f => f.ToString()) ?? Enumerable.Empty<string>()),
-                DateText = (summary.InternalDate?.LocalDateTime ?? DateTime.MinValue).ToString("yyyy-MM-dd HH:mm:ss"),
+                FromName = FixPossibleMojibake(fromMailbox?.Name ?? ""),
+                FromAddress = fromMailbox?.Address ?? "",
+                DateText = mailDate.ToString("yyyy-MM-dd HH:mm:ss"),
                 IsUnread = isUnread,
-                HasAttachments = realHasAttachments
+                HasAttachments = realHasAttachments,
+                MatchSource = BuildMatchSource(subjectKeyword, bodyKeyword, subject, mergedBody)
             });
 
             if (items.Count >= maxCount)
@@ -656,9 +653,23 @@ public static class MailKitHelper
         return items;
     }
 
+    private static string BuildMatchSource(string subjectKeyword, string bodyKeyword, string subject, string body)
+    {
+        bool hitSubject = !string.IsNullOrWhiteSpace(subjectKeyword) &&
+                          subject.IndexOf(subjectKeyword, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        bool hitBody = !string.IsNullOrWhiteSpace(bodyKeyword) &&
+                       body.IndexOf(bodyKeyword, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        if (hitSubject && hitBody) return "subject+body";
+        if (hitSubject) return "subject";
+        if (hitBody) return "body";
+        return "";
+    }
+
     #endregion
 
-    #region 读取完整邮件
+    #region 读取邮件
 
     public static async Task<MimeMessage> GetMessageByUidAsync(UniqueId uid, CancellationToken cancellationToken = default)
     {
@@ -686,16 +697,26 @@ public static class MailKitHelper
 
         var summary = summaries.FirstOrDefault();
 
-        var attachmentNames = new List<string>();
+        var attachmentNames = new List<EmailAttachmentDto>();
         foreach (var attachment in message.Attachments)
         {
-            attachmentNames.Add(GetAttachmentFileName(attachment));
+            attachmentNames.Add(new EmailAttachmentDto
+            {
+                FileName = GetAttachmentFileName(attachment),
+                ContentType = attachment.ContentType?.MimeType ?? "",
+                IsInline = attachment.ContentDisposition?.IsAttachment == false
+            });
         }
 
         string fixedSubject = FixPossibleMojibake(message.Subject);
         string textBody = message.TextBody ?? "";
         string htmlBody = message.HtmlBody ?? "";
         string htmlPreview = StripHtmlToText(htmlBody);
+        string previewBase = !string.IsNullOrWhiteSpace(textBody) ? textBody : htmlPreview;
+        bool truncated = previewBase.Length > 1000;
+        string preview = truncated ? previewBase.Substring(0, 1000) : previewBase;
+
+        var fromMailbox = message.From.Mailboxes.FirstOrDefault();
 
         return new EmailDetailDto
         {
@@ -703,6 +724,8 @@ public static class MailKitHelper
             Uid = uid.Id.ToString(),
             Subject = string.IsNullOrWhiteSpace(fixedSubject) ? "(无主题)" : fixedSubject,
             From = string.Join("; ", message.From.Select(x => x.ToString())),
+            FromName = FixPossibleMojibake(fromMailbox?.Name ?? ""),
+            FromAddress = fromMailbox?.Address ?? "",
             To = string.Join("; ", message.To.Select(x => x.ToString())),
             Cc = string.Join("; ", message.Cc.Select(x => x.ToString())),
             DateText = message.Date.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -711,6 +734,8 @@ public static class MailKitHelper
             TextBody = textBody,
             HtmlBody = htmlBody,
             HtmlPreview = htmlPreview,
+            TextPreview = preview,
+            BodyTruncated = truncated,
             Attachments = attachmentNames
         };
     }
@@ -797,19 +822,51 @@ public static class MailKitHelper
         var reply = new MimeMessage();
         reply.From.Add(new MailboxAddress("", senderEmail));
 
+        var recipients = new Dictionary<string, MailboxAddress>(StringComparer.OrdinalIgnoreCase);
+
+        void AddMailbox(MailboxAddress? mailbox, bool toCc = false)
+        {
+            if (mailbox == null) return;
+            if (string.IsNullOrWhiteSpace(mailbox.Address)) return;
+            if (string.Equals(mailbox.Address, senderEmail, StringComparison.OrdinalIgnoreCase)) return;
+            if (!recipients.ContainsKey(mailbox.Address))
+                recipients[mailbox.Address] = mailbox;
+        }
+
         if (original.ReplyTo.Count > 0)
-            reply.To.AddRange(original.ReplyTo);
+        {
+            foreach (var m in original.ReplyTo.Mailboxes) AddMailbox(m);
+        }
         else if (original.From.Count > 0)
-            reply.To.AddRange(original.From);
-        else if (original.Sender != null)
-            reply.To.Add(original.Sender);
+        {
+            foreach (var m in original.From.Mailboxes) AddMailbox(m);
+        }
+        else if (original.Sender is MailboxAddress senderMailbox)
+        {
+            AddMailbox(senderMailbox);
+        }
+
+        foreach (var m in recipients.Values)
+            reply.To.Add(m);
 
         if (replyToAll)
         {
-            foreach (var m in original.To.Mailboxes.Where(m => !string.Equals(m.Address, senderEmail, StringComparison.OrdinalIgnoreCase)))
-                reply.To.Add(m);
+            var ccRecipients = new Dictionary<string, MailboxAddress>(StringComparer.OrdinalIgnoreCase);
+            foreach (var m in original.To.Mailboxes)
+            {
+                if (!string.Equals(m.Address, senderEmail, StringComparison.OrdinalIgnoreCase) &&
+                    !reply.To.Mailboxes.Any(x => string.Equals(x.Address, m.Address, StringComparison.OrdinalIgnoreCase)))
+                    ccRecipients[m.Address] = m;
+            }
 
-            foreach (var m in original.Cc.Mailboxes.Where(m => !string.Equals(m.Address, senderEmail, StringComparison.OrdinalIgnoreCase)))
+            foreach (var m in original.Cc.Mailboxes)
+            {
+                if (!string.Equals(m.Address, senderEmail, StringComparison.OrdinalIgnoreCase) &&
+                    !reply.To.Mailboxes.Any(x => string.Equals(x.Address, m.Address, StringComparison.OrdinalIgnoreCase)))
+                    ccRecipients[m.Address] = m;
+            }
+
+            foreach (var m in ccRecipients.Values)
                 reply.Cc.Add(m);
         }
 
@@ -820,10 +877,8 @@ public static class MailKitHelper
         if (!string.IsNullOrEmpty(original.MessageId))
         {
             reply.InReplyTo = original.MessageId;
-
             foreach (var id in original.References)
                 reply.References.Add(id);
-
             reply.References.Add(original.MessageId);
         }
 
@@ -844,9 +899,7 @@ public static class MailKitHelper
         if (attachments != null)
         {
             foreach (var file in attachments.Where(File.Exists))
-            {
                 builder.Attachments.Add(file);
-            }
         }
 
         reply.Body = builder.ToMessageBody();
@@ -876,7 +929,7 @@ public static class MailKitHelper
 
     #endregion
 
-    #region 引用原文辅助
+    #region 引用原文
 
     private static string BuildQuotedText(MimeMessage original)
     {
@@ -912,9 +965,19 @@ public class EmailListItemDto
     public string Uid { get; set; } = "";
     public string Subject { get; set; } = "";
     public string From { get; set; } = "";
+    public string FromName { get; set; } = "";
+    public string FromAddress { get; set; } = "";
     public string DateText { get; set; } = "";
     public bool IsUnread { get; set; }
     public bool HasAttachments { get; set; }
+    public string MatchSource { get; set; } = "";
+}
+
+public class EmailAttachmentDto
+{
+    public string FileName { get; set; } = "";
+    public string ContentType { get; set; } = "";
+    public bool IsInline { get; set; }
 }
 
 public class EmailDetailDto
@@ -923,6 +986,8 @@ public class EmailDetailDto
     public string Uid { get; set; } = "";
     public string Subject { get; set; } = "";
     public string From { get; set; } = "";
+    public string FromName { get; set; } = "";
+    public string FromAddress { get; set; } = "";
     public string To { get; set; } = "";
     public string Cc { get; set; } = "";
     public string DateText { get; set; } = "";
@@ -931,5 +996,7 @@ public class EmailDetailDto
     public string TextBody { get; set; } = "";
     public string HtmlBody { get; set; } = "";
     public string HtmlPreview { get; set; } = "";
-    public List<string> Attachments { get; set; } = new();
+    public string TextPreview { get; set; } = "";
+    public bool BodyTruncated { get; set; }
+    public List<EmailAttachmentDto> Attachments { get; set; } = new();
 }
