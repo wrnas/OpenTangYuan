@@ -120,17 +120,7 @@ namespace TangYuan.Controllers
 
         #endregion
 
-
-
-
-        #region AI技能相关
-
-        /*
-            1. 先调用 GetSkillListForAI 查看有哪些 workflow 和 builtin skill。
-            2. 如果 workflows 中已有可直接完成任务的技能，优先调用 GetSkillAction 查看详情，再调用 ExecuteSkill。
-            3. 如果没有合适 workflow，再调用 GetBuiltinSkillManifest 查看 builtin skill 的调用方式。
-            4. 所有真正执行动作的请求，统一调用 ExecuteSkill。
-         */
+        #region AI技能相关        
 
         /// <summary>
         /// 给 AI 返回技能总览：
@@ -146,13 +136,88 @@ namespace TangYuan.Controllers
         {
             try
             {
-                // 1. 数据库技能
                 var sql = "SELECT SkillCode, Remark AS AIDesc FROM Skills ORDER BY ID ASC";
-                var workflows = (await QueryAsync<dynamic>(sql)).ToList();
+                var workflowsRaw = (await QueryAsync<dynamic>(sql)).ToList();
+
+                var workflows = workflowsRaw.Select(x => new
+                {
+                    skillCode = x.SkillCode?.ToString() ?? "",
+                    AIDesc = x.AIDesc?.ToString() ?? "",
+                    sourceType = "workflow",
+                    needDetail = true
+                }).ToList();
+
+                var builtins = new List<object>();
+
+                try
+                {
+                    var filePath = Path.Combine(AppContext.BaseDirectory, "AiConfig", "skill-manifest.json");
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        lock (_cacheLock)
+                        {
+                            if (_cachedManifestDoc == null)
+                            {
+                                byte[] jsonBytes = System.IO.File.ReadAllBytes(filePath);
+                                _cachedManifestDoc = JsonDocument.Parse(jsonBytes);
+                                _cachedManifestJson = null;
+                            }
+                        }
+
+                        var root = _cachedManifestDoc.RootElement;
+                        JsonElement builtinsElement;
+
+                        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("builtins", out var builtinsProp))
+                        {
+                            builtinsElement = builtinsProp;
+                        }
+                        else if (root.ValueKind == JsonValueKind.Array)
+                        {
+                            builtinsElement = root;
+                        }
+                        else
+                        {
+                            builtinsElement = default;
+                        }
+
+                        if (builtinsElement.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var item in builtinsElement.EnumerateArray())
+                            {
+                                if (item.ValueKind != JsonValueKind.Object)
+                                    continue;
+
+                                string skillCode = item.TryGetProperty("skillCode", out var skillCodeProp)
+                                    ? (skillCodeProp.GetString() ?? "")
+                                    : "";
+
+                                string aiDesc = item.TryGetProperty("AIDesc", out var descProp)
+                                    ? (descProp.GetString() ?? "")
+                                    : "";
+
+                                if (!string.IsNullOrWhiteSpace(skillCode))
+                                {
+                                    builtins.Add(new
+                                    {
+                                        skillCode,
+                                        AIDesc = aiDesc,
+                                        sourceType = "builtin",
+                                        needDetail = true
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "读取内置技能目录失败，builtins 将返回空数组");
+                }
 
                 return Ok(ResponseHelper.Success(new
                 {
-                    workflows
+                    workflows,
+                    builtins
                 }));
             }
             catch (Exception ex)
@@ -161,6 +226,80 @@ namespace TangYuan.Controllers
                 return StatusCode(500, ResponseHelper.Fail<object>("获取技能列表失败"));
             }
         }
+
+
+
+        #region  GetBuiltinSkillDetail  获取内部定义详情
+        [HttpPost("GetBuiltinSkillDetail")]
+        public IActionResult GetBuiltinSkillDetail([FromBody] SkillBaseModel request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SkillCode))
+                return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
+
+            try
+            {
+                var filePath = Path.Combine(AppContext.BaseDirectory, "AiConfig", "skill-manifest.json");
+                if (!System.IO.File.Exists(filePath))
+                {
+                    _logger.LogWarning("未找到内置技能 manifest 文件：{FilePath}", filePath);
+                    return NotFound(ResponseHelper.Fail<object>("skill-manifest.json 不存在"));
+                }
+
+                lock (_cacheLock)
+                {
+                    if (_cachedManifestDoc == null)
+                    {
+                        byte[] jsonBytes = System.IO.File.ReadAllBytes(filePath);
+                        _cachedManifestDoc = JsonDocument.Parse(jsonBytes);
+                        _cachedManifestJson = null;
+                    }
+                }
+
+                var root = _cachedManifestDoc.RootElement;
+                JsonElement builtins;
+
+                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("builtins", out var builtinsProp))
+                {
+                    builtins = builtinsProp;
+                }
+                else if (root.ValueKind == JsonValueKind.Array)
+                {
+                    builtins = root;
+                }
+                else
+                {
+                    return NotFound(ResponseHelper.Fail<object>("manifest 中未找到 builtins"));
+                }
+
+                foreach (var item in builtins.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    if (item.TryGetProperty("skillCode", out var skillCodeProp) &&
+                        string.Equals(skillCodeProp.GetString(), request.SkillCode, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Ok(ResponseHelper.Success(item.Clone()));
+                    }
+                }
+
+                return NotFound(ResponseHelper.Fail<object>("未找到该 builtin skill"));
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "skill-manifest.json 格式错误");
+                return StatusCode(500, ResponseHelper.Fail<object>("skill-manifest.json 格式错误"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "读取 builtin skill 详情失败，SkillCode={SkillCode}", request.SkillCode);
+                return StatusCode(500, ResponseHelper.Fail<object>("读取 builtin skill 详情失败"));
+            }
+        }
+
+        #endregion
+
+
         #region 保留备用
         [HttpPost("GetSkillListWithBuiltinForAI")]
         public async Task<IActionResult> GetSkillListWithBuiltinForAI()
