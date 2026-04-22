@@ -20,11 +20,14 @@ namespace TangYuan
 {
     public class Program
     {
+
         public static void Main(string[] args)
         {
             
             try
             {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
                 var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
                 logger.Debug("初始化应用程序");
 
