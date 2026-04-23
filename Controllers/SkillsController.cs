@@ -2027,8 +2027,6 @@ namespace TangYuan.Controllers
         }
 
 
-
-
         private async Task<object> DoOpenTaskAsync(Dictionary<string, object> args)
         {
             string path = GetString(args, "path");
@@ -2048,8 +2046,18 @@ namespace TangYuan.Controllers
                 });
             });
 
-            return "已打开：" + fullPath;
+            return new
+            {
+                Success = true,
+                SkillCode = "open_task",
+                Type = "open_file",
+                Text = $"文件已成功打开: {fullPath}",
+                ResultValue = fullPath
+            };
         }
+
+
+
 
         private async Task<object> DoPrintTaskAsync(Dictionary<string, object> args)
         {
@@ -2074,8 +2082,17 @@ namespace TangYuan.Controllers
                 p?.WaitForExit(10000);
             });
 
-            return "已发送打印：" + Path.GetFileName(fullPath);
+            // 返回标准 JSON，告知智能体成功
+            return new
+            {
+                Success = true,
+                SkillCode = "print_task",
+                Type = "print_file",
+                Text = $"已发送打印: {Path.GetFileName(fullPath)}",
+                ResultValue = fullPath
+            };
         }
+
 
         private async Task<object> DoFolderTaskAsync(Dictionary<string, object> args)
         {
