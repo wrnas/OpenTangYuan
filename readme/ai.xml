@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36" pages="2">
   <diagram name="AI架构图" id="0">
-    <mxGraphModel dx="4285" dy="2601" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+    <mxGraphModel dx="4420" dy="2673" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -76,20 +76,20 @@
         <mxCell id="RxqYwkbkHIfrHgnVsAHn-5" edge="1" parent="1" source="RxqYwkbkHIfrHgnVsAHn-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;strokeWidth=2;" target="MlOMmc-Hhzagb6qtMHug-13">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="RxqYwkbkHIfrHgnVsAHn-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;" value="消息服务&lt;br&gt;微信/订订" vertex="1">
+        <mxCell id="RxqYwkbkHIfrHgnVsAHn-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;" value="message_task&lt;br&gt;微信/订订" vertex="1">
           <mxGeometry height="70" width="180" x="-1670" y="-810" as="geometry" />
         </mxCell>
         <mxCell id="RxqYwkbkHIfrHgnVsAHn-6" edge="1" parent="1" source="RxqYwkbkHIfrHgnVsAHn-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;dashed=1;strokeWidth=2;dashPattern=8 8;" target="MlOMmc-Hhzagb6qtMHug-13">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="RxqYwkbkHIfrHgnVsAHn-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;" value="工具调用" vertex="1">
+        <mxCell id="RxqYwkbkHIfrHgnVsAHn-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;" value="tool_task&lt;br&gt;工具调用" vertex="1">
           <mxGeometry height="70" width="180" x="-1460" y="-810" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
   <diagram id="X5V4t0lT4uY85PdZUGbB" name="第 2 页">
-    <mxGraphModel dx="1488" dy="791" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="2571" dy="1365" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
