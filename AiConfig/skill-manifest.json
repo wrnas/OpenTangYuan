@@ -4,7 +4,7 @@
   "builtins": [
     {
       "skillCode": "browser_task",
-      "desc": "执行浏览器自动化动作序列，适用于登录、查询、读取页面、截图、下载、多轮页面操作等场景",
+      "AIDesc": "执行浏览器自动化动作序列，适用于登录、查询、读取页面、截图、下载、多轮页面操作等场景",
       "args": {
         "sessionId": "可选，会话ID，不传则自动新建；同一网站后续追问应优先复用",
         "closeSession": "可选，是否执行后关闭会话 true/false，默认 false",
@@ -83,7 +83,7 @@
     },
     {
       "skillCode": "file_task",
-      "desc": "文件搜索、复制、移动、重命名、创建目录、批量复制、批量移动",
+      "AIDesc": "文件操作。支持 查询[search]、复制[copy]、移动[move]、创建目录[mkdir]、重命名[rename]、批量复制[copy_many]、批量移动[move_many]。",
       "args": {
         "action": "search | copy | move | copy_many | move_many | mkdir | rename",
         "from": "源路径；copy/move/rename/mkdir 时使用",
@@ -257,7 +257,7 @@
     },
     {
       "skillCode": "screenshot_task",
-      "desc": "全屏截图",
+      "AIDesc": "全屏截图",
       "args": {},
       "example": {
         "SkillCode": "screenshot_task",
@@ -266,7 +266,7 @@
     },
     {
       "skillCode": "open_task",
-      "desc": "打开文件、程序、文件夹",
+      "AIDesc": "打开文件、程序、文件夹",
       "args": {
         "path": "文件路径、目录路径或程序路径"
       },
@@ -279,7 +279,7 @@
     },
     {
       "skillCode": "print_task",
-      "desc": "打印文件",
+      "AIDesc": "打印文件",
       "args": {
         "path": "待打印文件完整路径"
       },
@@ -292,7 +292,7 @@
     },
     {
       "skillCode": "folder_task",
-      "desc": "按后缀归类文件",
+      "AIDesc": "按后缀归类文件",
       "args": {
         "source": "源目录"
       },
@@ -305,7 +305,7 @@
     },
     {
       "skillCode": "tool_task",
-      "desc": "调用白名单中的外部 exe 工具",
+      "AIDesc": "调用白名单中的外部 exe 工具",
       "args": {
         "exePath": "exe 完整路径，必填",
         "arguments": "命令行参数，选填",
@@ -322,7 +322,7 @@
     },
     {
       "skillCode": "lock_task",
-      "desc": "锁屏",
+      "AIDesc": "锁屏",
       "args": {},
       "example": {
         "SkillCode": "lock_task",
@@ -331,14 +331,14 @@
     },
     {
       "skillCode": "wechat_task",
-      "desc": "发送企业微信机器人消息，支持文本、Markdown、图文卡片",
+      "AIDesc": "发送企业微信机器人消息，支持文本、Markdown、图文卡片",
       "args": {
         "action": "text / markdown / card",
         "content": "text 或 markdown 时必填",
         "isAtAll": "text 时可选，true/false",
         "atUsers": "text 时可选，多个用户用逗号分隔",
         "title": "card 时必填",
-        "desc": "card 时必填",
+        "AIDesc": "card 时必填",
         "url": "card 时必填",
         "picUrl": "card 时可选"
       },
