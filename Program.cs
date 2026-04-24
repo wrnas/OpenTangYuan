@@ -227,6 +227,7 @@ namespace TangYuan
             {
                 if (context.Request.Path.StartsWithSegments("/swagger"))
                 {
+
                     var authHeader = context.Request.Headers.Authorization.ToString();
 
                     if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Basic "))

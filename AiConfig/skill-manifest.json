@@ -1,108 +1,196 @@
 {
+  "version": "1.1",
+  "note": "优先使用 workflows；没有现成 workflow 或 workflow 只能完成一部分时，再使用 builtins 组合调用 ExecuteSkill。",
   "builtins": [
     {
       "skillCode": "browser_task",
-      "AIDesc": "网页操作。支持打开网页、点击、输入、提取文本、截图、下载、分页和复用 session。",
-      "usage": [
-        "用于网页浏览、网页截图、网页内容提取。",
-        "优先复用 sessionId，不要重复登录。",
-        "常见参数是 actions，actions 是浏览器动作数组。"
+      "desc": "执行浏览器自动化动作序列，适用于登录、查询、读取页面、截图、下载、多轮页面操作等场景",
+      "args": {
+        "sessionId": "可选，会话ID，不传则自动新建；同一网站后续追问应优先复用",
+        "closeSession": "可选，是否执行后关闭会话 true/false，默认 false",
+        "includeOutputs": "可选，是否返回每一步动作明细 true/false，默认 false",
+        "actions": "浏览器动作数组；可直接传 JSON 数组，或以 JSON 字符串形式传入"
+      },
+      "actionsV1": [
+        "goto",
+        "goto_attr",
+        "back",
+        "forward",
+        "refresh",
+        "click",
+        "click_index",
+        "click_text",
+        "click_if_exists",
+        "fill",
+        "press",
+        "hover",
+        "select_option",
+        "wait",
+        "wait_for",
+        "wait_for_load_state",
+        "wait_url_contains",
+        "scroll_bottom",
+        "scroll_until_text",
+        "get_text",
+        "get_text_list",
+        "get_attr",
+        "get_attr_list",
+        "get_links",
+        "get_links_structured",
+        "get_html",
+        "check_text",
+        "exists",
+        "count",
+        "analyze_page",
+        "extract_article",
+        "extract_list",
+        "screenshot",
+        "screenshot_base64",
+        "screenshot_element",
+        "download",
+        "new_tab",
+        "switch_tab",
+        "get_tabs",
+        "clear_cookies",
+        "auto_detect_login",
+        "auto_login_form",
+        "evaluate",
+        "detect_captcha",
+        "capture_captcha",
+        "submit_captcha"
       ],
-      "examples": [
-        {
-          "title": "打开网页并截图",
-          "json": {
-            "SkillCode": "browser_task",
-            "Arguments": {
-              "actions": [
-                {
-                  "type": "goto",
-                  "url": "https://example.com"
-                },
-                {
-                  "type": "wait_for",
-                  "selector": "body"
-                },
-                { "type": "screenshot" }
-              ]
+      "example": {
+        "SkillCode": "browser_task",
+        "Arguments": {
+          "closeSession": false,
+          "includeOutputs": false,
+          "actions": [
+            {
+              "type": "goto",
+              "url": "https://example.com"
+            },
+            {
+              "type": "wait_for",
+              "selector": "body"
+            },
+            {
+              "type": "get_text",
+              "selector": "body"
             }
-          }
+          ]
         }
-      ],
-      "tips": [
-        "网页截图优先使用 browser_task。",
-        "不要把本地界面截图交给 browser_task。"
-      ]
+      }
     },
     {
       "skillCode": "file_task",
-      "AIDesc": "文件操作。支持 search、copy、move、mkdir、rename、copy_many、move_many。",
-      "usage": [
-        "用于文件搜索、复制、移动、重命名、创建目录。",
-        "有副作用动作成功后不要重复执行。"
-      ],
-      "examples": [
+      "desc": "文件搜索、复制、移动、重命名、创建目录、批量复制、批量移动",
+      "args": {
+        "action": "search | copy | move | copy_many | move_many | mkdir | rename",
+        "from": "源路径；copy/move/rename/mkdir 时使用",
+        "to": "目标路径；copy/move 时使用",
+        "keyword": "搜索关键词；search 时使用",
+        "ext": "扩展名；search 时使用，默认 *",
+        "paths": "文件路径数组；copy_many/move_many 时使用",
+        "toDir": "目标目录；copy_many/move_many 时使用",
+        "overwrite": "是否覆盖，true/false，默认 true",
+        "newName": "重命名后的文件名；rename 时使用"
+      },
+      "actions": [
         {
-          "title": "搜索文件",
-          "json": {
-            "SkillCode": "file_task",
-            "Arguments": {
-              "action": "search",
-              "keyword": "发票",
-              "ext": "pdf"
-            }
-          }
+          "action": "search",
+          "required": [
+            "keyword"
+          ],
+          "optional": [
+            "ext"
+          ]
+        },
+        {
+          "action": "copy",
+          "required": [
+            "from",
+            "to"
+          ],
+          "optional": []
+        },
+        {
+          "action": "move",
+          "required": [
+            "from",
+            "to"
+          ],
+          "optional": []
+        },
+        {
+          "action": "copy_many",
+          "required": [
+            "paths",
+            "toDir"
+          ],
+          "optional": [
+            "overwrite"
+          ]
+        },
+        {
+          "action": "move_many",
+          "required": [
+            "paths",
+            "toDir"
+          ],
+          "optional": [
+            "overwrite"
+          ]
+        },
+        {
+          "action": "rename",
+          "required": [
+            "from",
+            "newName"
+          ],
+          "optional": []
+        },
+        {
+          "action": "mkdir",
+          "required": [
+            "from"
+          ],
+          "optional": []
         }
       ],
-      "tips": [
-        "search 返回列表时，列表本身通常就是结果。",
-        "copy、move、rename、mkdir 成功后立即停止。"
-      ]
-    },
-    {
-      "skillCode": "wechat_task",
-      "AIDesc": "企业微信机器人消息发送。仅支持 text、markdown、card。",
-      "usage": [
-        "用于发送企业微信机器人消息。",
-        "action 只能是 text、markdown、card。"
-      ],
-      "examples": [
-        {
-          "title": "发送文本消息",
-          "json": {
-            "SkillCode": "wechat_task",
-            "Arguments": {
-              "action": "text",
-              "content": "测试一下，你好！"
-            }
-          }
+      "example": {
+        "SkillCode": "file_task",
+        "Arguments": {
+          "action": "copy_many",
+          "paths": [
+            "C:\\Temp\\a.png",
+            "C:\\Temp\\b.png"
+          ],
+          "toDir": "D:\\备份",
+          "overwrite": "true"
         }
-      ],
-      "tips": [
-        "成功后必须立即停止。",
-        "不要使用 send、message、notify 之类未定义 action。"
-      ]
+      }
     },
     {
       "skillCode": "email_task",
-      "AIDesc": "邮箱操作。支持 send、search、read、download_attachments、reply、mark_read、save_eml。",
+      "AIDesc": "邮箱操作。支持 send, search, read, download_attachments, reply, mark_read, save_eml。调用 ExecuteSkill 时传 skillCode=email_task，并在 arguments 中传 action 和对应参数。调用 ExecuteSkillForCoze 时，把 { skillCode, arguments } 序列化后放到 Json 字段。",
       "usage": [
-        "send: 发送邮件，常用参数 to、subject、body、attachments、insertImagePaths。",
-        "search: 搜索邮件列表，常用参数 subjectKeyword、fromKeyword、bodyKeyword、unreadOnly、hasAttachments、maxCount、scanCount、contextKey。",
-        "read: 读取邮件正文，常用参数 index + contextKey，或 mailRef。",
-        "download_attachments: 下载附件，常用参数 index + contextKey，或 mailRef + savePath。",
-        "reply: 回复邮件，常用参数 index + contextKey，或 mailRef + replyText。",
-        "mark_read: 标记已读，常用参数 index + contextKey，或 mailRef。",
-        "save_eml: 保存邮件为 eml，常用参数 index + contextKey，或 mailRef + filePath。"
+        "send: 发送邮件，常用参数：to, subject, body, attachments, insertImagePaths",
+        "search: 搜索邮件，常用参数：subjectKeyword, fromKeyword, bodyKeyword, unreadOnly, hasAttachments, maxCount, scanCount, dateFrom, dateTo, daysBack, contextKey",
+        "read: 读取邮件正文，常用参数：index + contextKey，或 mailRef",
+        "download_attachments: 下载附件，常用参数：index + contextKey，或 mailRef + savePath",
+        "reply: 回复邮件，常用参数：index + contextKey，或 mailRef + replyText",
+        "mark_read: 标记已读，常用参数：index + contextKey，或 mailRef",
+        "save_eml: 保存邮件为 eml，常用参数：index + contextKey，或 mailRef + filePath"
       ],
       "examples": [
         {
           "title": "搜索主题包含 发票 的邮件",
           "json": {
-            "SkillCode": "email_task",
-            "Arguments": {
+            "skillCode": "email_task",
+            "arguments": {
               "action": "search",
               "subjectKeyword": "发票",
+              "unreadOnly": false,
               "maxCount": 10,
               "scanCount": 100,
               "contextKey": "mail_default"
@@ -110,10 +198,10 @@
           }
         },
         {
-          "title": "读取第一封邮件",
+          "title": "读取搜索结果中的第一封邮件",
           "json": {
-            "SkillCode": "email_task",
-            "Arguments": {
+            "skillCode": "email_task",
+            "arguments": {
               "action": "read",
               "index": 1,
               "contextKey": "mail_default"
@@ -121,10 +209,10 @@
           }
         },
         {
-          "title": "下载第一封邮件附件",
+          "title": "下载第一封邮件的附件到 D 盘",
           "json": {
-            "SkillCode": "email_task",
-            "Arguments": {
+            "skillCode": "email_task",
+            "arguments": {
               "action": "download_attachments",
               "index": 1,
               "contextKey": "mail_default",
@@ -135,8 +223,8 @@
         {
           "title": "发送带正文图片的邮件",
           "json": {
-            "SkillCode": "email_task",
-            "Arguments": {
+            "skillCode": "email_task",
+            "arguments": {
               "action": "send",
               "to": "someone@example.com",
               "subject": "测试邮件",
@@ -146,14 +234,121 @@
               ]
             }
           }
+        },
+        {
+          "title": "回复第一封邮件",
+          "json": {
+            "skillCode": "email_task",
+            "arguments": {
+              "action": "reply",
+              "index": 1,
+              "contextKey": "mail_default",
+              "replyText": "已收到，谢谢"
+            }
+          }
         }
       ],
       "tips": [
-        "查邮件列表时先 search，列表成功后默认立即停止，不要自动查看详情。",
-        "用户说第一封邮件、第二封邮件时，优先用 index + contextKey。",
-        "图片作为附件发送用 attachments；图片显示在正文中用 insertImagePaths。",
-        "send、reply、mark_read、download_attachments、save_eml 都是有副作用动作，成功后立即停止。"
+        "推荐先 search，再用 index + contextKey 操作某一封邮件。",
+        "当用户说第一封、第二封邮件时，优先传 index 和 contextKey。",
+        "正文插图优先用 insertImagePaths，不要手写 cid。",
+        "下载附件、保存 eml、发送附件时，本地路径必须在服务端允许范围内。"
       ]
+    },
+    {
+      "skillCode": "screenshot_task",
+      "desc": "全屏截图",
+      "args": {},
+      "example": {
+        "SkillCode": "screenshot_task",
+        "Arguments": {}
+      }
+    },
+    {
+      "skillCode": "open_task",
+      "desc": "打开文件、程序、文件夹",
+      "args": {
+        "path": "文件路径、目录路径或程序路径"
+      },
+      "example": {
+        "SkillCode": "open_task",
+        "Arguments": {
+          "path": "C:\\Temp"
+        }
+      }
+    },
+    {
+      "skillCode": "print_task",
+      "desc": "打印文件",
+      "args": {
+        "path": "待打印文件完整路径"
+      },
+      "example": {
+        "SkillCode": "print_task",
+        "Arguments": {
+          "path": "C:\\Temp\\a.pdf"
+        }
+      }
+    },
+    {
+      "skillCode": "folder_task",
+      "desc": "按后缀归类文件",
+      "args": {
+        "source": "源目录"
+      },
+      "example": {
+        "SkillCode": "folder_task",
+        "Arguments": {
+          "source": "C:\\Temp"
+        }
+      }
+    },
+    {
+      "skillCode": "tool_task",
+      "desc": "调用白名单中的外部 exe 工具",
+      "args": {
+        "exePath": "exe 完整路径，必填",
+        "arguments": "命令行参数，选填",
+        "timeout": "超时时间秒数，选填，默认 10"
+      },
+      "example": {
+        "SkillCode": "tool_task",
+        "Arguments": {
+          "exePath": "D:\\LmyTools.exe",
+          "arguments": "--input \"D:\\学生成绩.xlsx\" --output \"D:\\拆分结果.xlsx\"",
+          "timeout": "60"
+        }
+      }
+    },
+    {
+      "skillCode": "lock_task",
+      "desc": "锁屏",
+      "args": {},
+      "example": {
+        "SkillCode": "lock_task",
+        "Arguments": {}
+      }
+    },
+    {
+      "skillCode": "wechat_task",
+      "desc": "发送企业微信机器人消息，支持文本、Markdown、图文卡片",
+      "args": {
+        "action": "text / markdown / card",
+        "content": "text 或 markdown 时必填",
+        "isAtAll": "text 时可选，true/false",
+        "atUsers": "text 时可选，多个用户用逗号分隔",
+        "title": "card 时必填",
+        "desc": "card 时必填",
+        "url": "card 时必填",
+        "picUrl": "card 时可选"
+      },
+      "example": {
+        "SkillCode": "wechat_task",
+        "Arguments": {
+          "action": "text",
+          "content": "测试消息"
+        }
+      }
     }
   ]
 }
