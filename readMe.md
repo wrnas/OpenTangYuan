@@ -79,7 +79,7 @@
 
 ### 1. 获取技能目录
 
-```http
+
 POST /api/Skills/GetSkillListForAI
 返回：
 {
@@ -191,3 +191,15 @@ appsettings.json：
 - 调试时可让智能体输出思考过程（debug=true）
 
 - 生产环境建议关闭中间思考输出，只保留最终动作和结果
+
+
+## 发布及运行
+### windows： 
+- TangYuan.exe --urls "http://0.0.0.0:54124" --contentRoot "."
+### Linux： 
+- 参见 docker-compose.yml
+- 本地修改后可以直接在服务器上停止docker 。然后覆盖文件，重新启动即可。
+```text 举例：
+  cd /www/wwwroot/OpenTangYuanDocker
+  docker-compose up -d --build
+```
