@@ -92,6 +92,15 @@ Workflow: GetSkillAction
 
 Builtin: GetBuiltinSkillDetail
 
+### 2.1 辅助功能，用于swagger中调试
+
+获取全部Workflow: GetSkillList
+
+保存自己编排的Workflow: SaveSkillAction
+
+删除指定的Workflow：DeleteSkill
+
+
 ### 3. 执行技能
 POST /api/Skills/ExecuteSkill
 
