@@ -25,6 +25,15 @@
 - GitHub Actions / CI 可选（部署和测试）
 
 ---
+## 系统结构图
+<p align="center">
+  <img src="readme/Architecture_Diagram.png" alt="居中图片" width="600">
+</p>
+
+## 工作流程图
+<p align="center">
+  <img src="readme/Flowchart.png" alt="居中图片" width="600">
+</p>
 
 ## 目录结构
 /OpenTangYuan
