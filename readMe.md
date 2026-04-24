@@ -21,21 +21,18 @@
 - C# 10+
 - SQLite（存储 workflow 数据）
 - MailKit（邮箱操作）
+- Playwright（浏览器操作）
 - Windows OS 原生命令（打开文件、打印等）
 - GitHub Actions / CI 可选（部署和测试）
 
 ---
-## 系统结构图
-<p align="center">
-  <img src="readme/Architecture_Diagram.png" alt="居中图片" width="600">
-</p>
-
 ## 工作流程图
 <p align="center">
-  <img src="readme/Flowchart.png" alt="居中图片" width="600">
+  <img src="readme/Flowchart.png" alt="居中图片" width="800">
 </p>
 
 ## 目录结构
+```text
 /OpenTangYuan
 │
 ├─ /AiConfig
@@ -55,8 +52,8 @@
 │
 ├─ appsettings.json # 系统配置，包括邮箱配置
 └─ Program.cs / Startup.cs # 启动与服务配置
+ ```
 
----
 
 ## 核心技能
 
