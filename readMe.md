@@ -97,7 +97,7 @@ POST /api/Skills/ExecuteSkill
 
 
 参数示例（多步任务）：
-
+```json
 {
   "SkillCode": "temp_task",
   "Arguments": {},
@@ -118,7 +118,7 @@ POST /api/Skills/ExecuteSkill
     }
   ]
 }
-
+```
 ## 使用示例
 
 ### 1.截图并发送邮件
@@ -170,7 +170,7 @@ POST /api/Skills/ExecuteSkill
 ### 6. 配置
 
 appsettings.json：
-
+```json
 {
   "EmailSettings": {
     "SmtpServer": "smtp.163.com",
@@ -183,7 +183,7 @@ appsettings.json：
     "ImapUseSsl": true
   }
 }
-
+```
 ### 7. 开发与调试
 
 - 可通过 GetSkillListForAI + GetBuiltinSkillDetail 查看技能目录与详情
