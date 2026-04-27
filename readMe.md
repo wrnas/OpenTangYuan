@@ -221,13 +221,13 @@ appsettings.json：
 ### 编程语言：
 - C#
 ### 必装依赖包
-<p align="center">
-  <img src="readme/setup1.png" alt="居中图片" width="800">
+<p align="left">
+  <img src="readme/setup1.png" alt="居中图片" width="600">
 </p>
 
 ### 发布建议设置
-<p align="center">
-  <img src="readme/setup2.png" alt="居中图片" width="800">
+<p align="left">
+  <img src="readme/setup2.png" alt="居中图片" width="600">
 </p>
 
 ### 运行建议
