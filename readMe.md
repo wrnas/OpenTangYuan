@@ -203,10 +203,38 @@ appsettings.json：
 
 
 ## 发布及运行
-### windows： 
-- TangYuan.exe --urls "http://0.0.0.0:54124" --contentRoot "."
-### Linux： 
-- 参见 docker-compose.yml
+### 开发的硬件环境：
+- cpu ： i5 ,内存： 16G ，硬盘：1T
+### 最低运行的硬件环境：
+- Windows环境：
+- Cpu： i3 ,内存： 4G，硬盘：512M
+- Linux：
+- 阿里云 2核2G ，50G硬盘
+### 开发该软件的操作系统：
+- windows 10 专业版
+### 软件开发环境/开发工具：
+- VS2022
+### 该软件的运行平台/操作系统：
+- windows2016 server 或更高
+### 软件运行支撑环境/支持软件：
+- net 8 或更高版本
+### 编程语言：
+- C#
+### 必装依赖包
+<p align="center">
+  <img src="readme/setup1.png" alt="居中图片" width="800">
+</p>
+
+### 发布建议设置
+<p align="center">
+  <img src="readme/setup2.png" alt="居中图片" width="800">
+</p>
+
+### 运行建议
+- Windows环境直接启动.exe文件即可
+- 例如：TangYuan.exe --urls "http://0.0.0.0:54124" --contentRoot "."
+- Linux 建议使用Docker
+- 配置参见 docker-compose.yml
 - 本地修改后可以直接在服务器上停止docker 。然后覆盖文件，重新启动即可。
 ```text 举例：
   cd /www/wwwroot/OpenTangYuanDocker
