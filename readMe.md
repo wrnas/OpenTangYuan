@@ -1,8 +1,6 @@
 ﻿# OpenTangYuan
 
-<p align="center">
-  <img src="readme/logo.png" alt="OpenTangYuan Logo" width="160">
-</p>
+
 
 <h1 align="center">OpenTangYuan</h1>
 
