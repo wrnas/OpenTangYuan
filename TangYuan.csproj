@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <Folder Include="BrowserService\" />
+    <Folder Include="readme\images\" />
   </ItemGroup>
 
 </Project>
