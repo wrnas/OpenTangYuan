@@ -1,0 +1,128 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="gWzplGXIHlH_TOzQztCJ" name="Figure3_Deployment_Topology">
+    <mxGraphModel dx="1413" dy="785" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1;verticalAlign=top;" value="User Interaction Layer" vertex="1">
+          <mxGeometry height="60" width="200" x="60" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-3" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;" value="Web / Mobile / Chat / API / SDK" vertex="1">
+          <mxGeometry height="30" width="200" x="60" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-4" edge="1" parent="1" source="wWisKrB2PN0_7IEZbbJl-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;fontSize=12;" target="wWisKrB2PN0_7IEZbbJl-5" value="user request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;verticalAlign=top;" value="External Agent Platforms" vertex="1">
+          <mxGeometry height="60" width="220" x="360" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-6" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;" value="Coze / Dify / GPTs / Claude / Custom" vertex="1">
+          <mxGeometry height="30" width="200" x="370" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-7" edge="1" parent="1" source="wWisKrB2PN0_7IEZbbJl-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;fontSize=12;" target="wWisKrB2PN0_7IEZbbJl-8" value="HTTPS / API call">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="690" y="135" />
+              <mxPoint x="690" y="135" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=14;fontStyle=1;verticalAlign=top;" value="OpenTangYuan Cloud" vertex="1">
+          <mxGeometry height="180" width="280" x="720" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-9" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;" value="Intent Reasoning | Workflow Planning" vertex="1">
+          <mxGeometry height="30" width="260" x="730" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-10" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;" value="Context Management | Skill Routing" vertex="1">
+          <mxGeometry height="30" width="260" x="730" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" value="Workflow Repository (cloud-hosted)" vertex="1">
+          <mxGeometry height="40" width="200" x="760" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-12" edge="1" parent="1" source="wWisKrB2PN0_7IEZbbJl-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;fontSize=12;dashed=1;" target="wWisKrB2PN0_7IEZbbJl-15" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="YbAmJXKyqV8Ukxt6sGsv-1" connectable="0" parent="wWisKrB2PN0_7IEZbbJl-12" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&lt;span style=&quot;font-size: 12px;&quot;&gt;HTTPS + mTLS + VPN&lt;/span&gt;" vertex="1">
+          <mxGeometry relative="1" x="-0.2741" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-13" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;strokeWidth=2;dashed=1;fontStyle=1;fontSize=14;verticalAlign=top;" value="TRUST BOUNDARY" vertex="1">
+          <mxGeometry height="330" width="420" x="650" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-14" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=bottom;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#b85450;fontStyle=2" value="Sensitive data and enterprise resources stay below this boundary" vertex="1">
+          <mxGeometry height="20" width="420" x="650" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-15" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;fontStyle=1;verticalAlign=top;" value="Trusted Local Runtime" vertex="1">
+          <mxGeometry height="60" width="320" x="700" y="405" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-16" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=top;whiteSpace=wrap;rounded=0;" value="Authentication | Policy Validation | Workflow Executor | Local Skill Engine" vertex="1">
+          <mxGeometry height="30" width="320" x="709" y="427" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-17" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="Email" vertex="1">
+          <mxGeometry height="40" width="90" x="706" y="485" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-18" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="Browser" vertex="1">
+          <mxGeometry height="40" width="90" x="816" y="485" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-19" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="File System" vertex="1">
+          <mxGeometry height="40" width="90" x="926" y="485" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-20" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="Local Tools" vertex="1">
+          <mxGeometry height="40" width="90" x="706" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-21" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="Storage" vertex="1">
+          <mxGeometry height="40" width="90" x="816" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-22" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="Print" vertex="1">
+          <mxGeometry height="40" width="90" x="926" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-23" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;fontStyle=1;dashed=1;verticalAlign=top;" value="Governance, Security &amp; Compliance" vertex="1">
+          <mxGeometry height="220" width="500" x="32" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-24" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;" value="Privacy Protection&#xa;On-premise execution" vertex="1">
+          <mxGeometry height="50" width="140" x="52" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-25" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;" value="Access Control&#xa;AuthZ &amp; API control" vertex="1">
+          <mxGeometry height="50" width="140" x="212" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-26" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;" value="Trust Management&#xa;Whitelist, least privilege" vertex="1">
+          <mxGeometry height="50" width="140" x="372" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-27" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;" value="Execution Audit&#xa;Local logging &amp; trace" vertex="1">
+          <mxGeometry height="50" width="140" x="52" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-28" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;" value="Monitoring &amp; Alerting&#xa;Anomaly detection" vertex="1">
+          <mxGeometry height="50" width="140" x="212" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-29" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;" value="Policy Engine&#xa;Rules &amp; decisions" vertex="1">
+          <mxGeometry height="50" width="140" x="372" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-30" edge="1" parent="1" source="wWisKrB2PN0_7IEZbbJl-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;fontSize=11;dashed=1;strokeColor=#b85450;" target="wWisKrB2PN0_7IEZbbJl-23" value="Policy feedback&#xa;(audit logs, violations)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="420" />
+              <mxPoint x="600" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-31" edge="1" parent="1" source="wWisKrB2PN0_7IEZbbJl-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;fontSize=11;dashed=1;strokeColor=#82b366;" target="wWisKrB2PN0_7IEZbbJl-8" value="Policy sync / decision">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="230" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-32" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;verticalAlign=top;" value="Deployment Notes:&#xa;• OpenTangYuan Cloud: 多租户云服务 (shared)&#xa;• Trusted Local Runtime: 每个企业/租户独立部署 (on-premise or VPC)&#xa;• Governance &amp; Compliance: 可部署在云或本地，日志本地留存" vertex="1">
+          <mxGeometry height="80" width="600" x="32" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="wWisKrB2PN0_7IEZbbJl-33" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=2;fontColor=#333333;" value="Cloud-side agents access capability metadata and structured execution results only; raw files, emails, screenshots and enterprise systems remain inside the trusted local runtime." vertex="1">
+          <mxGeometry height="40" width="1000" y="790" as="geometry" />
+        </mxCell>
+        <mxCell id="_gFEEWg1jjdMu2p4_LZx-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=16;fontStyle=1;" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;font style=&quot;&quot;&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;Enterprise Systems&lt;/font&gt;&lt;br&gt;&lt;span style=&quot;font-size: 12px;&quot;&gt;OA / ERP / CRM / Student System / File Server / Custom APIs&lt;/span&gt;&lt;/font&gt;&lt;/span&gt;" vertex="1">
+          <mxGeometry height="60" width="355" x="683.5" y="620" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

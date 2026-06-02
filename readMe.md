@@ -971,6 +971,25 @@ docs: 更新 README 使用示例
 - 前一步是否执行成功
 - 不要手动猜测文件路径，应使用前一步返回结果
 
+###  为什么在开发环境中无法打开 Swagger，浏览器显示 chrome-error://chromewebdata/ 或页面无法加载？
+
+开发环境默认使用自签名的 HTTPS 证书。如果该证书未被系统或浏览器信任，浏览器会阻止对 https://localhost 的访问，导致无法加载 Swagger 所需的任何资源。
+launchSettings.json 中 applicationUrl 默认将 HTTPS 地址放在首位，因此启动时会自动打开 HTTPS 地址。
+让启动时自动打开 HTTP 地址（推荐，简单快捷）
+修改 Properties/launchSettings.json，将 applicationUrl 中的 HTTP 地址放在 HTTPS 地址之前：
+例如:
+```json
+"OpenTangYuan": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:5207;https://localhost:7026",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+```
 ---
 
 ## 社区与支持

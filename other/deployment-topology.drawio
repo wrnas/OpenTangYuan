@@ -1,0 +1,17 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="DeploymentTopology">
+    <mxGraphModel>
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="agent" value="External Agent Platforms&#10;Coze / Dify / GPTs / Custom Agents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="280" y="40" width="280" height="80" as="geometry"/></mxCell>
+        <mxCell id="cloud" value="OpenTangYuan Cloud&#10;Workflow Orchestrator&#10;Skill Registry&#10;Context Management" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1"><mxGeometry x="250" y="180" width="340" height="120" as="geometry"/></mxCell>
+        <mxCell id="runtime" value="Trusted Local Runtime&#10;Workflow Executor&#10;Local Skill Engine&#10;Policy Validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="250" y="400" width="340" height="120" as="geometry"/></mxCell>
+        <mxCell id="email" value="Email" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="80" y="620" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="browser" value="Browser" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="230" y="620" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="file" value="File System" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="380" y="620" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="enterprise" value="Enterprise Systems&#10;OA / ERP / CRM / Student System / Custom APIs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1"><mxGeometry x="560" y="610" width="320" height="80" as="geometry"/></mxCell>
+        <mxCell id="security" value="Governance, Security &amp; Compliance&#10;Access Control&#10;Whitelisting&#10;Audit Logging&#10;Privacy Protection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="700" y="180" width="260" height="340" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

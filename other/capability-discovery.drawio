@@ -1,0 +1,148 @@
+<mxfile host="app.diagrams.net" agent="ChatGPT">
+  <diagram id="capability-discovery" name="Capability Discovery Sequence">
+    <mxGraphModel dx="2019" dy="1121" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="oi5CYpcXxV71HL5Iaxgs-4" parent="1" style="line;strokeWidth=2;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=#B3B3B3;direction=south;gradientColor=none;" value="" vertex="1">
+          <mxGeometry height="580" width="30" x="1185" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="oi5CYpcXxV71HL5Iaxgs-3" parent="1" style="line;strokeWidth=2;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=#B3B3B3;direction=south;gradientColor=none;" value="" vertex="1">
+          <mxGeometry height="580" width="30" x="840" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="oi5CYpcXxV71HL5Iaxgs-2" parent="1" style="line;strokeWidth=2;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=#B3B3B3;direction=south;gradientColor=none;" value="" vertex="1">
+          <mxGeometry height="580" width="30" x="505" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=26;fontStyle=1;fontColor=#1f2937;" value="Capability Discovery Sequence" vertex="1">
+          <mxGeometry height="40" width="640" x="380" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontColor=#6b7280;" value="Manifest-driven capability discovery and runtime execution in OpenTangYuan" vertex="1">
+          <mxGeometry height="30" width="610" x="395" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="agentHead" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f0fe;strokeColor=#1a73e8;strokeWidth=2;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;" value="External Agent&#xa;Coze / Dify / GPTs / Custom" vertex="1">
+          <mxGeometry height="70" width="190" x="90" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="registryHead" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e5;strokeColor=#f97316;strokeWidth=2;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;" value="Skill Registry&#xa;Capability Index + Manifest" vertex="1">
+          <mxGeometry height="70" width="200" x="420" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="repoHead" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#fb923c;strokeWidth=2;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;" value="Workflow Repository&#xa;Workflow Steps + Metadata" vertex="1">
+          <mxGeometry height="70" width="210" x="750" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="runtimeHead" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#188038;strokeWidth=2;fontSize=14;fontStyle=1;align=center;verticalAlign=middle;" value="Trusted Local Runtime&#xa;Workflow Executor + Skill Engine" vertex="1">
+          <mxGeometry height="70" width="220" x="1090" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="agentLife" edge="1" parent="1" style="shape=line;html=1;strokeWidth=2;strokeColor=#94a3b8;dashed=1;dashPattern=8 8;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="185" y="185" as="sourcePoint" />
+            <mxPoint x="185" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="registryLife" edge="1" parent="1" style="shape=line;html=1;strokeWidth=2;strokeColor=#94a3b8;dashed=1;dashPattern=8 8;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="520" y="185" as="sourcePoint" />
+            <mxPoint x="520" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="repoLife" edge="1" parent="1" style="shape=line;html=1;strokeWidth=2;strokeColor=#94a3b8;dashed=1;dashPattern=8 8;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="855" y="185" as="sourcePoint" />
+            <mxPoint x="855" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="runtimeLife" edge="1" parent="1" source="oi5CYpcXxV71HL5Iaxgs-4" style="shape=line;html=1;strokeWidth=2;strokeColor=#94a3b8;dashed=1;dashPattern=8 8;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="1200" y="185" as="sourcePoint" />
+            <mxPoint x="1200" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="regAct1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#fb923c;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="150" width="20" x="510" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="regAct2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#fb923c;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="125" width="20" x="510" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="runAct" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#22c55e;strokeWidth=1;verticalAlign=bottom;labelPosition=center;verticalLabelPosition=top;align=center;fontStyle=1" value="&lt;span style=&quot;white-space: nowrap; background-color: rgb(255, 255, 255);&quot;&gt;9. Execute builtin / workflow / temp workflow&lt;/span&gt;" vertex="1">
+          <mxGeometry height="110" width="20" x="1190" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="repoAct1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fed7aa;strokeColor=#fb923c;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="70" width="20" x="845" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="repoAct2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fed7aa;strokeColor=#fb923c;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="55" width="20" x="845" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#1a73e8;fontSize=13;fontStyle=1;" value="1. GetSkillListForAI()">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="185" y="230" as="sourcePoint" />
+            <mxPoint x="510" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#f97316;fontSize=12;fontStyle=1" value="2. Load workflow summaries">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="530" y="275" as="sourcePoint" />
+            <mxPoint x="845" y="275" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#f97316;fontSize=12;dashed=1;fontStyle=1" value="3. Return workflow metadata">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="845" y="335" as="sourcePoint" />
+            <mxPoint x="530" y="335" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#1a73e8;fontSize=13;fontStyle=1;dashed=1;" value="4. return workflows + builtins">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="510" y="375" as="sourcePoint" />
+            <mxPoint x="185" y="375" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#1a73e8;fontSize=13;fontStyle=1;" value="5. GetBuiltinSkillDetail() / GetSkillAction()">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="185" y="435" as="sourcePoint" />
+            <mxPoint x="510" y="435" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#f97316;fontSize=12;fontStyle=1" value="6. Resolve schema / steps">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="530" y="475" as="sourcePoint" />
+            <mxPoint x="845" y="475" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#1a73e8;fontSize=13;fontStyle=1;dashed=1;" value="7. return schema / workflow steps">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="510" y="555" as="sourcePoint" />
+            <mxPoint x="185" y="555" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#16a34a;fontSize=13;fontStyle=1;" value="8. ExecuteSkill(skillCode, arguments, steps)">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="185" y="625" as="sourcePoint" />
+            <mxPoint x="1190" y="625" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#16a34a;fontSize=13;fontStyle=1;dashed=1;" value="10. return execution result">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="1190" y="735" as="sourcePoint" />
+            <mxPoint x="185" y="735" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="internalBox" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#22c55e;strokeWidth=1;fontSize=12;fontColor=#166534;align=center;verticalAlign=middle;" value="Local execution includes: authentication, policy validation, workflow scheduling, context binding, skill invocation, result packaging" vertex="1">
+          <mxGeometry height="72" width="300" x="1080" y="639" as="geometry" />
+        </mxCell>
+        <mxCell id="note1" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fffbe6;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" value="Workflow-first strategy: predefined workflows are preferred for frequent tasks; builtin skills are used as fallback for dynamic task composition." vertex="1">
+          <mxGeometry height="55" width="575" x="90" y="805" as="geometry" />
+        </mxCell>
+        <mxCell id="note2" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=12;align=left;verticalAlign=top;spacing=8;" value="Sensitive data and enterprise resources remain in the trusted local runtime. The cloud-side agent receives capability metadata and structured execution results." vertex="1">
+          <mxGeometry height="55" width="585" x="725" y="805" as="geometry" />
+        </mxCell>
+        <mxCell id="oi5CYpcXxV71HL5Iaxgs-1" parent="1" style="line;strokeWidth=2;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=#B3B3B3;direction=south;gradientColor=none;" value="" vertex="1">
+          <mxGeometry height="580" width="30" x="168" y="196" as="geometry" />
+        </mxCell>
+        <mxCell id="oi5CYpcXxV71HL5Iaxgs-5" edge="1" parent="1" style="shape=line;html=1;strokeWidth=2;strokeColor=#94a3b8;dashed=1;dashPattern=8 8;" target="oi5CYpcXxV71HL5Iaxgs-4" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="1200" y="185" as="sourcePoint" />
+            <mxPoint x="1200" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
