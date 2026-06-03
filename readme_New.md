@@ -156,7 +156,6 @@ OpenTangYuan 的核心贡献不在于单一 Agent 能力，而在于构建了一
 - [扩展机制](#扩展机制)
 - [路线图](#路线图)
 - [常见问题](#常见问题)
-- [文档导航](#文档导航)
 - [引用方式](#引用方式)
 - [许可证](#许可证)
 
@@ -845,8 +844,6 @@ POST /api/Skills/ExecuteSkill
 
 ## Docker 部署
 
-> TODO：如果当前项目已支持 Docker，请补充真实 Dockerfile 和 docker-compose.yml。  
-> 如果暂未完全支持 Docker，可保留本节作为计划功能，并在论文中说明 Docker 支持仍在完善。
 
 ### 构建镜像
 
@@ -863,21 +860,27 @@ docker run -d \
   opentangyuan
 ```
 
-### Docker Compose 示例
+### docker-compose.yml 示例
 
 ```yaml
-version: "3.9"
+# 阿里云服务器用
+# 只更新代码，那么只需要把发布后的文件上传到服务器上，执行如下内容
+# cd /www/wwwroot/OpenTangYuanDocker
+# docker-compose up -d --build
+version: '3.8'
 
 services:
-  opentangyuan:
-    image: opentangyuan:latest
-    container_name: opentangyuan
+  tangyuan-app:
+    build: .
+    container_name: tangyuan-app
+    restart: always
     ports:
-      - "54124:54124"
+      - "54123:54123"
     volumes:
-      - ./data:/app/data
-      - ./appsettings.json:/app/appsettings.json
-    restart: unless-stopped
+      - ./sqlite-data:/app/data  
+    environment:
+      - TZ=Asia/Shanghai
+      - ASPNETCORE_URLS=http://*:54123
 ```
 
 ---
@@ -1411,23 +1414,6 @@ OpenTangYuan 支持以下扩展方式：
 
 ---
 
-## 文档导航
-
-建议将详细内容拆分到 `docs` 目录中维护。
-
-| 文档 | 说明 |
-|---|---|
-| `docs/api.md` | API 接口说明 |
-| `docs/workflow.md` | Workflow 开发指南 |
-| `docs/builtins.md` | 内置技能说明 |
-| `docs/deployment.md` | 部署指南 |
-| `docs/coze-agent-prompt.md` | Coze 智能体系统提示词 |
-| `docs/architecture.md` | 系统架构说明 |
-| `docs/security.md` | 安全模型说明 |
-| `docs/examples.md` | 示例任务 |
-| `docs/faq.md` | 常见问题 |
-
----
 
 ## 推荐仓库结构
 
