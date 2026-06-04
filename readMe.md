@@ -322,22 +322,6 @@ OpenTangYuan 采用 **Manifest-Driven Skill Registry** 设计。
 
 ![Capability Discovery](readme/images/capability-discovery.png)
 
-建议图中展示：
-
-```text
-Agent
-  ↓ GetSkillListForAI
-Skill Registry
-  ↓ return workflows + builtins
-Agent
-  ↓ GetBuiltinSkillDetail / GetSkillAction
-Skill Registry
-  ↓ return schema / steps
-Agent
-  ↓ ExecuteSkill
-Local Runtime
-  ↓ return result
-```
 
 ### 设计优势
 
@@ -538,7 +522,7 @@ Workflow Engine 支持：
 
 ## 核心 API
 
-OpenTangYuan 提供多个 API。README 仅列出智能体调用链路中最重要的核心 API。完整接口说明建议维护在 `docs/api.md` 中。
+OpenTangYuan 提供多个 API。README 仅列出智能体调用链路中最重要的核心 API。
 
 ### API 总览
 
@@ -1252,39 +1236,6 @@ OpenTangYuan 支持以下部署方式：
 > `readme/images/Figure3_Deployment_Topology.png`
 
 ![Deployment Topology](readme/images/Figure3_Deployment_Topology.png)
-
-建议图中展示：
-
-```text
-External Agent Platform
-        ↓
-OpenTangYuan Orchestration Layer
-        ↓ HTTPS / mTLS / VPN
-Trusted Local Runtime
-        ↓
-Email / File / Browser / Enterprise Systems
-```
-
----
-
-## 可复现性说明
-
-为便于研究复现和 SoftwareX 投稿，建议提供以下材料：
-
-| 材料 | 状态 | 说明 |
-|---|---|---|
-| GitHub 仓库 | 已有 | 请保持公开可访问 |
-| Gitee 仓库 | 已有 | 国内访问备份 |
-| MIT License | 待确认 | 请确保根目录存在 `LICENSE` |
-| Release | 待补充 | 建议创建 `v1.0.0` |
-| Zenodo DOI | 待补充 | 建议 GitHub Release 后绑定 Zenodo |
-| Quick Start | 已提供 | 需确保命令可运行 |
-| Minimal Example | 已提供 | 建议使用无副作用示例 |
-| Swagger 截图 | 待补充 | 放入 `readme/images/swagger.png` |
-| Workflow 示例 | 已提供 | 建议同步到 `docs/workflow.md` |
-| API 文档 | 待完善 | 建议放入 `docs/api.md` |
-| 测试脚本 | 待补充 | 建议至少提供 smoke test |
-| 示例配置 | 待补充 | 建议提供 `appsettings.example.json` |
 
 ---
 
