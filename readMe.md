@@ -1231,10 +1231,6 @@ OpenTangYuan 支持以下部署方式：
 
 ### 部署拓扑图
 
-> TODO：建议补充部署拓扑图，保存为：
->
-> `readme/images/Figure3_Deployment_Topology.png`
-
 ![Deployment Topology](readme/images/Figure3_Deployment_Topology.png)
 
 ---
