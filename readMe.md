@@ -659,8 +659,6 @@ services:
 
 ## 外部智能体接入
 
-## 外部智能体接入
-
 OpenTangYuan 可以作为 Coze、Dify、GPTs 或自定义 agent 平台的外部执行 runtime。外部智能体负责理解用户意图、选择技能和构造参数；本地 runtime 负责真实执行。
 
 对于外部智能体接入，推荐以下方法：
