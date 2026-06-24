@@ -5,19 +5,18 @@
 </p>
 
 <p align="center">
-  通过云端智能规划、本地可信执行、Manifest-Driven Skill Registry 与 Workflow Runtime，
-  连接浏览器、邮件、文件系统、企业消息、本地工具和机构内部系统。
+  通过云端规划与本地可信执行，连接浏览器、邮件、文件系统、企业消息、本地工具和内部系统。
 </p>
 
 <p align="center">
-  <a href="#项目概览">项目概览</a> ·
-  <a href="#research-software-contributions">Research Software Contributions</a> ·
-  <a href="#核心特性">核心特性</a> ·
-  <a href="#系统架构">系统架构</a> ·
+  <a href="#opentangyuan-是什么">项目简介</a> ·
+  <a href="#它能做什么">能做什么</a> ·
   <a href="#快速开始">快速开始</a> ·
-  <a href="#核心-api">核心 API</a> ·
+  <a href="#核心概念">核心概念</a> ·
   <a href="#workflow-runtime">Workflow Runtime</a> ·
-  <a href="#安全与部署边界">安全与部署边界</a> ·
+  <a href="#核心-api">核心 API</a> ·
+  <a href="#安全与部署边界">安全边界</a> ·
+  <a href="#研究背景">研究背景</a> ·
   <a href="#引用方式">引用方式</a>
 </p>
 
@@ -31,80 +30,129 @@
 
 ---
 
-## 项目概览
+## OpenTangYuan 是什么？
 
-**OpenTangYuan** 是一个面向隐私敏感办公自动化与机构工作流自动化场景的开源 **Agent Workflow Runtime**。它将云端大语言模型智能体的自然语言理解、任务规划和技能选择能力，与本地可信运行时中的浏览器、邮件、文件系统、截图、企业消息、本地工具和机构内部系统访问能力连接起来。
+**OpenTangYuan** 是一个开源的 **Agent Workflow Runtime**，面向隐私敏感的办公自动化和机构工作流自动化场景。
 
-OpenTangYuan 的核心思想是：
+它解决的是一个很常见的问题：外部 AI 智能体很擅长理解用户需求、拆解任务、生成计划，但真正执行任务时，经常需要访问本地文件、邮箱、浏览器、截图、企业消息工具或内部业务系统。这些资源通常不适合直接暴露给云端智能体。
+
+OpenTangYuan 把这两部分分开：
 
 ```text
 Cloud side: planning and capability metadata
 Local runtime: execution and sensitive data processing
-Enterprise systems: accessed only through trusted local runtime
+Enterprise systems: accessed only through the trusted local runtime
 ```
 
-本项目不是单一聊天机器人，也不是简单的 tool-calling demo。它面向真实办公自动化任务，强调 **cloud-side planning + trusted local execution** 的执行边界，使外部智能体能够在不直接接触敏感资源的情况下，发现、组合并调用本地能力。
+也就是说，智能体可以先发现本地有哪些能力，再按需查询能力详情，组合出一个 workflow，并把任务提交给本地可信运行时。本地运行时负责真正执行操作，并返回结构化结果。
 
-当前验证场景来自高校行政办公，但系统设计不依赖特定学校或业务系统，也可迁移到科研管理、企业办公、实验室管理、政务辅助办公和其他隐私敏感机构工作流自动化场景。
+OpenTangYuan 不是一个单独的聊天机器人，也不是一个简单的 tool-calling demo。它更像一个运行时层，让外部智能体可以安全地使用本地自动化能力，同时把敏感数据和执行权限留在本地控制范围内。
 
----
-
-## Research Software Contributions
-
-OpenTangYuan 的贡献不在于单一智能体能力，而在于提供了一套面向办公自动化落地的 **Agent Workflow Runtime**。相较于普通 tool-calling 架构，本系统提供以下研究软件贡献：
-
-1. **Manifest-Driven Skill Registry**  
-   使用结构化 `skill-manifest.json` 描述本地技能能力、参数、动作、调用示例和执行约束，使智能体能够按需发现、查询和调用技能，而不需要一次性加载全部工具说明。
-
-2. **Workflow-based Multi-step Execution**  
-   支持数据库预定义 Workflow 和运行时临时 Workflow，允许多个 Builtin Skill 被组织为可复用、多步骤、可追踪的自动化执行链路。
-
-3. **Trusted Local Runtime**  
-   将文件、邮件、浏览器、本地工具、截图和企业系统访问等敏感操作保留在本地可信环境中执行，云端智能体只负责任务理解、规划和参数生成。
-
-4. **Cloud–Local Hybrid Architecture**  
-   通过云端规划与本地执行的协同架构，将 AI 决策能力与真实执行权限解耦，适合隐私敏感、权限受控和跨系统办公任务。
-
-5. **Policy-controlled Side Effects**  
-   对发送邮件、回复邮件、下载附件、复制/移动/删除文件、打印、打开程序和调用外部工具等具有副作用的操作进行策略控制、白名单限制和执行日志记录。
-
-6. **Reusable Capability Discovery APIs**  
-   提供面向智能体的能力发现、技能详情查询、Workflow 查询和统一执行接口，便于接入 Coze、Dify、GPTs 或自定义 agent 平台。
+最初的验证场景来自高校行政办公，但项目设计并不绑定某个学校或某套业务系统。它也可以用于科研管理、企业后台办公、实验室管理、政务辅助办公，以及其他需要隐私保护的自动化场景。
 
 ---
 
-## 适用场景
+## 它能做什么？
 
-OpenTangYuan 适用于需要跨系统、重复性、隐私敏感和本地执行能力的办公自动化任务，例如：
+OpenTangYuan 适合那些需要跨系统、可重复执行、并且必须靠近私有数据运行的任务。常见例子包括：
 
-- 搜索本地文件、复制文件、移动文件、重命名文件、打开文档或整理目录；
-- 读取邮件、搜索邮件、下载附件、回复邮件、发送邮件或将截图插入邮件正文；
-- 打开浏览器页面、提取网页内容、截图或下载文件；
-- 向企业微信、钉钉等企业消息平台推送结果；
-- 调用本地工具或白名单中的可执行程序；
-- 将多个本地技能组合成可复用 Workflow；
-- 通过 Coze、Dify、GPTs 或自定义 agent 平台触发本地任务。
+- 搜索、复制、移动、重命名、打开或整理本地文件和文件夹；
+- 搜索邮件、读取邮件、下载附件、回复邮件、发送邮件，以及把截图插入邮件正文；
+- 自动化浏览器操作，包括打开网页、提取内容、截图和下载文件；
+- 将结果推送到企业微信、钉钉等企业消息平台；
+- 调用白名单中的本地工具或可执行程序；
+- 将多个本地能力组合成可复用 workflow；
+- 从 Coze、Dify、GPTs 或自定义 agent gateway 触发本地任务。
+
+简单任务可以只调用一个内置技能，例如搜索邮件。复杂任务可以由多个步骤组成，例如：
+
+```text
+search file -> open it -> capture screenshot -> send email
+```
 
 ---
 
-## 核心特性
+## 快速开始
 
-### 1. Agent Workflow Runtime
+### 环境要求
 
-OpenTangYuan 不只是一个 tool-calling 框架，而是一个面向智能体任务落地的 Workflow Runtime。它支持：
+完整桌面自动化能力推荐在 Windows 10、Windows 11 或 Windows Server 2016+ 上运行。你需要准备：
 
-- 能力发现；
+- .NET 8 SDK 或 Runtime；
+- Visual Studio 2022、JetBrains Rider，或 dotnet CLI；
+- SQLite；
+- 可选：邮箱账号、企业微信机器人、本地浏览器环境。
+
+得益于 .NET 8 的跨平台能力，服务端组件可以在 Linux 或 Docker 中运行。不过，桌面文件搜索、打开文档、截图、本地工具调用等能力依赖 Windows 桌面资源。
+
+### 克隆仓库
+
+```bash
+git clone https://github.com/wrnas/OpenTangYuan.git
+cd OpenTangYuan
+```
+
+也可以使用 Gitee：
+
+```bash
+git clone https://gitee.com/l00f/open-tang-yuan.git
+cd open-tang-yuan
+```
+
+### 恢复依赖
+
+```bash
+dotnet restore
+```
+
+### 启动服务
+
+```bash
+dotnet run --urls "http://localhost:54124"
+```
+
+### 验证服务
+
+```bash
+curl -X POST http://localhost:54124/api/Skills/GetSkillListForAI
+```
+
+如果服务正常，你会看到当前可用的 workflows 和 built-in skills 列表。
+
+### Swagger / OpenAPI
+
+![Swagger](readme/images/swagger-1.png)
+
+服务启动后，可以访问：
+
+```text
+http://localhost:54124/swagger
+```
+
+通过 Swagger 查看和测试接口。
+
+---
+
+## 核心概念
+
+### 1. Agent workflow runtime
+
+OpenTangYuan 不只是一个 tool-calling 层。它是一个面向智能体任务执行的 runtime，负责把“自然语言需求”落到“可执行的本地步骤”上。
+
+它提供：
+
+- 技能发现；
 - 技能详情查询；
 - 参数生成；
-- 多步骤任务编排；
-- 上下文引用；
+- 多步骤编排；
+- 上下文传递；
 - 本地可信执行；
-- 执行结果回传；
-- 调试日志与错误反馈。
+- 结果返回；
+- 调试与错误反馈。
 
-### 2. Manifest-Driven Skill Registry
+### 2. Manifest-driven skill registry
 
-系统通过 `skill-manifest.json` 描述内置技能的能力、参数、动作、调用示例和执行约束。外部智能体可以按需查询可用 Workflow 与 Builtin Skill：
+所有内置技能都通过 `skill-manifest.json` 描述。智能体不需要预先记住每个技能的完整参数，而是按需发现和查询：
 
 ```text
 GetSkillListForAI
@@ -114,22 +162,22 @@ GetBuiltinSkillDetail / GetSkillAction
 ExecuteSkill / ExecuteSkillForCoze
 ```
 
-这种设计能够减少提示词长度，提高技能调用稳定性，并支持后续扩展新的本地能力。
+这种方式可以减少 prompt 长度，提高调用稳定性，也方便后续扩展新的本地能力。
 
-### 3. Workflow-first Execution
+### 3. Workflow-first execution
 
-OpenTangYuan 支持两类能力：
+OpenTangYuan 区分两类能力：
 
 | 类型 | 说明 |
 |---|---|
-| Builtin Skill | 原子技能，例如邮件、文件、浏览器、截图、企业消息、本地工具 |
-| Workflow Skill | 由多个 Builtin Skill 组成的可复用工作流 |
+| Builtin Skill | 原子能力，例如邮件、文件、浏览器、截图、消息、本地工具 |
+| Workflow Skill | 由多个 Builtin Skill 组成的可复用流程 |
 
-系统优先复用数据库中已经验证的 Workflow。对于没有匹配 Workflow 的临时任务，智能体可以查询 Builtin Skill 的参数说明，并组合为 temporary workflow。
+运行时会优先复用数据库中已经验证过的 workflow。对于新的临时任务，智能体可以查询内置技能详情，并动态组合 temporary workflow。
 
-### 4. Context-aware Multi-step Execution
+### 4. Context-aware multi-step execution
 
-多步骤任务中，后续步骤可以引用前一步执行结果。例如：
+后续步骤可以引用前面步骤的结果，例如：
 
 ```text
 {{step0}}
@@ -138,25 +186,24 @@ OpenTangYuan 支持两类能力：
 {{step1.result}}
 ```
 
-这使得“搜索文件 → 打开文件 → 截图 → 发送邮件”等跨系统自动化流程可以被结构化表达和执行。
+这样就可以把“搜索文件 → 打开文件 → 截图 → 发邮件”这类流程结构化地表达出来，并交给 runtime 执行。
 
-### 5. Trusted Local Execution
+### 5. Trusted local execution
 
-真实执行发生在本地可信运行时中，包括文件、邮件、浏览器、截图、本地工具和企业系统访问。外部智能体只获得能力元数据和结构化执行结果，不直接访问敏感资源。
+真正的操作都发生在本地 runtime 中，包括文件、邮件、浏览器、截图、本地工具和企业系统访问。外部智能体只看到能力元数据和结构化结果，不直接接触敏感数据。
 
-### 6. Policy-controlled Side Effects
+### 6. Policy-controlled side effects
 
-OpenTangYuan 对具有副作用的操作进行策略约束，包括：
+系统会对具有副作用的操作进行约束和记录，例如：
 
-- 发送邮件；
-- 回复邮件；
+- 发送或回复邮件；
 - 复制、移动或删除文件；
 - 下载附件；
-- 打开本地程序；
+- 启动本地程序；
 - 打印文件；
 - 调用外部工具。
 
-系统支持 API 认证、路径白名单、可执行程序白名单、副作用操作控制和执行日志。
+配合 API 认证、路径白名单、可执行程序白名单和执行日志，可以搭建一个更安全的自动化环境。
 
 ---
 
@@ -164,18 +211,18 @@ OpenTangYuan 对具有副作用的操作进行策略约束，包括：
 
 ![Architecture](readme/images/architecture.png)
 
-OpenTangYuan 采用云端—本地协同架构，主要包括以下层次：
+OpenTangYuan 采用云端—本地协同架构：
 
-| 层级 | 说明 |
+| 层级 | 职责 |
 |---|---|
-| User Interaction Layer | 用户入口，包括 Web、移动端、聊天入口、API、SDK、Coze、Dify、GPTs、自定义 agent 等 |
-| OpenTangYuan Orchestration Layer | 维护 Workflow Repository 和 Skill Registry，支持能力发现、任务规划和技能路由 |
-| Secure Execution Channel | 负责云端编排层与本地执行层之间的安全通信 |
-| Trusted Local Runtime Layer | 负责认证、策略校验、Workflow 调度、Skill 调用、上下文管理和结果封装 |
-| Enterprise Integration Layer | 对接浏览器、邮件、文件系统、企业微信、本地工具、OA、ERP/CRM、自定义 API 等 |
-| Governance, Security & Compliance | 负责隐私保护、访问控制、执行审计、监控告警等 |
+| User Interaction Layer | Web、移动端、聊天入口、API、SDK、Coze、Dify、GPTs、自定义 agent 等 |
+| OpenTangYuan Orchestration Layer | Workflow repository、skill registry、能力发现、规划与路由 |
+| Secure Execution Channel | 云端编排层与本地运行时之间的安全通信 |
+| Trusted Local Runtime Layer | 认证、策略校验、workflow 调度、skill 调用、上下文管理和结果封装 |
+| Enterprise Integration Layer | 浏览器、邮件、文件系统、企业微信、本地工具、OA、ERP/CRM、自定义 API 等 |
+| Governance & Compliance | 隐私保护、访问控制、信任管理、执行审计、监控和告警 |
 
-核心边界：
+核心边界很清楚：
 
 ```text
 Cloud side: planning and capability metadata only
@@ -189,50 +236,50 @@ Enterprise systems: accessed only through trusted local runtime
 
 ![Capability Discovery](readme/images/capability-discovery.png)
 
-外部智能体通过能力发现接口了解当前系统可用能力：
+外部智能体通过一个简单的流程发现和调用能力：
 
-1. 调用 `GetSkillListForAI` 获取 Workflow 与 Builtin Skill 摘要；
-2. 如果某项能力需要详情，则调用 `GetBuiltinSkillDetail` 或 `GetSkillAction`；
+1. 调用 `GetSkillListForAI`，获取可用 workflow 和 built-in skills 摘要；
+2. 如果需要更多信息，则调用 `GetBuiltinSkillDetail`（内置技能）或 `GetSkillAction`（workflow）；
 3. 根据返回的参数说明构造调用请求；
 4. 通过 `ExecuteSkill` 或 `ExecuteSkillForCoze` 提交执行。
 
 ### 设计优势
 
-| 机制 | 作用 |
+| 机制 | 好处 |
 |---|---|
-| 能力摘要查询 | 避免智能体一次性加载全部工具说明 |
-| 按需查询详情 | 降低提示词长度和调用复杂度 |
-| Workflow 优先 | 高频任务直接复用，提升一致性 |
-| Builtin Skill 兜底 | 支持临时任务动态组合 |
-| Manifest 驱动 | 便于扩展本地能力和维护参数说明 |
+| 初始只取摘要 | 减少 prompt 长度和 token 使用 |
+| 按需查询详情 | 让智能体上下文更轻 |
+| Workflow 优先 | 复用已验证流程，提高一致性 |
+| Builtin skill 兜底 | 支持临时任务灵活组合 |
+| Manifest 驱动 | 便于扩展和维护 |
 
 ---
 
 ## Workflow Runtime
 
-OpenTangYuan 内置 Workflow Runtime，用于执行预定义或临时生成的多步骤任务。
+OpenTangYuan 内置 workflow runtime，用于执行预定义或临时生成的多步骤任务。
 
-Workflow Runtime 支持：
+它支持：
 
 - Step scheduling；
 - Context propagation；
 - Template variable resolution；
 - Runtime execution；
-- Result packaging；
-- Debug log；
+- Compact result packaging；
+- Debug logging；
 - Failure reporting。
 
 ### 执行流程
 
 ```text
-1. 接收 Workflow Steps
+1. 接收 workflow steps
 2. 初始化执行上下文
-3. 顺序执行每个 Step
+3. 顺序执行每个 step
 4. 解析模板变量
-5. 调用对应 Builtin Skill
-6. 将结果写入 stepN
-7. 下一步引用前一步结果
-8. 返回最终执行结果
+5. 调用对应 built-in skill
+6. 将结果保存为 stepN
+7. 后续 step 引用前面的结果
+8. 返回最终结果
 ```
 
 ### 模板变量示例
@@ -244,7 +291,7 @@ Workflow Runtime 支持：
 {{step1.result}}
 ```
 
-### Workflow 示例：截图并发送邮件
+### 示例 workflow：截图并发送邮件
 
 ```json
 {
@@ -273,7 +320,7 @@ Workflow Runtime 支持：
 }
 ```
 
-### Workflow 示例：文件搜索、打开、截图并发送邮件
+### 示例 workflow：搜索、打开、截图并发送邮件
 
 ```json
 {
@@ -323,26 +370,18 @@ Workflow Runtime 支持：
 
 ## 核心 API
 
-README 仅列出智能体调用链路中最重要的接口。完整 API 参数、请求和响应说明建议维护在 [`docs/api.md`](docs/api.md)。
+README 只列出智能体接入最常用的 API。完整参数请参考 `docs/api.md`。
 
 | API | 方法 | 路径 | 用途 |
 |---|---|---|---|
-| GetSkillListForAI | POST | `/api/Skills/GetSkillListForAI` | 获取 Workflow 与 Builtin Skill 摘要 |
-| GetBuiltinSkillDetail | POST | `/api/Skills/GetBuiltinSkillDetail` | 获取某个 Builtin Skill 的详细定义 |
-| GetBuiltinSkillManifest | POST | `/api/Skills/GetBuiltinSkillManifest` | 获取完整 Builtin Skill Manifest |
-| GetSkillAction | POST | `/api/Skills/GetSkillAction` | 获取某个 Workflow 的步骤定义 |
-| ExecuteSkill | POST | `/api/Skills/ExecuteSkill` | 统一执行 Builtin Skill、Workflow 或临时任务 |
+| GetSkillListForAI | POST | `/api/Skills/GetSkillListForAI` | 获取 workflow 和 built-in skill 摘要 |
+| GetBuiltinSkillDetail | POST | `/api/Skills/GetBuiltinSkillDetail` | 获取某个 built-in skill 的详细定义 |
+| GetBuiltinSkillManifest | POST | `/api/Skills/GetBuiltinSkillManifest` | 获取 built-in skill 的完整 manifest |
+| GetSkillAction | POST | `/api/Skills/GetSkillAction` | 获取某个 workflow 的步骤定义 |
+| ExecuteSkill | POST | `/api/Skills/ExecuteSkill` | 统一执行 built-in、workflow 或临时任务 |
 | ExecuteSkillForCoze | POST | `/api/Skills/ExecuteSkillForCoze` | Coze 兼容执行入口 |
-| Browser Run | POST | `/AiApi/Browser/run` | 执行浏览器动作序列 |
-| Browser Start | POST | `/AiApi/Browser/start` | 创建浏览器 Session |
-| Browser Close | POST | `/AiApi/Browser/close` | 关闭浏览器 Session |
-| Browser Sessions | GET | `/AiApi/Browser/sessions` | 查看浏览器 Session |
-| SaveSkillAction | POST | `/api/Skills/SaveSkillAction` | 保存 Workflow |
-| GetSkillList | POST | `/api/Skills/GetSkillList` | 获取全部 Workflow |
-| DeleteSkill | POST | `/api/Skills/DeleteSkill` | 删除 Workflow |
-| GetAllSkillCodes | POST | `/api/Skills/GetAllSkillCodes` | 获取全部 SkillCode |
 
-### 获取能力列表
+### 获取技能列表
 
 ```http
 POST /api/Skills/GetSkillListForAI
@@ -380,13 +419,13 @@ curl -X POST http://localhost:54124/api/Skills/GetSkillListForAI
 }
 ```
 
-### 获取 Builtin Skill 详情
+### 获取 built-in skill 详情
 
 ```http
 POST /api/Skills/GetBuiltinSkillDetail
 ```
 
-请求示例：
+请求体：
 
 ```json
 {
@@ -394,13 +433,13 @@ POST /api/Skills/GetBuiltinSkillDetail
 }
 ```
 
-### 获取 Workflow 定义
+### 获取 workflow 定义
 
 ```http
 POST /api/Skills/GetSkillAction
 ```
 
-请求示例：
+请求体：
 
 ```json
 {
@@ -408,7 +447,7 @@ POST /api/Skills/GetSkillAction
 }
 ```
 
-### 统一执行入口
+### 执行 skill
 
 ```http
 POST /api/Skills/ExecuteSkill
@@ -418,17 +457,17 @@ POST /api/Skills/ExecuteSkill
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `SkillCode` | string | 是 | 技能标识，例如 `email_task`、`temp_task` |
-| `Arguments` | object | 否 | 单步任务参数 |
-| `Steps` | array | 否 | 临时 Workflow 步骤 |
+| SkillCode | string | 是 | 例如 `email_task` 或 `temp_task` |
+| Arguments | object | 否 | 单步任务参数 |
+| Steps | array | 否 | temporary workflow 的步骤 |
 
-### Coze 兼容执行入口
+### Coze 兼容执行
 
 ```http
 POST /api/Skills/ExecuteSkillForCoze
 ```
 
-请求示例：
+请求体：
 
 ```json
 {
@@ -436,9 +475,9 @@ POST /api/Skills/ExecuteSkillForCoze
 }
 ```
 
-### 常见响应格式
+### 响应格式
 
-成功响应：
+成功：
 
 ```json
 {
@@ -448,7 +487,7 @@ POST /api/Skills/ExecuteSkillForCoze
 }
 ```
 
-失败响应：
+失败：
 
 ```json
 {
@@ -459,19 +498,19 @@ POST /api/Skills/ExecuteSkillForCoze
 }
 ```
 
-### 常见错误码
+常见错误码：
 
 | 错误码 | 说明 |
 |---|---|
-| `SKILL_NOT_FOUND` | 技能不存在 |
-| `INVALID_ARGUMENTS` | 参数不合法 |
-| `MISSING_ARGUMENTS` | 缺少必要参数 |
-| `EMAIL_CONFIG_MISSING` | 邮箱配置缺失 |
-| `FILE_NOT_FOUND` | 文件不存在 |
-| `EXECUTION_FAILED` | 技能执行失败 |
-| `SIDE_EFFECT_BLOCKED` | 副作用操作被阻止重复执行 |
-| `PERMISSION_DENIED` | 权限不足 |
-| `TIMEOUT` | 执行超时 |
+| SKILL_NOT_FOUND | 技能不存在 |
+| INVALID_ARGUMENTS | 参数格式错误 |
+| MISSING_ARGUMENTS | 缺少必要参数 |
+| EMAIL_CONFIG_MISSING | 邮箱配置缺失 |
+| FILE_NOT_FOUND | 文件不存在 |
+| EXECUTION_FAILED | 技能执行失败 |
+| SIDE_EFFECT_BLOCKED | 副作用操作被阻止（重复或不安全） |
+| PERMISSION_DENIED | 权限不足 |
+| TIMEOUT | 执行超时 |
 
 ---
 
@@ -481,86 +520,22 @@ POST /api/Skills/ExecuteSkillForCoze
 |---|---|
 | .NET 8 | 后端运行框架 |
 | C# 10+ | 主要开发语言 |
-| ASP.NET WebAPI | 本地 Runtime API |
-| SQLite | Workflow 数据存储 |
+| ASP.NET WebAPI | 本地 runtime API |
+| SQLite | Workflow 存储 |
 | Dapper | 数据访问 |
 | MailKit | SMTP / IMAP 邮件处理 |
 | Playwright | 浏览器自动化 |
-| Everything SDK / Windows Search | 文件搜索 |
-| 企业微信 Webhook / API | 企业消息通知 |
-| REST API | 技能查询与任务执行接口 |
+| Everything SDK / Windows Search | Windows 文件搜索 |
+| WeChat Work Webhook / API | 企业消息通知 |
+| REST API | 技能查询与执行接口 |
 | JSON Manifest | 技能元数据描述 |
-| Docker | 可选部署方式 |
-
----
-
-## 快速开始
-
-### 环境要求
-
-完整桌面自动化能力主要面向 Windows 环境。
-
-推荐环境：
-
-- Windows 10 / Windows 11 / Windows Server 2016+
-- .NET 8 SDK 或 .NET 8 Runtime
-- Visual Studio 2022、JetBrains Rider 或 dotnet CLI
-- SQLite
-- 可选：邮箱账号、企业微信机器人、本地浏览器环境
-
-得益于 .NET 8 的跨平台能力，服务端组件可在多个操作系统中运行；但本地文件搜索、桌面文档打开、截图、本地工具调用等完整桌面自动化能力依赖 Windows 桌面资源。Docker 部署适合服务器端组件和 API 检查，涉及桌面资源的本地能力仍需在支持桌面环境的本地 Runtime 中运行。
-
-### 克隆项目
-
-GitHub：
-
-```bash
-git clone https://github.com/wrnas/OpenTangYuan.git
-cd OpenTangYuan
-```
-
-Gitee：
-
-```bash
-git clone https://gitee.com/l00f/open-tang-yuan.git
-cd open-tang-yuan
-```
-
-### 安装依赖
-
-```bash
-dotnet restore
-```
-
-### 启动服务
-
-```bash
-dotnet run --urls "http://localhost:54124"
-```
-
-### 验证服务
-
-```bash
-curl -X POST http://localhost:54124/api/Skills/GetSkillListForAI
-```
-
-如果服务正常，将返回当前可用的 Workflow 和 Builtin Skill 摘要。
-
-### Swagger / OpenAPI
-
-![Swagger](readme/images/swagger-1.png)
-
-服务启动后，可通过 Swagger 查看和测试 API。具体地址请以项目启动日志为准，常见形式为：
-
-```text
-http://localhost:54124/swagger
-```
+| Docker | 可选容器化部署 |
 
 ---
 
 ## Docker 部署
 
-Docker 部署适合服务器端组件和 API 检查。涉及桌面资源的本地能力，如桌面截图、打开文档、Windows 文件搜索等，仍需在支持桌面环境的本地 Runtime 中运行。
+Docker 适合运行服务端组件和检查 API。但截图、打开桌面文档、Windows 文件搜索等桌面能力，仍然需要带桌面资源的 Windows runtime。
 
 ### 构建镜像
 
@@ -577,7 +552,7 @@ docker run -d \
   opentangyuan
 ```
 
-### docker-compose 示例
+### `docker-compose.yml` 示例
 
 ```yaml
 version: '3.8'
@@ -598,9 +573,9 @@ services:
 
 ---
 
-## 配置说明
+## 配置
 
-生产环境不要把邮箱授权码、Webhook Key、API Token、内网系统账号或数据库密钥提交到代码仓库。建议使用环境变量、用户机密配置、Docker Secret、CI/CD Secret 或独立生产配置文件。
+不要把邮箱密码、授权码、Webhook key、API token 或数据库密钥提交到仓库。建议使用环境变量、用户机密配置、Docker secrets、CI/CD variables，或独立的生产配置文件。
 
 ### 邮件配置示例
 
@@ -633,7 +608,7 @@ services:
 }
 ```
 
-### 外部程序白名单示例
+### 可执行程序白名单示例
 
 ```json
 {
@@ -646,146 +621,135 @@ services:
 
 ### 配置项说明
 
-| 配置项 | 建议 | 说明 |
+| 配置项 | 是否必填 | 说明 |
 |---|---|---|
-| `EmailSettings:SmtpServer` | 按需配置 | SMTP 服务器地址 |
-| `EmailSettings:SmtpPort` | 按需配置 | SMTP 端口 |
-| `EmailSettings:SenderEmail` | 按需配置 | 发件人邮箱 |
-| `EmailSettings:SenderPassword` | 按需配置 | 邮箱客户端授权码 |
-| `EmailSettings:ImapServer` | 按需配置 | IMAP 服务器地址 |
-| `ConnectionStrings:Sqlite` | 必需 | SQLite 数据库连接字符串 |
-| `FileSystem:AllowedRoots` | 推荐 | 文件系统访问白名单 |
-| `AllowedExeNames` | 推荐 | 可执行程序白名单 |
-| `DebugMode` | 可选 | 是否开启调试模式 |
+| EmailSettings:SmtpServer | 可选 | SMTP 服务器地址 |
+| EmailSettings:SmtpPort | 可选 | SMTP 端口 |
+| EmailSettings:SenderEmail | 可选 | 发件人邮箱 |
+| EmailSettings:SenderPassword | 可选 | 邮箱授权码 |
+| EmailSettings:ImapServer | 可选 | IMAP 服务器地址 |
+| ConnectionStrings:Sqlite | 是 | SQLite 连接字符串 |
+| FileSystem:AllowedRoots | 建议配置 | runtime 可访问的目录 |
+| AllowedExeNames | 建议配置 | 可启动的程序白名单 |
+| DebugMode | 可选 | 启用详细日志 |
 
 ---
 
 ## 内置技能
 
-| SkillCode | 功能 |
+| SkillCode | 说明 |
 |---|---|
-| `email_task` | 发送邮件、搜索邮件、读取正文、下载附件、回复邮件、标记已读、保存 eml |
-| `wechat_task` | 发送企业微信 text、markdown、card 消息 |
-| `browser_task` | 浏览器自动化、网页访问、截图、内容提取、文件下载 |
-| `file_task` | 文件搜索、复制、移动、重命名、创建目录、批量操作 |
+| `email_task` | 发送、搜索、读取邮件、下载附件、回复、标记已读、保存为 `.eml` |
+| `wechat_task` | 向企业微信发送 text、markdown 或 card 消息 |
+| `browser_task` | 浏览网页、截图、提取内容、下载文件 |
+| `file_task` | 搜索、复制、移动、重命名、创建目录、批量操作 |
 | `open_task` | 打开本地文件、目录或程序 |
 | `print_task` | 打印本地文件 |
 | `tool_task` | 调用白名单中的本地工具或可执行程序 |
-| `screenshot_task` | 截取本地屏幕 |
-| `folder_task` | 按后缀归类文件 |
+| `screenshot_task` | 截取全屏或活动窗口 |
+| `folder_task` | 按后缀整理文件 |
 | `lock_task` | 锁定本地工作站 |
 
 ---
 
-## 运行示例
+## 运行截图
 
 ### 智能体运行示例
 
-![Demo 1](readme/images/demo-1.png)
+![Agent Execution Example](readme/images/demo-1.png)
 
-**Figure note:** The screenshots may be captured in a Chinese office automation environment. English captions or annotations should be provided in the paper to explain the key UI elements, workflow steps and execution results. The runtime APIs, workflow definitions and reproduction steps are language-independent.
+这些截图来自中文办公自动化环境。论文中可以加入英文图注或标注，用来解释界面、workflow 步骤和执行结果。Runtime API 和 workflow 定义本身不依赖具体语言。
 
 ### 动态组合任务执行过程
 
-![Demo 2](readme/images/demo-2.png)
+![Dynamic Composite Task Execution](readme/images/demo-2.png)
 
 ### Coze 调试轨迹
 
-![Coze Trace](readme/images/coze-trace.png)
+![Coze Debug Trace](readme/images/coze-trace.png)
 
 ---
 
 ## Coze / 外部智能体接入
 
-OpenTangYuan 可作为 Coze、Dify、GPTs 或自定义 agent 平台的外部执行 Runtime。外部智能体负责理解用户请求、选择技能并构造结构化任务，本地 Runtime 负责真实执行。
+OpenTangYuan 可以作为 Coze、Dify、GPTs 或自定义 agent 平台的外部执行 runtime。外部智能体负责理解用户意图、选择技能和构造参数；本地 runtime 负责真实执行。
 
-推荐调用原则：
+推荐调用流程：
 
-1. 先调用 `GetSkillListForAI` 查询可用能力；
-2. 如返回 `needDetail=true`，再查询详细定义：
-   - Workflow：调用 `GetSkillAction`；
-   - Builtin Skill：调用 `GetBuiltinSkillDetail`；
-3. 确认参数后调用 `ExecuteSkill` 或 `ExecuteSkillForCoze`；
-4. 任务完成后立即停止，不重复执行副作用操作；
-5. 列表查询成功后停在列表，只有用户明确要求“查看详情、正文、第一条、第二条”时才继续；
-6. 缺少必要参数时先询问用户，不猜测路径、邮箱、文件名或系统账号；
-7. 同一 Skill 失败时，只允许修正参数后有限重试。
+1. 调用 `GetSkillListForAI` 查看可用能力；
+2. 如果 `needDetail` 为 true，则继续查询详情：
+   - Workflow：`GetSkillAction`；
+   - Built-in skill：`GetBuiltinSkillDetail`；
+3. 参数确认后调用 `ExecuteSkill` 或 `ExecuteSkillForCoze`；
+4. 成功后立即停止，不要重复执行有副作用的操作；
+5. 如果返回列表，先停在列表展示；只有用户明确要求查看详情时才继续；
+6. 缺少必要参数时应询问用户，不要猜测路径、邮箱地址、文件名或凭据；
+7. 如果某个 skill 执行失败，可以修正参数后最多重试一次。
 
-### Coze 配置示例
+### Coze agent 配置
 
-![Coze Agent Config](readme/images/coze-agent-config.png)
+![Coze Agent Configuration](readme/images/coze-agent-config.png)
 
 ---
 
 ## 安全与部署边界
 
-OpenTangYuan 可以执行邮件发送、文件操作、浏览器访问、截图、打印和本地程序调用等具有副作用的任务，因此应部署在受信任环境中，并配置访问控制。
+OpenTangYuan 可以发送邮件、修改文件、控制浏览器、截图、打印并运行本地可执行程序。因此，它应该运行在受信任环境中，并配置适当的访问控制。
 
 ### Cloud-local boundary
 
-| 边界 | 说明 |
+| 组件 | 角色 |
 |---|---|
-| 外部智能体 | 负责任务理解、Workflow 规划和技能路由 |
-| Trusted Local Runtime | 负责真实执行、认证、策略校验、上下文管理和结果封装 |
-| 企业系统 | 仅由本地 Runtime 访问，不直接暴露给外部智能体 |
+| External agent | 任务理解、workflow 规划、技能路由 |
+| Trusted Local Runtime | 执行、认证、策略校验、上下文管理、结果封装 |
+| Enterprise systems | 只由本地 runtime 访问，不直接暴露给云端智能体 |
 
 ### 安全建议
 
-- 不要将邮箱密码、授权码、Token 或 Webhook Key 提交到仓库；
-- 生产环境应限制 API 访问来源；
-- 不建议将本地 Runtime 直接暴露到公网；
-- 对发送邮件、删除文件、移动文件、打印等操作启用审计日志；
+- 不要把密码、token、webhook key 提交到仓库；
+- 生产环境中限制 API 访问，例如 IP 白名单或 VPN；
+- 不建议把本地 runtime 直接暴露到公网；
+- 对所有副作用操作启用审计日志，例如发送邮件、删除文件、打印等；
 - 对高风险操作增加人工确认或审批；
 - 使用路径白名单限制文件系统访问；
-- 使用可执行程序白名单限制本地工具调用；
-- 定期轮换邮箱授权码、企业微信 Webhook 和 API Token；
-- 对内网系统访问进行白名单控制；
-- 对技能执行结果进行日志记录，便于审计和问题追踪。
+- 使用可执行程序白名单限制可启动程序；
+- 定期轮换邮箱授权码、webhook key 和 API token；
+- 对内部系统端点做白名单控制，并记录访问日志；
+- 保留执行日志，便于排错和合规审计。
 
 ---
 
-## 平台与复现说明
+## 平台与复现
 
-OpenTangYuan 的完整桌面自动化能力主要面向 Windows，因为本地文件搜索、桌面文档打开、截图和本地工具调用依赖 Windows 桌面资源。
+完整桌面自动化能力以 Windows 为主，因为文件搜索、打开文档、截图和本地工具调用依赖 Windows 桌面资源。
 
-为降低复现门槛，项目提供以下验证路径：
+为了方便评估，可以通过几种方式验证项目：
 
-| 验证方式 | 平台 | 说明 |
+| 验证方式 | 平台 | 可以验证什么 |
 |---|---|---|
-| 查看源码与文档 | 任意平台 | 适合了解架构、API、Workflow 和安全模型 |
-| 启动服务并查看 Swagger | Windows / Linux / Docker | 可验证 API 和能力发现接口 |
-| Windows self-contained release | Windows | 无需预装 .NET 8 Runtime，可启动本地 Runtime |
-| 完整外部智能体集成 | Windows Runtime + 外部 agent 平台 | 需要配置 Coze/Dify/GPTs、自定义 agent、网络连通、API 认证和本地邮箱/浏览器环境 |
+| 查看源码和文档 | 任意平台 | 架构、API 设计、workflow 模型、安全边界 |
+| 启动服务并查看 Swagger | Windows / Linux / Docker | API 端点和能力发现 |
+| Windows self-contained release | Windows | 无需安装 .NET 8 即可运行本地 runtime |
+| 完整外部智能体集成 | Windows Runtime + agent 平台 | 与 Coze/Dify/GPTs 或自定义 agent 的端到端自动化 |
 
-真实试点日志可能包含邮件内容、文件路径、截图、办公系统内容和用户操作信息，因此不公开原始日志。仓库提供代码、文档、示例 Workflow 和部署说明，用于复现软件结构和运行路径。
+真实试点日志可能包含邮件内容、文件路径、截图和内部系统数据，因此不公开。仓库中的代码、文档、示例 workflow 和部署指南可用于复现软件结构和执行路径。
 
 ---
 
 ## 扩展机制
 
-OpenTangYuan 支持以下扩展方式：
+你可以通过几种方式扩展 OpenTangYuan：
 
-### 1. 新增 Builtin Skill
-
-开发者可以在本地 WebAPI 中实现新的技能逻辑，并在 `skill-manifest.json` 中注册能力描述。
-
-### 2. 新增 Workflow
-
-开发者可以通过数据库或管理接口保存新的 Workflow，将多个 Builtin Skill 组合为可复用流程。
-
-### 3. 新增企业系统适配
-
-可通过浏览器自动化、REST API、本地工具或自定义插件接入 OA、ERP、CRM、文件服务器、邮件服务器等系统。
-
-### 4. 新增安全策略
-
-可扩展路径白名单、API 访问控制、用户角色权限、操作审批、审计日志和异常告警等机制。
+- **新增 Builtin Skill**：在 WebAPI 中实现逻辑，并在 `skill-manifest.json` 中注册；
+- **新增 Workflow**：通过数据库或管理 API 保存，将多个 built-in skills 组合为可复用流程；
+- **接入新的企业系统**：通过浏览器自动化、REST API、本地工具或自定义插件对接 OA、ERP、CRM、文件服务器、邮件服务器等；
+- **扩展安全策略**：增加路径白名单、API 访问控制、角色权限、审批流、审计日志和告警规则。
 
 ---
 
 ## 推荐文档结构
 
-建议仓库包含以下文档：
+建议维护以下配套文档：
 
 ```text
 docs/
@@ -798,28 +762,28 @@ docs/
   faq.md
 ```
 
-| 文件 | 说明 |
+| 文件 | 内容 |
 |---|---|
-| `docs/api.md` | API 参数、请求和响应说明 |
-| `docs/workflow.md` | Workflow 定义、上下文变量和执行机制 |
-| `docs/deployment.md` | 本地、内网、Docker 和私有云部署方式 |
-| `docs/security.md` | 安全边界、白名单、认证和副作用控制 |
-| `docs/coze-agent-prompt.md` | 外部智能体系统提示词建议 |
-| `docs/examples.md` | 示例请求和示例 Workflow |
-| `docs/faq.md` | 常见问题 |
+| `api.md` | 完整 API 参数、请求和响应 |
+| `workflow.md` | Workflow 定义、上下文变量和执行机制 |
+| `deployment.md` | 本地、内网、Docker 和私有云部署方式 |
+| `security.md` | 安全边界、白名单、认证和副作用控制 |
+| `coze-agent-prompt.md` | 外部智能体系统提示词建议 |
+| `examples.md` | 更多示例请求和 workflow |
+| `faq.md` | 常见问题 |
 
 ---
 
 ## 开发与贡献
 
-欢迎提交 Issue 和 Pull Request。建议开发环境：
+欢迎提交 issue 和 pull request。推荐开发环境：
 
 - Visual Studio 2022；
 - JetBrains Rider；
 - VS Code + C# Dev Kit；
 - dotnet CLI。
 
-### 常见依赖
+常见依赖：
 
 ```bash
 dotnet add package MailKit
@@ -828,7 +792,7 @@ dotnet add package Microsoft.Data.Sqlite
 dotnet add package Dapper
 ```
 
-### 提交信息建议
+提交信息建议：
 
 ```text
 <type>: <subject>
@@ -844,49 +808,71 @@ docs: update workflow examples
 
 ---
 
-## 路线图
+## Roadmap
 
-- [ ] Workflow 可视化编排器
-- [ ] Web 管理后台
-- [ ] 插件化 Skill 扩展机制
-- [ ] 权限管理与操作审计
-- [ ] 更完善的 Docker Compose 部署
-- [ ] GitHub Release
-- [ ] Zenodo DOI
-- [ ] MCP 支持
-- [ ] 更多办公软件自动化能力
-- [ ] 自动化测试与基准任务集
-- [ ] 分布式 Runtime 节点管理
+- Visual workflow designer；
+- Web admin dashboard；
+- Plugin-based skill extension；
+- Permission management and operation auditing；
+- Improved Docker Compose setup；
+- GitHub Release with CI/CD；
+- Zenodo DOI；
+- MCP support；
+- More office software automation capabilities；
+- Automated test suite and benchmark tasks；
+- Distributed runtime node management。
 
 ---
 
-## 常见问题
+## FAQ
 
-### 为什么邮件发送失败？
+### 为什么不能发送邮件？
 
-请检查 SMTP 配置、SSL 设置、邮箱客户端授权码、邮箱服务商 SMTP 开关和当前网络环境。
+请检查 SMTP 配置、SSL 设置、授权码、邮箱服务商是否允许 SMTP，以及当前网络是否可访问邮件服务器。
 
-### 为什么读取邮件失败？
+### 为什么不能读取邮件？
 
-请检查 IMAP 配置、授权码、邮箱服务商第三方客户端设置和网络访问权限。
+请检查 IMAP 配置、授权码、是否开启 IMAP，以及邮箱服务商是否限制第三方客户端登录。
 
-### 为什么文件无法打开或打印？
+### 为什么不能打开或打印文件？
 
-请检查文件路径是否存在、运行账号是否有权限、系统是否安装默认打开程序，以及路径是否位于 `AllowedRoots` 白名单中。
+请确认文件存在，runtime 有权限访问该路径，系统安装了对应文件类型的默认打开程序，并且路径位于 `AllowedRoots` 内。
 
 ### 为什么浏览器任务失败？
 
-请检查 Playwright 是否安装完整、目标网页是否需要登录、页面选择器是否正确，以及是否遇到验证码或多因素认证。
+请确认 Playwright 安装完整，目标页面不需要额外登录，选择器正确，并且没有被验证码或多因素认证阻挡。
 
-### 为什么多步任务引用不到上一步结果？
+### 为什么后续步骤引用不到前一步结果？
 
-请检查步骤编号、返回字段路径、前一步是否执行成功，以及模板变量是否与实际返回结构一致。
+请检查 step 编号（例如 `step0`、`step1`）、字段路径（例如 `{{step0.data.path}}`），并确认前一步执行成功。不要手动猜测路径，应该使用实际返回结构。
+
+---
+
+## 研究背景
+
+OpenTangYuan 最初作为研究软件开发，用于探索隐私敏感办公自动化中的 cloud-local agent execution。它在 GitHub 上的 README 首先面向用户和开发者，但项目也有明确的研究背景。
+
+和普通 tool-calling 架构相比，OpenTangYuan 更关注几个实际问题：
+
+- 外部智能体如何在不知道全部本地工具细节的情况下发现能力；
+- 多步骤办公任务如何通过 workflow 结构化、复用和追踪；
+- 敏感文件、邮件和企业系统如何保留在本地可信环境中；
+- 发送邮件、删除文件、打印等副作用操作如何被策略控制；
+- 同一套 runtime 如何被 Coze、Dify、GPTs 或自定义 agent 平台复用。
+
+如果将 OpenTangYuan 用于研究或论文复现，建议重点关注：
+
+- `skill-manifest.json` 中的 manifest-driven skill registry；
+- `GetSkillListForAI` / `GetBuiltinSkillDetail` / `GetSkillAction` / `ExecuteSkill` 调用链；
+- workflow runtime 的上下文传递和模板变量解析；
+- cloud-local boundary 以及本地可信执行模型；
+- 安全策略、白名单和副作用控制机制。
 
 ---
 
 ## 引用方式
 
-如果你在研究或项目中使用 OpenTangYuan，请引用本项目。
+如果你在研究或项目中使用 OpenTangYuan，请引用本项目。SoftwareX 论文发表后，可以将下面条目替换为正式论文引用格式。
 
 ### BibTeX
 
@@ -903,7 +889,7 @@ docs: update workflow examples
 
 ---
 
-## 许可证
+## License
 
 本项目采用 MIT License。详见 [LICENSE](LICENSE)。
 
@@ -911,4 +897,4 @@ docs: update workflow examples
 
 ## 致谢
 
-感谢所有参与 OpenTangYuan 设计、开发、测试和应用反馈的同事、用户和贡献者。
+感谢所有参与 OpenTangYuan 设计、开发、测试和反馈的朋友。
