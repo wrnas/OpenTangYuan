@@ -495,21 +495,6 @@ Failure:
   "data": null
 }
 ```
-
-Common error codes:
-
-| Code | Description |
-|---|---|
-| `SKILL_NOT_FOUND` | Skill does not exist. |
-| `INVALID_ARGUMENTS` | Arguments are malformed. |
-| `MISSING_ARGUMENTS` | Required arguments are missing. |
-| `EMAIL_CONFIG_MISSING` | Email settings are not configured. |
-| `FILE_NOT_FOUND` | File does not exist. |
-| `EXECUTION_FAILED` | Skill execution failed. |
-| `SIDE_EFFECT_BLOCKED` | Side effect prevented because the operation was duplicate or unsafe. |
-| `PERMISSION_DENIED` | Insufficient permissions. |
-| `TIMEOUT` | Execution timed out. |
-
 ---
 
 ## Technology Stack
@@ -749,33 +734,6 @@ OpenTangYuan can be extended in several ways:
 
 4. **Extend security policies**  
    Add path allowlists, API access controls, role-based permissions, approval workflows, audit logs, or alerting rules.
-
----
-
-## Recommended Documentation
-
-We suggest maintaining these complementary documents:
-
-```text
-docs/
-  api.md
-  workflow.md
-  deployment.md
-  security.md
-  coze-agent-prompt.md
-  examples.md
-  faq.md
-```
-
-| File | Content |
-|---|---|
-| `api.md` | Full API parameters, requests, and responses. |
-| `workflow.md` | Workflow definitions, context variables, and execution mechanics. |
-| `deployment.md` | Local, intranet, Docker, and private cloud setup guides. |
-| `security.md` | Security boundaries, allowlists, authentication, and side-effect controls. |
-| `coze-agent-prompt.md` | Suggested system prompt for external agents. |
-| `examples.md` | More sample requests and workflows. |
-| `faq.md` | Frequently asked questions. |
 
 ---
 
