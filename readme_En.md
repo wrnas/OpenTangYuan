@@ -15,6 +15,7 @@
   <a href="#core-concepts">Core Concepts</a> ·
   <a href="#workflow-runtime">Workflow Runtime</a> ·
   <a href="#core-apis">Core APIs</a> ·
+  <a href="#external-agent-integration">External Agent Integration</a> ·
   <a href="#security-and-deployment-boundaries">Security</a> ·
   <a href="#research-context">Research Context</a> ·
   <a href="#citation">Citation</a>
@@ -495,6 +496,30 @@ Failure:
   "data": null
 }
 ```
+---
+## External Agent Integration
+
+For integrating OpenTangYuan with external agents (e.g., Coze, Dify, GPTs, or custom platforms), we recommend the following approach:
+
+### 1. Create Plugins for the Agent
+
+We suggest creating **four plugins**, each corresponding to one of the core OpenTangYuan APIs:
+
+| Plugin Name | Endpoint | Description |
+|---|---|---|
+| GetSkillListForAI | `Skills/GetSkillListForAI` | Retrieves an overview of currently available skills. Use this first to let the agent determine whether a reusable workflow already exists. Returns two categories: (1) `workflows` – pre‑saved workflows from the database (prefer these for direct execution), and (2) `builtins` – atomic built‑in skills such as `browser_task`, `file_task`, `tool_task`, `email_task`, and `wechat_task`. **Usage rules:** (a) always call this tool first when a user request arrives; (b) if a suitable workflow is found, continue with `GetSkillAction` to inspect details, then call `ExecuteSkill`; (c) if no suitable workflow exists, consider composing a temporary workflow via `ExecuteSkill` with `Steps`, or call `AiBrowser` for low‑level browser automation. |
+| GetSkillAction | `Skills/GetSkillAction` | Retrieves the full definition of a saved workflow by its `SkillCode`. **Use when:** (a) you have found a potentially usable workflow via `GetSkillListForAI`; (b) you need to inspect its purpose, steps, and parameters; (c) you want to confirm it fits the current task before execution. **Input rules:** pass only the `SkillCode`, which must come from the `workflows` list returned by `GetSkillListForAI`. Output includes `skillCode`, `remark`, `skillType`, `updateTime`, `steps`, and `skillActionsRaw`. **Recommendation:** never skip this step and blindly execute a workflow — always read the details first. |
+| ExecuteSkill | `Skills/ExecuteSkillForCoze` | Unified execution entry point for built‑in skills, temporary workflows, and saved workflows. Parameters are passed as a JSON string. |
+| GetBuiltinSkillDetail | `Skills/GetBuiltinSkillDetail` | Retrieves detailed information about a built‑in skill, including its usage, parameters, and examples. |
+
+### 2. Set Up the System Prompt
+
+To help the agent follow the recommended capability discovery workflow, enforce safe calling, and avoid unwanted side effects, we provide a ready‑to‑use system prompt.
+
+For the full prompt (using Coze as an example), see:
+➡️ **[`readme/docs/agent-prompt.md`](readme/docs/agent-prompt.md)**
+
+Copy the prompt into your agent's system settings — it will automatically guide the agent through the correct discovery → detail → execution flow.
 ---
 
 ## Technology Stack
