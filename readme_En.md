@@ -135,22 +135,34 @@ Use Swagger to explore and test the APIs interactively.
 
 ## Core Concepts
 
-### 1. Agent workflow runtime
+OpenTangYuan is built around a simple idea:
 
-OpenTangYuan is a runtime for agent-driven tasks. It provides:
+> Let AI understand and plan tasks, while keeping execution and sensitive data inside a trusted local environment.
 
-- capability discovery;
-- skill detail queries;
-- parameter generation;
-- multi-step workflow orchestration;
-- context passing between steps;
-- trusted local execution;
-- structured result packaging;
-- debugging and error feedback.
+Everything else in the system follows this principle.
 
-### 2. Manifest-driven skill registry
+### 1. Skills: Everything Is a Capability
 
-All built-in skills are described in `skill-manifest.json`. An external agent does not need to remember every parameter upfront. It can follow a discovery cycle:
+Every operation in OpenTangYuan is represented as a **skill**.
+
+A skill is a reusable capability that performs a specific task, for example:
+
+- searching or organizing local files;
+- reading or sending emails;
+- controlling a browser;
+- taking screenshots;
+- sending enterprise messages;
+- launching approved local tools.
+
+Instead of embedding these capabilities directly into an AI prompt, OpenTangYuan exposes them through a unified runtime so that different AI agents can discover and invoke them consistently.
+
+---
+
+### 2. Discover Before You Execute
+
+An external agent does not need to know every skill or parameter in advance.
+
+Instead, OpenTangYuan follows a simple discovery workflow:
 
 ```text
 GetSkillListForAI
@@ -160,22 +172,37 @@ GetBuiltinSkillDetail / GetSkillAction
 ExecuteSkill / ExecuteSkillForCoze
 ```
 
-This keeps prompts shorter, improves call stability, and makes it easier to add new skills later.
+This keeps prompts concise, reduces unnecessary context, and allows new skills to be added without changing the agent itself.
 
-### 3. Workflow-first execution
+---
 
-OpenTangYuan distinguishes two kinds of capabilities:
+### 3. Workflows Build Complex Tasks
 
-| Type | Description |
-|---|---|
-| Builtin Skill | Atomic operations such as email, file, browser, screenshot, messaging, and local tool execution. |
-| Workflow Skill | Reusable sequences composed of multiple built-in skills. |
+Many real-world tasks involve multiple steps rather than a single tool call.
 
-The runtime prefers pre-validated workflows from the database when available. For new requests, agents can query built-in skill details and assemble a temporary workflow on the fly.
+OpenTangYuan combines individual skills into reusable **workflows**, making complex automation easier to build and maintain.
 
-### 4. Context-aware multi-step execution
+For example:
 
-Later steps can refer to outputs from earlier steps using simple template variables:
+```text
+Search file
+      ↓
+Open file
+      ↓
+Capture screenshot
+      ↓
+Send email
+```
+
+A workflow may already exist in the database, or an AI agent can assemble a temporary workflow dynamically when needed.
+
+---
+
+### 4. Context Flows Through the Workflow
+
+Results produced by one step automatically become available to later steps.
+
+Template variables make it easy to reference previous outputs:
 
 ```text
 {{step0}}
@@ -184,24 +211,42 @@ Later steps can refer to outputs from earlier steps using simple template variab
 {{step1.result}}
 ```
 
-This makes pipelines such as `search file -> open it -> take a screenshot -> email it` both easy to describe and easy to execute in a structured way.
+This allows each step to build naturally on the previous one without manually passing intermediate values.
 
-### 5. Trusted local execution
+---
 
-All real actions involving files, emails, browsers, screenshots, local tools, or enterprise systems happen inside the local runtime. The external agent receives capability metadata and structured execution results, but it does not directly access sensitive resources.
+### 5. Execution Always Happens Locally
 
-### 6. Policy-controlled side effects
+The cloud-side agent is responsible for understanding the user's request, selecting skills, and preparing parameters.
 
-OpenTangYuan applies restrictions and logging to operations that change state or have external impact, including:
+The local runtime performs the actual work.
 
-- sending or replying to emails;
-- copying, moving, or deleting files;
-- downloading attachments;
-- launching local programs;
-- printing;
-- calling external tools.
+That includes:
 
-Combined with API authentication, path allowlists, executable allowlists, and side-effect controls, this provides a safer automation environment.
+- accessing files;
+- operating browsers;
+- sending emails;
+- taking screenshots;
+- invoking local applications;
+- communicating with enterprise systems.
+
+Keeping execution local helps protect sensitive data while allowing AI services to focus on reasoning and planning.
+
+---
+
+### 6. Safety Is Built Into the Runtime
+
+Some operations have side effects, such as sending emails, deleting files, downloading attachments, or launching programs.
+
+OpenTangYuan applies built-in safeguards before these operations are executed, including:
+
+- API authentication;
+- path allowlists;
+- executable allowlists;
+- execution logging;
+- policy validation.
+
+These mechanisms make the runtime suitable for environments where automation needs to remain both flexible and controlled.
 
 ---
 
@@ -832,7 +877,7 @@ Check the step numbering, such as `step0` and `step1`, the exact field path, suc
 
 ## Research Context
 
-OpenTangYuan was developed as research software, but its README is written primarily for users and developers who want to run, inspect, extend, or integrate the runtime. This section summarizes the research-oriented ideas behind the project.
+OpenTangYuan is designed as an open-source runtime first,while also serving as the software artifact for our SoftwareX paper.
 
 Compared with typical tool-calling architectures, OpenTangYuan adds a practical runtime layer for safer and more reusable agent-based office automation:
 
