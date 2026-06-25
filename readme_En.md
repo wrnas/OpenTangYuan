@@ -134,6 +134,7 @@ Use Swagger to explore and test the APIs interactively.
 ---
 
 ## Core Concepts
+If you're new to OpenTangYuan, you only need to remember three ideas: skills, workflows, and a trusted local runtime. Everything else builds on top of them.
 
 OpenTangYuan is built around a simple idea:
 
