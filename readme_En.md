@@ -906,6 +906,7 @@ Compared with typical tool-calling architectures, OpenTangYuan adds a practical 
 
 In a production environment, it is recommended to take the following actions:
 
+- Please enable HTTPS in the production environment to ensure secure data transmission.
 - Disable Swagger UI, or enable user authentication for Swagger (configuration options are available in `appsettings.json`).
 - In `Program.cs`, locate the section that enables Swagger user authentication and uncomment the corresponding code.
 - Enable API Key validation by adding `[Authorize(AuthenticationSchemes = "ApiKey")]` to your controllers. Example:
