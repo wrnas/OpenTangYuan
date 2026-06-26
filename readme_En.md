@@ -17,7 +17,7 @@
   <a href="#core-apis">Core APIs</a> ·
   <a href="#security-and-deployment-boundaries">Security</a> ·
   <a href="#research-context">Research Context</a> ·
-  <a href="#citation">Citation</a>
+  <a href="#Important-Notes-for-Production-Environment">Important Notes for Production Environment</a>
 </p>
 
 <p align="center">
@@ -902,21 +902,22 @@ Compared with typical tool-calling architectures, OpenTangYuan adds a practical 
 
 ---
 
-## Citation
+## Important Notes for Production Environment
 
-If you use OpenTangYuan in your research or project, please cite it. Once the SoftwareX paper is published, this entry will be updated.
+In a production environment, it is recommended to take the following actions:
 
-### BibTeX
+- Disable Swagger UI, or enable user authentication for Swagger (configuration options are available in `appsettings.json`).
+- In `Program.cs`, locate the section that enables Swagger user authentication and uncomment the corresponding code.
+- Enable API Key validation by adding `[Authorize(AuthenticationSchemes = "ApiKey")]` to your controllers. Example:
 
-```bibtex
-@software{opentangyuan,
-  title        = {OpenTangYuan: A cloud-local agent workflow runtime for privacy-sensitive office automation},
-  author       = {Liu, Mingyang and Contributors},
-  year         = {2026},
-  url          = {https://github.com/wrnas/OpenTangYuan},
-  license      = {MIT},
-  version      = {v1.1.2}
-}
+```csharp
+    [Authorize(AuthenticationSchemes = "ApiKey")]
+    [Route("api/[controller]")]
+    [ApiController]
+    public class SkillsController : BaseCommandController
+    {
+        // ...
+    }
 ```
 
 ---

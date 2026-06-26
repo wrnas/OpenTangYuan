@@ -32,7 +32,7 @@ namespace TangYuan.Controllers
     ///    {{step0.data.path}}
     /// 4. 返回结果尽量稳定，方便 AI 调用
     /// </summary>
-    [Authorize(AuthenticationSchemes = "ApiKey")]
+    //[Authorize(AuthenticationSchemes = "ApiKey")] //正式使用时建议打开此注释，用来对外部调用启用apikey的验证。
     [Route("api/[controller]")]
     [ApiController]
     public class SkillsController : BaseCommandController

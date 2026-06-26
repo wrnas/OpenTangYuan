@@ -238,28 +238,30 @@ namespace TangYuan
                         return;
                     }
 
-                    var swaggerUser = configuration["SwaggerAuth:User"] ?? "admin";
-                    var swaggerPassword = configuration["SwaggerAuth:Password"] ?? "password";
+                    #region 启用swagger用户验证
+                    //var swaggerUser = configuration["SwaggerAuth:User"] ?? "admin";
+                    //var swaggerPassword = configuration["SwaggerAuth:Password"] ?? "password";
 
-                    try
-                    {
-                        var encoded = authHeader["Basic ".Length..].Trim();
-                        var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
-                        var parts = decoded.Split(':');
+                    //try
+                    //{
+                    //    var encoded = authHeader["Basic ".Length..].Trim();
+                    //    var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+                    //    var parts = decoded.Split(':');
 
-                        if (parts.Length < 2 || parts[0] != swaggerUser || parts[1] != swaggerPassword)
-                        {
-                            context.Response.StatusCode = 401;
-                            await context.Response.WriteAsync("Unauthorized");
-                            return;
-                        }
-                    }
-                    catch
-                    {
-                        context.Response.StatusCode = 401;
-                        await context.Response.WriteAsync("Unauthorized");
-                        return;
-                    }
+                    //    if (parts.Length < 2 || parts[0] != swaggerUser || parts[1] != swaggerPassword)
+                    //    {
+                    //        context.Response.StatusCode = 401;
+                    //        await context.Response.WriteAsync("Unauthorized");
+                    //        return;
+                    //    }
+                    //}
+                    //catch
+                    //{
+                    //    context.Response.StatusCode = 401;
+                    //    await context.Response.WriteAsync("Unauthorized");
+                    //    return;
+                    //}
+                    #endregion
                 }
 
                 await next();
