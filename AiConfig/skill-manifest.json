@@ -1,15 +1,15 @@
 {
   "version": "1.1",
-  "note": "Use workflows first; if no existing workflow is available or a workflow can only complete part of the task, then combine builtins to call ExecuteSkill.",
+  "note": "Prioritize using workflows; if no existing workflow is available or a workflow can only complete part of the task, combine builtins and call ExecuteSkill.",
   "builtins": [
     {
       "skillCode": "browser_task",
-      "AIDesc": "Execute a sequence of browser automation actions, suitable for scenarios such as login, search, page reading, screenshots, downloads, and multi-step page operations",
+      "AIDesc": "Execute a sequence of browser automation actions. Suitable for scenarios such as login, searching, page reading, screenshot capture, file download, and multi-step page operations.",
       "args": {
-        "sessionId": "Optional session ID. If omitted, a new session is created automatically; follow-up requests for the same website should reuse it whenever possible",
-        "closeSession": "Optional. Whether to close the session after execution: true/false. Default: false",
-        "includeOutputs": "Optional. Whether to return details for each action: true/false. Default: false",
-        "actions": "Browser action array; it can be passed directly as a JSON array or as a JSON string"
+        "sessionId": "Optional session ID. If omitted, a new session is created automatically. Subsequent requests for the same website should reuse it whenever possible.",
+        "closeSession": "Optional. Whether to close the session after execution: true/false. Default: false.",
+        "includeOutputs": "Optional. Whether to return details for each action: true/false. Default: false.",
+        "actions": "Browser action array. Can be passed directly as a JSON array or as a JSON string."
       },
       "actionsV1": [
         "goto",
@@ -60,8 +60,8 @@
         "submit_captcha"
       ],
       "example": {
-        "SkillCode": "browser_task",
-        "Arguments": {
+        "skillCode": "browser_task",
+        "arguments": {
           "closeSession": false,
           "includeOutputs": false,
           "actions": [
@@ -83,83 +83,58 @@
     },
     {
       "skillCode": "file_task",
-      "AIDesc": "File operations. Supports search [search], copy [copy], move [move], create directory [mkdir], rename [rename], batch copy [copy_many], and batch move [move_many].",
+      "AIDesc": "File operations. Supports search, copy, move, mkdir, rename, batch copy (copy_many), and batch move (move_many).",
       "args": {
         "action": "search | copy | move | copy_many | move_many | mkdir | rename",
-        "from": "Source path; used for copy/move/rename/mkdir",
-        "to": "Destination path; used for copy/move",
-        "keyword": "Search keyword; used for search",
-        "ext": "File extension; used for search. Default: *",
-        "paths": "File path array; used for copy_many/move_many",
-        "toDir": "Destination directory; used for copy_many/move_many",
-        "overwrite": "Whether to overwrite: true/false. Default: true",
-        "newName": "New file name after renaming; used for rename"
+        "from": "Source path. Used for copy/move/rename/mkdir.",
+        "to": "Destination path. Used for copy/move.",
+        "keyword": "Search keyword. Used for search.",
+        "ext": "File extension. Used for search. Default: *.",
+        "paths": "File path array. Used for copy_many/move_many.",
+        "toDir": "Destination directory. Used for copy_many/move_many.",
+        "overwrite": "Whether to overwrite: true/false. Default: true.",
+        "newName": "New file name after renaming. Used for rename."
       },
       "actions": [
         {
           "action": "search",
-          "required": [
-            "keyword"
-          ],
-          "optional": [
-            "ext"
-          ]
+          "required": [ "keyword" ],
+          "optional": [ "ext" ]
         },
         {
           "action": "copy",
-          "required": [
-            "from",
-            "to"
-          ],
+          "required": [ "from", "to" ],
           "optional": []
         },
         {
           "action": "move",
-          "required": [
-            "from",
-            "to"
-          ],
+          "required": [ "from", "to" ],
           "optional": []
         },
         {
           "action": "copy_many",
-          "required": [
-            "paths",
-            "toDir"
-          ],
-          "optional": [
-            "overwrite"
-          ]
+          "required": [ "paths", "toDir" ],
+          "optional": [ "overwrite" ]
         },
         {
           "action": "move_many",
-          "required": [
-            "paths",
-            "toDir"
-          ],
-          "optional": [
-            "overwrite"
-          ]
+          "required": [ "paths", "toDir" ],
+          "optional": [ "overwrite" ]
         },
         {
           "action": "rename",
-          "required": [
-            "from",
-            "newName"
-          ],
+          "required": [ "from", "newName" ],
           "optional": []
         },
         {
           "action": "mkdir",
-          "required": [
-            "from"
-          ],
+          "required": [ "from" ],
           "optional": []
         }
       ],
       "example": {
-        "SkillCode": "file_task",
-        "Arguments": {
+        "skillCode": "file_task",
+        "arguments": {
           "action": "copy_many",
           "paths": [
             "C:\\Temp\\a.png",
@@ -172,15 +147,15 @@
     },
     {
       "skillCode": "email_task",
-      "AIDesc": "Email operations. Supports send, search, read, download_attachments, reply, mark_read, and save_eml. When calling ExecuteSkill, pass skillCode=email_task and pass action and the corresponding parameters in arguments. When calling ExecuteSkillForCoze, serialize { skillCode, arguments } and place it in the Json field.",
+      "AIDesc": "Email operations. Supports send, search, read, download_attachments, reply, mark_read, and save_eml. When calling ExecuteSkill, pass skillCode=email_task and provide the action and corresponding parameters in arguments. When calling ExecuteSkillForCoze, serialize { skillCode, arguments } and place it in the Json field.",
       "usage": [
-        "send: Send an email. Common parameters: to, subject, body, attachments, insertImagePaths",
-        "search: Search emails. Common parameters: subjectKeyword, fromKeyword, bodyKeyword, unreadOnly, hasAttachments, maxCount, scanCount, dateFrom, dateTo, daysBack, contextKey",
-        "read: Read the email body. Common parameters: index + contextKey, or mailRef",
-        "download_attachments: Download attachments. Common parameters: index + contextKey, or mailRef + savePath",
-        "reply: Reply to an email. Common parameters: index + contextKey, or mailRef + replyText",
-        "mark_read: Mark an email as read. Common parameters: index + contextKey, or mailRef",
-        "save_eml: Save an email as an eml file. Common parameters: index + contextKey, or mailRef + filePath"
+        "send: Send an email. Common parameters: to, subject, body, attachments, insertImagePaths.",
+        "search: Search emails. Common parameters: subjectKeyword, fromKeyword, bodyKeyword, unreadOnly, hasAttachments, maxCount, scanCount, dateFrom, dateTo, daysBack, contextKey.",
+        "read: Read the email body. Common parameters: index + contextKey, or mailRef.",
+        "download_attachments: Download attachments. Common parameters: index + contextKey, or mailRef + savePath.",
+        "reply: Reply to an email. Common parameters: index + contextKey, or mailRef + replyText.",
+        "mark_read: Mark an email as read. Common parameters: index + contextKey, or mailRef.",
+        "save_eml: Save an email as an eml file. Common parameters: index + contextKey, or mailRef + filePath."
       ],
       "examples": [
         {
@@ -209,7 +184,7 @@
           }
         },
         {
-          "title": "Download the attachments from the first email to drive D",
+          "title": "Download attachments from the first email to drive D",
           "json": {
             "skillCode": "email_task",
             "arguments": {
@@ -243,108 +218,108 @@
               "action": "reply",
               "index": 1,
               "contextKey": "mail_default",
-              "replyText": "Received, thank you"
+              "replyText": "Received, thank you."
             }
           }
         }
       ],
       "tips": [
         "It is recommended to run search first, then use index + contextKey to operate on a specific email.",
-        "When the user says the first or second email, pass index and contextKey first.",
-        "For images embedded in the email body, use insertImagePaths first; do not manually write cid.",
-        "When downloading attachments, saving eml files, or sending attachments, the local path must be within the range allowed by the server."
+        "When the user mentions 'the first email' or 'the second email', prioritize using index and contextKey.",
+        "For images embedded in the email body, use insertImagePaths instead of manually writing cid.",
+        "When downloading attachments, saving eml files, or sending attachments, the local path must be within the server's allowed directory scope."
       ]
     },
     {
       "skillCode": "screenshot_task",
-      "AIDesc": "Take a full-screen screenshot",
+      "AIDesc": "Take a full-screen screenshot.",
       "args": {},
       "example": {
-        "SkillCode": "screenshot_task",
-        "Arguments": {}
+        "skillCode": "screenshot_task",
+        "arguments": {}
       }
     },
     {
       "skillCode": "open_task",
-      "AIDesc": "Open a file, application, or folder",
+      "AIDesc": "Open a file, application, or folder.",
       "args": {
-        "path": "File path, directory path, or application path"
+        "path": "File path, directory path, or application path."
       },
       "example": {
-        "SkillCode": "open_task",
-        "Arguments": {
+        "skillCode": "open_task",
+        "arguments": {
           "path": "C:\\Temp"
         }
       }
     },
     {
       "skillCode": "print_task",
-      "AIDesc": "Print a file",
+      "AIDesc": "Print a file.",
       "args": {
-        "path": "Full path of the file to print"
+        "path": "Full path of the file to print."
       },
       "example": {
-        "SkillCode": "print_task",
-        "Arguments": {
+        "skillCode": "print_task",
+        "arguments": {
           "path": "C:\\Temp\\a.pdf"
         }
       }
     },
     {
       "skillCode": "folder_task",
-      "AIDesc": "Organize files by extension",
+      "AIDesc": "Organize files in a directory by their file extensions.",
       "args": {
-        "source": "Source directory"
+        "source": "Source directory."
       },
       "example": {
-        "SkillCode": "folder_task",
-        "Arguments": {
+        "skillCode": "folder_task",
+        "arguments": {
           "source": "C:\\Temp"
         }
       }
     },
     {
       "skillCode": "tool_task",
-      "AIDesc": "Call an external exe tool from the allowlist",
+      "AIDesc": "Call an external exe tool from the allowlist.",
       "args": {
-        "exePath": "Full path to the exe. Required",
-        "arguments": "Command-line arguments. Optional",
-        "timeout": "Timeout in seconds. Optional. Default: 10"
+        "exePath": "Full path to the exe. Required.",
+        "arguments": "Command-line arguments. Optional.",
+        "timeout": "Timeout in seconds. Optional. Default: 10."
       },
       "example": {
-        "SkillCode": "tool_task",
-        "Arguments": {
+        "skillCode": "tool_task",
+        "arguments": {
           "exePath": "D:\\LmyTools.exe",
-          "arguments": "--input \"D:\\StudentScores.xlsx\" --output \"D:\\SplitResults.xlsx\"",
+          "arguments": "--input \"D:\\StudentGrades.xlsx\" --output \"D:\\SplitResults.xlsx\"",
           "timeout": "60"
         }
       }
     },
     {
       "skillCode": "lock_task",
-      "AIDesc": "Lock the screen",
+      "AIDesc": "Lock the screen.",
       "args": {},
       "example": {
-        "SkillCode": "lock_task",
-        "Arguments": {}
+        "skillCode": "lock_task",
+        "arguments": {}
       }
     },
     {
       "skillCode": "wechat_task",
-      "AIDesc": "Send WeCom bot messages. Supports text, Markdown, and rich media cards",
+      "AIDesc": "Send WeCom bot messages. Supports text, Markdown, and rich media cards.",
       "args": {
         "action": "text / markdown / card",
-        "content": "Required for text or markdown",
-        "isAtAll": "Optional for text: true/false",
-        "atUsers": "Optional for text; separate multiple users with commas",
-        "title": "Required for card",
-        "AIDesc": "Required for card",
-        "url": "Required for card",
-        "picUrl": "Optional for card"
+        "content": "Required for text or markdown.",
+        "isAtAll": "Optional for text. true/false.",
+        "atUsers": "Optional for text. Separate multiple users with commas.",
+        "title": "Required for card.",
+        "AIDesc": "Required for card.",
+        "url": "Required for card.",
+        "picUrl": "Optional for card."
       },
       "example": {
-        "SkillCode": "wechat_task",
-        "Arguments": {
+        "skillCode": "wechat_task",
+        "arguments": {
           "action": "text",
           "content": "Test message"
         }
