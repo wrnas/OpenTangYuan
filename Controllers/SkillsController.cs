@@ -2650,7 +2650,7 @@ namespace TangYuan.Controllers
 
             if (!Directory.Exists(fullRoot))
                 throw new DirectoryNotFoundException(
-                    $"搜索目录不存在：{fullRoot}");
+                    $"The search directory does not exist.：{fullRoot}");
 
             return await Task.Run(() =>
             {
@@ -2854,10 +2854,10 @@ namespace TangYuan.Controllers
         private string FormatFileList(List<string> files)
         {
             if (files == null || files.Count == 0)
-                return "未找到文件";
+                return "The file was not found.";
 
             var sb = new StringBuilder();
-            sb.AppendLine($"找到 {files.Count} 个文件：");
+            sb.AppendLine($"find {files.Count} files：");
 
             foreach (var file in files)
                 //sb.AppendLine("✅ " + file);
@@ -2880,7 +2880,7 @@ namespace TangYuan.Controllers
         private string ValidatePath(string inputPath, bool mustExist = false)
         {
             if (string.IsNullOrWhiteSpace(inputPath))
-                throw new ArgumentException("路径不能为空");
+                throw new ArgumentException("The path must not be empty.");
 
             string fullPath = Path.GetFullPath(inputPath);
 
@@ -2897,10 +2897,10 @@ namespace TangYuan.Controllers
             });
 
             if (!allowed)
-                throw new UnauthorizedAccessException("路径不在允许范围");
+                throw new UnauthorizedAccessException("The path is outside the allowed scope.");
 
             if (mustExist && !System.IO.File.Exists(fullPath) && !Directory.Exists(fullPath))
-                throw new FileNotFoundException($"不存在: {fullPath}");
+                throw new FileNotFoundException($"The item does not exist.: {fullPath}");
 
             return fullPath;
         }
@@ -2924,7 +2924,7 @@ namespace TangYuan.Controllers
                 Success = true,
                 SkillCode = "file_task",
                 Type = "copy",
-                Text = "已复制",
+                Text = "The file has been copied successfully.",
                 Data = new
                 {
                     from = source,
@@ -2956,7 +2956,7 @@ namespace TangYuan.Controllers
                 Success = true,
                 SkillCode = "file_task",
                 Type = "move",
-                Text = "已移动",
+                Text = "The file has been moved successfully.",
                 Data = new
                 {
                     from = source,
@@ -2970,14 +2970,14 @@ namespace TangYuan.Controllers
             var source = ValidatePath(path, mustExist: true);
 
             if (string.IsNullOrWhiteSpace(newName))
-                throw new ArgumentException("新文件名不能为空");
+                throw new ArgumentException("The new filename must not be empty.");
 
             // 确保 newName 不包含路径，只取文件名
             var safeNewName = Path.GetFileName(newName);
 
             var sourceDir = Path.GetDirectoryName(source);
             if (string.IsNullOrWhiteSpace(sourceDir))
-                throw new ArgumentException("无法获取源文件目录");
+                throw new ArgumentException("Failed to retrieve the source file directory.");
 
             var target = Path.Combine(sourceDir, safeNewName);
             var targetValidated = ValidatePath(target, mustExist: false);
@@ -2995,7 +2995,7 @@ namespace TangYuan.Controllers
                 Success = true,
                 SkillCode = "file_task",
                 Type = "rename",
-                Text = "已重命名",
+                Text = "The file has been renamed successfully.",
                 Data = new
                 {
                     from = source,
@@ -3120,7 +3120,7 @@ namespace TangYuan.Controllers
                     {
                         var source = ValidatePath(item, mustExist: true);
                         if (!System.IO.File.Exists(source))
-                            throw new FileNotFoundException($"文件不存在: {source}");
+                            throw new FileNotFoundException($"The file was not found.: {source}");
 
                         var target = Path.Combine(fullTargetDir, Path.GetFileName(source));
                         var validatedTarget = ValidatePath(target, mustExist: false);
@@ -3130,7 +3130,7 @@ namespace TangYuan.Controllers
                             if (overwrite)
                                 System.IO.File.Delete(validatedTarget);
                             else
-                                throw new IOException($"目标文件已存在: {validatedTarget}");
+                                throw new IOException($"Target file already exists: {validatedTarget}");
                         }
 
                         System.IO.File.Move(source, validatedTarget);
@@ -3260,7 +3260,7 @@ namespace TangYuan.Controllers
         public async Task<IActionResult> SaveSkillAction([FromBody] SkillModel model)
         {
             if (string.IsNullOrWhiteSpace(model?.SkillCode))
-                return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
+                return BadRequest(ResponseHelper.Fail<object>("SkillCode is required"));
 
             var exists = await QueryFirstOrDefaultAsync<int>(
                 "SELECT 1 FROM Skills WHERE SkillCode = @SkillCode LIMIT 1",
@@ -3283,7 +3283,7 @@ INSERT INTO Skills (SkillCode, SkillActions, Remark, SkillType, UpdateTime)
 VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
             }
 
-            return Ok(ResponseHelper.Success("保存成功"));
+            return Ok(ResponseHelper.Success("Saved successfully."));
         }
 
         [HttpPost("GetSkillList")]
@@ -3304,7 +3304,7 @@ VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
                 : "DELETE FROM Skills WHERE SkillCode = @SkillCode";
 
             await ExecuteAsync(sql, model);
-            return Ok(ResponseHelper.Success("删除成功"));
+            return Ok(ResponseHelper.Success("Deleted successfully"));
         }
 
         [HttpPost("ExecSql")]
