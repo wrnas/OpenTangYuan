@@ -2043,12 +2043,12 @@ namespace TangYuan.Controllers
         {
             string path = GetString(args, "path");
             if (string.IsNullOrWhiteSpace(path))
-                throw new ArgumentException("路径不能为空");
+                throw new ArgumentException("Path is required");
 
             var fullPath = ValidatePath(path, mustExist: true);
 
             if (!System.IO.File.Exists(fullPath) && !Directory.Exists(fullPath))
-                throw new FileNotFoundException($"路径不存在: {fullPath}");
+                throw new FileNotFoundException($"Path not found: {fullPath}");
 
             await Task.Run(() =>
             {
@@ -2063,7 +2063,7 @@ namespace TangYuan.Controllers
                 Success = true,
                 SkillCode = "open_task",
                 Type = "open_file",
-                Text = $"文件已成功打开: {fullPath}",
+                Text = $"File opened successfully: {fullPath}",
                 ResultValue = fullPath
             };
         }
@@ -2075,11 +2075,11 @@ namespace TangYuan.Controllers
         {
             string path = GetString(args, "path");
             if (string.IsNullOrWhiteSpace(path))
-                throw new ArgumentException("文件路径不能为空");
+                throw new ArgumentException("File path is required");
 
             var fullPath = ValidatePath(path, mustExist: true);
             if (!System.IO.File.Exists(fullPath))
-                throw new FileNotFoundException($"文件不存在: {fullPath}");
+                throw new FileNotFoundException($"File not found: {fullPath}");
 
             await Task.Run(() =>
             {
@@ -2100,7 +2100,7 @@ namespace TangYuan.Controllers
                 Success = true,
                 SkillCode = "print_task",
                 Type = "print_file",
-                Text = $"已发送打印: {Path.GetFileName(fullPath)}",
+                Text = $"Print sent successfully: {Path.GetFileName(fullPath)}",
                 ResultValue = fullPath
             };
         }
@@ -2110,11 +2110,11 @@ namespace TangYuan.Controllers
         {
             string source = GetString(args, "source");
             if (string.IsNullOrWhiteSpace(source))
-                throw new ArgumentException("源目录不能为空");
+                throw new ArgumentException("Source directory is required");
 
             var fullSource = ValidatePath(source, mustExist: true);
             if (!Directory.Exists(fullSource))
-                throw new DirectoryNotFoundException($"目录不存在: {fullSource}");
+                throw new DirectoryNotFoundException($"Directory not found: {fullSource}");
 
             int count = 0;
 
@@ -2125,7 +2125,7 @@ namespace TangYuan.Controllers
                     try
                     {
                         string ext = Path.GetExtension(file).TrimStart('.').ToUpperInvariant();
-                        string targetDir = Path.Combine(fullSource, string.IsNullOrEmpty(ext) ? "无后缀" : ext);
+                        string targetDir = Path.Combine(fullSource, string.IsNullOrEmpty(ext) ? "No file extension" : ext);
 
                         Directory.CreateDirectory(targetDir);
 
@@ -2460,7 +2460,7 @@ namespace TangYuan.Controllers
         {
             string exePath = GetString(args, "exePath");
             if (string.IsNullOrWhiteSpace(exePath))
-                throw new ArgumentException("工具路径不能为空");
+                throw new ArgumentException("Path is required");
 
             string exeName = Path.GetFileName(exePath);
             if (!AllowedExeNames.Contains(exeName))
