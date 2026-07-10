@@ -2012,18 +2012,30 @@ namespace TangYuan.Controllers
             string ext = GetString(args, "ext", "*");
             string newName = GetString(args, "newName");
 
+            // 新增三个搜索参数
+            string root = GetString(args, "root");
+            bool recursive = GetBoolArg(args, "recursive", false);
+            bool exactName = GetBoolArg(args, "exactName", false);
+
             return action.Trim().ToLowerInvariant() switch
             {
-                "search" => await SearchFileAsync(keyword, ext),
+                "search" => await SearchFileAsync(
+                    keyword,
+                    ext,
+                    root,
+                    recursive,
+                    exactName),
+
                 "copy" => await CopyAsync(from, to),
                 "move" => await MoveAsync(from, to),
                 "copy_many" => await CopyManyAsync(args),
                 "move_many" => await MoveManyAsync(args),
                 "rename" => await RenameAsync(from, newName),
                 "mkdir" => await CreateDirAsync(from),
-                _ => throw new NotSupportedException($"file_task 不支持的操作：{action}")
-            };
 
+                _ => throw new NotSupportedException(
+                    $"file_task 不支持的操作：{action}")
+            };
         }
 
 
@@ -2531,26 +2543,50 @@ namespace TangYuan.Controllers
         /// 搜索文件：
         /// 优先 Everything → 降级 Windows Search → 最后递归搜索
         /// </summary>
-        private async Task<SkillResult> SearchFileAsync(string keyword, string ext = "*")
+        private async Task<SkillResult> SearchFileAsync(
+    string keyword,
+    string ext = "*",
+    string root = "",
+    bool recursive = false,
+    bool exactName = false)
         {
             if (string.IsNullOrWhiteSpace(keyword))
                 throw new ArgumentException("搜索关键词不能为空");
 
-            List<string> resultList = new();
+            List<string> resultList;
 
-            try
+            // 指定 root 后，只搜索这个目录，不调用 Everything、
+            // Windows Search，也不进行全盘递归搜索。
+            if (!string.IsNullOrWhiteSpace(root))
             {
-                resultList = await SearchWithEverythingAsync(keyword, ext);
-
-                if (!resultList.Any())
-                    resultList = await SearchWithWindowsSearchAsync(keyword, ext);
+                resultList = await SearchInDirectoryAsync(
+                    root,
+                    keyword,
+                    ext,
+                    recursive,
+                    exactName);
             }
-            catch
+            else
             {
-                resultList = await SearchFallbackAsync(keyword, ext);
+                resultList = new List<string>();
+
+                try
+                {
+                    resultList = await SearchWithEverythingAsync(keyword, ext);
+
+                    if (!resultList.Any())
+                    {
+                        resultList = await SearchWithWindowsSearchAsync(
+                            keyword,
+                            ext);
+                    }
+                }
+                catch
+                {
+                    resultList = await SearchFallbackAsync(keyword, ext);
+                }
             }
 
-            // 去重
             resultList = resultList
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -2571,6 +2607,7 @@ namespace TangYuan.Controllers
                     {
                         keyword,
                         ext,
+                        root,
                         firstPath = "",
                         paths = Array.Empty<string>(),
                         count = 0
@@ -2579,7 +2616,7 @@ namespace TangYuan.Controllers
                 }.Normalize();
             }
 
-            var firstPath = resultList.FirstOrDefault() ?? "";
+            var firstPath = resultList[0];
 
             return new SkillResult
             {
@@ -2594,6 +2631,7 @@ namespace TangYuan.Controllers
                 {
                     keyword,
                     ext,
+                    root,
                     firstPath,
                     paths = resultList,
                     count = resultList.Count
@@ -2601,7 +2639,54 @@ namespace TangYuan.Controllers
             }.WithList(resultList);
         }
 
+        private async Task<List<string>> SearchInDirectoryAsync(
+    string root,
+    string keyword,
+    string ext,
+    bool recursive,
+    bool exactName)
+        {
+            var fullRoot = ValidatePath(root, mustExist: true);
 
+            if (!Directory.Exists(fullRoot))
+                throw new DirectoryNotFoundException(
+                    $"搜索目录不存在：{fullRoot}");
+
+            return await Task.Run(() =>
+            {
+                var options = new EnumerationOptions
+                {
+                    RecurseSubdirectories = recursive,
+                    IgnoreInaccessible = true,
+                    MatchCasing = MatchCasing.CaseInsensitive,
+                    AttributesToSkip =
+                        FileAttributes.Hidden |
+                        FileAttributes.System
+                };
+
+                var pattern = string.IsNullOrWhiteSpace(ext) || ext == "*"
+                    ? "*"
+                    : $"*.{ext.TrimStart('.')}";
+
+                return Directory
+                    .EnumerateFiles(fullRoot, pattern, options)
+                    .Where(file =>
+                    {
+                        var fileName = Path.GetFileName(file);
+
+                        return exactName
+                            ? string.Equals(
+                                fileName,
+                                keyword,
+                                StringComparison.OrdinalIgnoreCase)
+                            : fileName.Contains(
+                                keyword,
+                                StringComparison.OrdinalIgnoreCase);
+                    })
+                    .Select(Path.GetFullPath)
+                    .ToList();
+            });
+        }
 
         /// <summary>
         /// Everything 搜索
