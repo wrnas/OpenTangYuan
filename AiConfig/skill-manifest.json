@@ -1,15 +1,15 @@
 {
   "version": "1.1",
-  "note": "优先使用 workflows；没有现成 workflow 或 workflow 只能完成一部分时，再使用 builtins 组合调用 ExecuteSkill。",
+  "note": "Use workflows first; if no existing workflow is available or a workflow can only complete part of the task, then combine builtins to call ExecuteSkill.",
   "builtins": [
     {
       "skillCode": "browser_task",
-      "AIDesc": "执行浏览器自动化动作序列，适用于登录、查询、读取页面、截图、下载、多轮页面操作等场景",
+      "AIDesc": "Execute a sequence of browser automation actions, suitable for scenarios such as login, search, page reading, screenshots, downloads, and multi-step page operations",
       "args": {
-        "sessionId": "可选，会话ID，不传则自动新建；同一网站后续追问应优先复用",
-        "closeSession": "可选，是否执行后关闭会话 true/false，默认 false",
-        "includeOutputs": "可选，是否返回每一步动作明细 true/false，默认 false",
-        "actions": "浏览器动作数组；可直接传 JSON 数组，或以 JSON 字符串形式传入"
+        "sessionId": "Optional session ID. If omitted, a new session is created automatically; follow-up requests for the same website should reuse it whenever possible",
+        "closeSession": "Optional. Whether to close the session after execution: true/false. Default: false",
+        "includeOutputs": "Optional. Whether to return details for each action: true/false. Default: false",
+        "actions": "Browser action array; it can be passed directly as a JSON array or as a JSON string"
       },
       "actionsV1": [
         "goto",
@@ -83,17 +83,17 @@
     },
     {
       "skillCode": "file_task",
-      "AIDesc": "文件操作。支持 查询[search]、复制[copy]、移动[move]、创建目录[mkdir]、重命名[rename]、批量复制[copy_many]、批量移动[move_many]。",
+      "AIDesc": "File operations. Supports search [search], copy [copy], move [move], create directory [mkdir], rename [rename], batch copy [copy_many], and batch move [move_many].",
       "args": {
         "action": "search | copy | move | copy_many | move_many | mkdir | rename",
-        "from": "源路径；copy/move/rename/mkdir 时使用",
-        "to": "目标路径；copy/move 时使用",
-        "keyword": "搜索关键词；search 时使用",
-        "ext": "扩展名；search 时使用，默认 *",
-        "paths": "文件路径数组；copy_many/move_many 时使用",
-        "toDir": "目标目录；copy_many/move_many 时使用",
-        "overwrite": "是否覆盖，true/false，默认 true",
-        "newName": "重命名后的文件名；rename 时使用"
+        "from": "Source path; used for copy/move/rename/mkdir",
+        "to": "Destination path; used for copy/move",
+        "keyword": "Search keyword; used for search",
+        "ext": "File extension; used for search. Default: *",
+        "paths": "File path array; used for copy_many/move_many",
+        "toDir": "Destination directory; used for copy_many/move_many",
+        "overwrite": "Whether to overwrite: true/false. Default: true",
+        "newName": "New file name after renaming; used for rename"
       },
       "actions": [
         {
@@ -165,31 +165,31 @@
             "C:\\Temp\\a.png",
             "C:\\Temp\\b.png"
           ],
-          "toDir": "D:\\备份",
+          "toDir": "D:\\Backup",
           "overwrite": "true"
         }
       }
     },
     {
       "skillCode": "email_task",
-      "AIDesc": "邮箱操作。支持 send, search, read, download_attachments, reply, mark_read, save_eml。调用 ExecuteSkill 时传 skillCode=email_task，并在 arguments 中传 action 和对应参数。调用 ExecuteSkillForCoze 时，把 { skillCode, arguments } 序列化后放到 Json 字段。",
+      "AIDesc": "Email operations. Supports send, search, read, download_attachments, reply, mark_read, and save_eml. When calling ExecuteSkill, pass skillCode=email_task and pass action and the corresponding parameters in arguments. When calling ExecuteSkillForCoze, serialize { skillCode, arguments } and place it in the Json field.",
       "usage": [
-        "send: 发送邮件，常用参数：to, subject, body, attachments, insertImagePaths",
-        "search: 搜索邮件，常用参数：subjectKeyword, fromKeyword, bodyKeyword, unreadOnly, hasAttachments, maxCount, scanCount, dateFrom, dateTo, daysBack, contextKey",
-        "read: 读取邮件正文，常用参数：index + contextKey，或 mailRef",
-        "download_attachments: 下载附件，常用参数：index + contextKey，或 mailRef + savePath",
-        "reply: 回复邮件，常用参数：index + contextKey，或 mailRef + replyText",
-        "mark_read: 标记已读，常用参数：index + contextKey，或 mailRef",
-        "save_eml: 保存邮件为 eml，常用参数：index + contextKey，或 mailRef + filePath"
+        "send: Send an email. Common parameters: to, subject, body, attachments, insertImagePaths",
+        "search: Search emails. Common parameters: subjectKeyword, fromKeyword, bodyKeyword, unreadOnly, hasAttachments, maxCount, scanCount, dateFrom, dateTo, daysBack, contextKey",
+        "read: Read the email body. Common parameters: index + contextKey, or mailRef",
+        "download_attachments: Download attachments. Common parameters: index + contextKey, or mailRef + savePath",
+        "reply: Reply to an email. Common parameters: index + contextKey, or mailRef + replyText",
+        "mark_read: Mark an email as read. Common parameters: index + contextKey, or mailRef",
+        "save_eml: Save an email as an eml file. Common parameters: index + contextKey, or mailRef + filePath"
       ],
       "examples": [
         {
-          "title": "搜索主题包含 发票 的邮件",
+          "title": "Search for emails whose subject contains Invoice",
           "json": {
             "skillCode": "email_task",
             "arguments": {
               "action": "search",
-              "subjectKeyword": "发票",
+              "subjectKeyword": "Invoice",
               "unreadOnly": false,
               "maxCount": 10,
               "scanCount": 100,
@@ -198,7 +198,7 @@
           }
         },
         {
-          "title": "读取搜索结果中的第一封邮件",
+          "title": "Read the first email in the search results",
           "json": {
             "skillCode": "email_task",
             "arguments": {
@@ -209,7 +209,7 @@
           }
         },
         {
-          "title": "下载第一封邮件的附件到 D 盘",
+          "title": "Download the attachments from the first email to drive D",
           "json": {
             "skillCode": "email_task",
             "arguments": {
@@ -221,14 +221,14 @@
           }
         },
         {
-          "title": "发送带正文图片的邮件",
+          "title": "Send an email with an image embedded in the body",
           "json": {
             "skillCode": "email_task",
             "arguments": {
               "action": "send",
               "to": "someone@example.com",
-              "subject": "测试邮件",
-              "body": "你好，下面这张图请查看：",
+              "subject": "Test Email",
+              "body": "Hello, please see the image below:",
               "insertImagePaths": [
                 "C:\\a.png"
               ]
@@ -236,28 +236,28 @@
           }
         },
         {
-          "title": "回复第一封邮件",
+          "title": "Reply to the first email",
           "json": {
             "skillCode": "email_task",
             "arguments": {
               "action": "reply",
               "index": 1,
               "contextKey": "mail_default",
-              "replyText": "已收到，谢谢"
+              "replyText": "Received, thank you"
             }
           }
         }
       ],
       "tips": [
-        "推荐先 search，再用 index + contextKey 操作某一封邮件。",
-        "当用户说第一封、第二封邮件时，优先传 index 和 contextKey。",
-        "正文插图优先用 insertImagePaths，不要手写 cid。",
-        "下载附件、保存 eml、发送附件时，本地路径必须在服务端允许范围内。"
+        "It is recommended to run search first, then use index + contextKey to operate on a specific email.",
+        "When the user says the first or second email, pass index and contextKey first.",
+        "For images embedded in the email body, use insertImagePaths first; do not manually write cid.",
+        "When downloading attachments, saving eml files, or sending attachments, the local path must be within the range allowed by the server."
       ]
     },
     {
       "skillCode": "screenshot_task",
-      "AIDesc": "全屏截图",
+      "AIDesc": "Take a full-screen screenshot",
       "args": {},
       "example": {
         "SkillCode": "screenshot_task",
@@ -266,9 +266,9 @@
     },
     {
       "skillCode": "open_task",
-      "AIDesc": "打开文件、程序、文件夹",
+      "AIDesc": "Open a file, application, or folder",
       "args": {
-        "path": "文件路径、目录路径或程序路径"
+        "path": "File path, directory path, or application path"
       },
       "example": {
         "SkillCode": "open_task",
@@ -279,9 +279,9 @@
     },
     {
       "skillCode": "print_task",
-      "AIDesc": "打印文件",
+      "AIDesc": "Print a file",
       "args": {
-        "path": "待打印文件完整路径"
+        "path": "Full path of the file to print"
       },
       "example": {
         "SkillCode": "print_task",
@@ -292,9 +292,9 @@
     },
     {
       "skillCode": "folder_task",
-      "AIDesc": "按后缀归类文件",
+      "AIDesc": "Organize files by extension",
       "args": {
-        "source": "源目录"
+        "source": "Source directory"
       },
       "example": {
         "SkillCode": "folder_task",
@@ -305,24 +305,24 @@
     },
     {
       "skillCode": "tool_task",
-      "AIDesc": "调用白名单中的外部 exe 工具",
+      "AIDesc": "Call an external exe tool from the allowlist",
       "args": {
-        "exePath": "exe 完整路径，必填",
-        "arguments": "命令行参数，选填",
-        "timeout": "超时时间秒数，选填，默认 10"
+        "exePath": "Full path to the exe. Required",
+        "arguments": "Command-line arguments. Optional",
+        "timeout": "Timeout in seconds. Optional. Default: 10"
       },
       "example": {
         "SkillCode": "tool_task",
         "Arguments": {
           "exePath": "D:\\LmyTools.exe",
-          "arguments": "--input \"D:\\学生成绩.xlsx\" --output \"D:\\拆分结果.xlsx\"",
+          "arguments": "--input \"D:\\StudentScores.xlsx\" --output \"D:\\SplitResults.xlsx\"",
           "timeout": "60"
         }
       }
     },
     {
       "skillCode": "lock_task",
-      "AIDesc": "锁屏",
+      "AIDesc": "Lock the screen",
       "args": {},
       "example": {
         "SkillCode": "lock_task",
@@ -331,22 +331,22 @@
     },
     {
       "skillCode": "wechat_task",
-      "AIDesc": "发送企业微信机器人消息，支持文本、Markdown、图文卡片",
+      "AIDesc": "Send WeCom bot messages. Supports text, Markdown, and rich media cards",
       "args": {
         "action": "text / markdown / card",
-        "content": "text 或 markdown 时必填",
-        "isAtAll": "text 时可选，true/false",
-        "atUsers": "text 时可选，多个用户用逗号分隔",
-        "title": "card 时必填",
-        "AIDesc": "card 时必填",
-        "url": "card 时必填",
-        "picUrl": "card 时可选"
+        "content": "Required for text or markdown",
+        "isAtAll": "Optional for text: true/false",
+        "atUsers": "Optional for text; separate multiple users with commas",
+        "title": "Required for card",
+        "AIDesc": "Required for card",
+        "url": "Required for card",
+        "picUrl": "Optional for card"
       },
       "example": {
         "SkillCode": "wechat_task",
         "Arguments": {
           "action": "text",
-          "content": "测试消息"
+          "content": "Test message"
         }
       }
     }
