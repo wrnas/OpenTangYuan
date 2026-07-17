@@ -23,6 +23,7 @@ namespace TangYuan.Controllers
         public string UserId { get; set; }
         public string RefreshToken { get; set; }
     }
+    [ApiExplorerSettings(IgnoreApi = true)] //不在swagger中显示
     public class AuthorizationController : BaseCommandController
     {
         private readonly TokenCacheService _tokenCache;

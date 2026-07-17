@@ -9,6 +9,7 @@ using TangYuan.Models;
 namespace TangYuan.Controllers
 {
     [ApiController]
+    [ApiExplorerSettings(IgnoreApi = true)] //不在swagger中显示
     [Route("[controller]")]
     public class AliOSSController : ControllerBase
     {
