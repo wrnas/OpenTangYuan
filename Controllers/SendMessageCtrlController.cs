@@ -12,11 +12,11 @@ namespace TangYuan.Controllers
         [HttpPost("SendToDingdingText")]
         public async Task<IActionResult> SendToDingdingText(string webhook,string msg)
         {
-            // 你的钉钉机器人Webhook
+            // dingdingWebhook
             if (webhook.IsNullOrEmpty())
                 webhook = "https://oapi.dingtalk.com/robot/send?access_token=xxxx";
 
-            // 发送消息
+            // send Message
             var res = await DingTalkBotHelper.SendText(webhook, msg);
 
             return Ok(new { code = 200, data = res });

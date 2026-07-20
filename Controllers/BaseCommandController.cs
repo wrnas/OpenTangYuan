@@ -11,7 +11,7 @@ using TangYuan.Models;
 namespace TangYuan.Controllers
 {
     /// <summary>
-    /// 支持多数据库的控制器基类，封装 Dapper 基本操作和事务管理
+    /// Base controller with multi-database support, providing common Dapper operations and transaction management.
     /// </summary>
     public abstract class BaseCommandController : Controller, IDisposable
     {
@@ -29,14 +29,18 @@ namespace TangYuan.Controllers
         }
 
         // ==============================
-        // 可重写的连接创建策略（子类可自定义）
+        // Overridable connection creation strategy
+        // (Can be customized by derived controllers)
         // ==============================
+
         /// <summary>
-        /// 根据配置获取数据库连接，默认按 Sqlite -> MySql顺序取第一个非空配置
+        /// Creates a database connection based on the configuration.
+        /// By default, the first non-empty configuration is selected in the following order:
+        /// Sqlite -> MySql.
         /// </summary>
         protected virtual DbConnection GetDbConnection()
         {
-            // 1. 优先 SQLite
+            // 1.  SQLite
             var sqliteConn = _config.GetConnectionString("Sqlite");
             if (!string.IsNullOrEmpty(sqliteConn))
             {
@@ -44,22 +48,27 @@ namespace TangYuan.Controllers
                 return new SqliteConnection(resolvedConn);
             }
 
-            // 2. 其次 MySQL
+            // 2.  MySQL
             var mysqlConn = _config.GetConnectionString("MySql");
             if (!string.IsNullOrEmpty(mysqlConn))
             {
                 return new MySqlConnection(mysqlConn);
             }
 
-            throw new InvalidOperationException("未配置任何数据库连接字符串，请检查 appsettings.json 中的 ConnectionStrings 节点（Sqlite/MySql）");
+            //throw new InvalidOperationException("未配置任何数据库连接字符串，请检查 appsettings.json 中的 ConnectionStrings 节点（Sqlite/MySql）");
+            throw new InvalidOperationException(
+    "No database connection string is configured. Please check the ConnectionStrings section (Sqlite/MySql) in appsettings.json."
+);
+
         }
 
         /// <summary>
-        /// 将 SQLite 连接字符串中的相对路径转换为基于程序基目录的绝对路径
+        /// Converts relative paths in a SQLite connection string to absolute paths based on the application's base directory.
         /// </summary>
+
         private string ResolveSqliteConnectionString(string connectionString)
         {
-            // 匹配 Data Source=xxx; 部分（忽略大小写和空格）
+            // Matches the Data Source=xxx; portion, ignoring case and whitespace
             var pattern = @"Data\s*Source\s*=\s*(?<path>[^;]+)";
             var match = Regex.Match(connectionString, pattern, RegexOptions.IgnoreCase);
             if (!match.Success)
@@ -69,22 +78,30 @@ namespace TangYuan.Controllers
             if (string.IsNullOrEmpty(originalPath))
                 return connectionString;
 
-            // 如果是绝对路径（Windows 盘符或 Linux 根路径），则直接使用
+            // If the path is absolute, such as a Windows drive path or a Linux root path, use it as-is
             if (Path.IsPathRooted(originalPath))
                 return connectionString;
 
-            // 相对路径 → 转换为程序所在目录的绝对路径
+            // Convert the relative path to an absolute path based on the application's base directory
             var absolutePath = Path.Combine(AppContext.BaseDirectory, originalPath);
-            // 替换原字符串中的路径部分
-            var newConnString = Regex.Replace(connectionString, pattern, $"Data Source={absolutePath}", RegexOptions.IgnoreCase);
+
+            // Replace the path portion in the original connection string
+            var newConnString = Regex.Replace(
+                connectionString,
+                pattern,
+                $"Data Source={absolutePath}",
+                RegexOptions.IgnoreCase);
+
             return newConnString;
         }
 
-        // ==================== 事务控制（增强资源管理） ====================
+
+
+        // ==================== Transaction Control (Enhanced Resource Management) ====================
         protected void BeginTransaction()
         {
             if (_currentConnection != null)
-                throw new InvalidOperationException("已有活动事务，请先提交或回滚");
+                throw new InvalidOperationException("An active transaction already exists. Commit or roll it back first.");
 
             var connection = GetDbConnection();
             try
@@ -103,7 +120,7 @@ namespace TangYuan.Controllers
         protected void CommitTransaction()
         {
             if (_currentTransaction == null)
-                throw new InvalidOperationException("没有活动事务");
+                throw new InvalidOperationException("No active transaction exists.");
 
             try
             {
@@ -118,7 +135,7 @@ namespace TangYuan.Controllers
         protected void RollbackTransaction()
         {
             if (_currentTransaction == null)
-                throw new InvalidOperationException("没有活动事务");
+                throw new InvalidOperationException("No active transaction exists.");
 
             try
             {
@@ -150,9 +167,12 @@ namespace TangYuan.Controllers
             _currentConnection?.Dispose();
         }
 
-        // ==================== 检查连接可用性（可选） ====================
+        // ==================== Connection Availability Check (Optional) ====================
+
         /// <summary>
-        /// 确保事务中的连接仍然打开，若关闭则尝试重新打开（通常不需要手动调用）
+        /// Ensures that the connection associated with the current transaction remains open.
+        /// If it is closed, an attempt is made to reopen it.
+        /// This method usually does not need to be called manually.
         /// </summary>
         protected void EnsureConnectionOpen()
         {
@@ -162,7 +182,7 @@ namespace TangYuan.Controllers
             }
         }
 
-        // ==================== Dapper 通用方法（异步，带 ConfigureAwait） ====================
+        // ==================== Common Dapper Methods (Asynchronous, with ConfigureAwait) ====================
         protected async Task<T?> QueryFirstOrDefaultAsync<T>(string sql, object? param = null, CommandType commandType = CommandType.Text)
         {
             if (HasActiveTransaction)

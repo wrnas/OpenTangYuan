@@ -21,18 +21,18 @@ using MailKit.Search;
 namespace TangYuan.Controllers
 {
     /// <summary>
-    /// 技能控制器
+    /// Skill controller
     ///
-    /// 设计目标：
-    /// 1. 支持原子技能独立执行（文件、打印、截图、邮件、浏览器等）
-    /// 2. 支持数据库中定义的组合技能（工作流）
-    /// 3. 支持步骤之间通过模板变量传值，例如：
+    /// Design goals:
+    /// 1. Support independent execution of atomic skills (files, printing, screenshots, email, browser, etc.)
+    /// 2. Support composite skills (workflows) defined in the database
+    /// 3. Pass values between steps through template variables, for example:
     ///    {{step0}}
     ///    {{step0.path}}
     ///    {{step0.data.path}}
-    /// 4. 返回结果尽量稳定，方便 AI 调用
+    /// 4. Keep return values as stable as possible for AI callers
     /// </summary>
-    //[Authorize(AuthenticationSchemes = "ApiKey")] //正式使用时建议打开此注释，用来对外部调用启用apikey的验证。
+    //[Authorize(AuthenticationSchemes = "ApiKey")] // Enable this in production to require API key authentication for external calls.
     [Route("api/[controller]")]
     [ApiController]
     public class SkillsController : BaseCommandController
@@ -42,11 +42,11 @@ namespace TangYuan.Controllers
         private readonly FileSystemOptions _fsOptions;
 
 
-        // 公共缓存：两个接口共用
+        // Shared cache used by both endpoints
         private static string? _cachedManifestJson;
         private static JsonDocument? _cachedManifestDoc;
 
-        // 缓存锁（防止并发重复加载）
+        // Cache lock (prevents duplicate concurrent loads)
         private static readonly object _cacheLock = new();
 
 
@@ -65,16 +65,16 @@ namespace TangYuan.Controllers
 
 
         /// <summary>
-        /// 邮件搜索结果上下文缓存
-        /// 用于支持“第一封”“上一封”这类后续对话引用
-        /// key 建议用 contextKey
+        /// Context cache for email search results
+        /// Supports follow-up references such as "the first email" and "the previous email"
+        /// Use contextKey as the key
         /// </summary>
         private static readonly ConcurrentDictionary<string, List<EmailListItemDto>> _mailContextCache = new(StringComparer.OrdinalIgnoreCase);
 
 
         /// <summary>
-        /// 允许执行的外部 exe 白名单
-        /// 可执行文件需要在配置文件中配置
+        /// Allowlist of external executables
+        /// Executable files must be configured in the configuration file
         /// </summary>
         private static readonly HashSet<string> AllowedExeNames = LoadAllowedExeNames();
 
@@ -105,12 +105,12 @@ namespace TangYuan.Controllers
 
 
 
-        #region 内部处理
+        #region Internal Processing
         /// <summary>
-        /// browser_task 反序列化浏览器动作时使用的 JSON 配置
-        /// 说明：
-        /// 1. 允许小写字段映射到 BrowserAction 的大写属性
-        /// 2. 允许数字字段以字符串形式传入，例如 "take": "10"
+        /// JSON options used when browser_task deserializes browser actions
+        /// Notes:
+        /// 1. Allow lowercase fields to map to BrowserAction properties
+        /// 2. Allow numeric fields to be supplied as strings, for example "take": "10"
         /// </summary>
         private static readonly JsonSerializerOptions BrowserJsonOptions = new()
         {
@@ -120,16 +120,16 @@ namespace TangYuan.Controllers
 
         #endregion
 
-        #region AI技能相关        
+        #region AI Skill Features        
 
         /// <summary>
-        /// 给 AI 返回技能总览：
-        /// 1. workflows = 数据库中的组合技能（优先直接调用）
-        /// 2. builtins  = skill-manifest.json 中定义的内置原子技能（没有现成技能时再组合使用）
+        /// Return a skill overview to the AI:
+        /// 1. workflows = Composite skills stored in the database (prefer direct invocation)
+        /// 2. builtins = Builtin atomic skills defined in skill-manifest.json (combine them when no ready-made skill exists)
         ///
-        /// AI 推荐使用策略：
-        /// - 先看 workflows 有没有现成技能
-        /// - 如果没有，再看 builtins 并调用 GetBuiltinSkillManifest
+        /// Recommended AI usage strategy:
+        /// - First check whether workflows contains a ready-made skill
+        /// - If not, inspect builtins and call GetBuiltinSkillManifest
         /// </summary>
         [HttpPost("GetSkillListForAI")]
         public async Task<IActionResult> GetSkillListForAI()
@@ -211,7 +211,7 @@ namespace TangYuan.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "读取内置技能目录失败，builtins 将返回空数组");
+                    _logger.LogError(ex, "Failed to read the builtin skill catalog; builtins will return an empty array");
                 }
 
                 return Ok(ResponseHelper.Success(new
@@ -222,27 +222,27 @@ namespace TangYuan.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "获取 AI 技能列表失败");
-                return StatusCode(500, ResponseHelper.Fail<object>("获取技能列表失败"));
+                _logger.LogError(ex, "Failed to retrieve the AI skill list");
+                return StatusCode(500, ResponseHelper.Fail<object>("Failed to retrieve the skill list"));
             }
         }
 
 
 
-        #region  GetBuiltinSkillDetail  获取内部定义详情
+        #region GetBuiltinSkillDetail - Retrieve Builtin Definition Details
         [HttpPost("GetBuiltinSkillDetail")]
         public IActionResult GetBuiltinSkillDetail([FromBody] SkillBaseModel request)
         {
             if (string.IsNullOrWhiteSpace(request.SkillCode))
-                return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
+                return BadRequest(ResponseHelper.Fail<object>("SkillCode cannot be empty"));
 
             try
             {
                 var filePath = Path.Combine(AppContext.BaseDirectory, "AiConfig", "skill-manifest.json");
                 if (!System.IO.File.Exists(filePath))
                 {
-                    _logger.LogWarning("未找到内置技能 manifest 文件：{FilePath}", filePath);
-                    return NotFound(ResponseHelper.Fail<object>("skill-manifest.json 不存在"));
+                    _logger.LogWarning("Builtin skill manifest file not found: {FilePath}", filePath);
+                    return NotFound(ResponseHelper.Fail<object>("skill-manifest.json does not exist"));
                 }
 
                 lock (_cacheLock)
@@ -268,7 +268,7 @@ namespace TangYuan.Controllers
                 }
                 else
                 {
-                    return NotFound(ResponseHelper.Fail<object>("manifest 中未找到 builtins"));
+                    return NotFound(ResponseHelper.Fail<object>("No builtins were found in the manifest"));
                 }
 
                 foreach (var item in builtins.EnumerateArray())
@@ -283,34 +283,34 @@ namespace TangYuan.Controllers
                     }
                 }
 
-                return NotFound(ResponseHelper.Fail<object>("未找到该 builtin skill"));
+                return NotFound(ResponseHelper.Fail<object>("The builtin skill was not found"));
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "skill-manifest.json 格式错误");
-                return StatusCode(500, ResponseHelper.Fail<object>("skill-manifest.json 格式错误"));
+                _logger.LogError(ex, "skill-manifest.json has an invalid format");
+                return StatusCode(500, ResponseHelper.Fail<object>("skill-manifest.json has an invalid format"));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "读取 builtin skill 详情失败，SkillCode={SkillCode}", request.SkillCode);
-                return StatusCode(500, ResponseHelper.Fail<object>("读取 builtin skill 详情失败"));
+                _logger.LogError(ex, "Failed to read builtin skill details. SkillCode={SkillCode}", request.SkillCode);
+                return StatusCode(500, ResponseHelper.Fail<object>("Failed to read builtin skill details"));
             }
         }
 
         #endregion
 
 
-        #region 保留备用
+        #region Reserved for Future Use
         [HttpPost("GetSkillListWithBuiltinForAI")]
         public async Task<IActionResult> GetSkillListWithBuiltinForAI()
         {
             try
             {
-                // 1. 数据库技能
+                // 1. Database skills
                 var sql = "SELECT SkillCode, Remark AS AIDesc FROM Skills ORDER BY ID ASC";
                 var workflows = (await QueryAsync<dynamic>(sql)).ToList();
 
-                // 2. 内置原子技能（复用缓存）
+                // 2. Builtin atomic skills (reuse the cache)
                 JsonElement builtins = default;
                 try
                 {
@@ -324,19 +324,19 @@ namespace TangYuan.Controllers
                                 byte[] jsonBytes = System.IO.File.ReadAllBytes(filePath);
                                 _cachedManifestDoc = JsonDocument.Parse(jsonBytes);
                             }
-                            // 克隆一份，避免外部修改
+                            // Clone it to prevent external modification
                             builtins = _cachedManifestDoc.RootElement.Clone();
                         }
                     }
                     else
                     {
-                        _logger.LogWarning("skill-manifest.json 不存在，builtins 将返回空对象");
+                        _logger.LogWarning("skill-manifest.json does not exist; builtins will return an empty object");
                         builtins = JsonDocument.Parse("{}").RootElement.Clone();
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "读取 skill-manifest.json 失败，builtins 将返回空对象");
+                    _logger.LogError(ex, "Failed to read skill-manifest.json; builtins will return an empty object");
                     builtins = JsonDocument.Parse("{}").RootElement.Clone();
                 }
 
@@ -348,14 +348,14 @@ namespace TangYuan.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "获取 AI 技能列表失败");
-                return StatusCode(500, ResponseHelper.Fail<object>("获取技能列表失败"));
+                _logger.LogError(ex, "Failed to retrieve the AI skill list");
+                return StatusCode(500, ResponseHelper.Fail<object>("Failed to retrieve the skill list"));
             }
         }
         #endregion
 
         /// <summary>
-        /// 返回系统内置原子技能说明（manifest）
+        /// Return the manifest for system builtin atomic skills
         /// </summary>        
         [HttpPost("GetBuiltinSkillManifest")]
         public IActionResult GetBuiltinSkillManifest()
@@ -365,18 +365,18 @@ namespace TangYuan.Controllers
                 var filePath = Path.Combine(AppContext.BaseDirectory, "AiConfig", "skill-manifest.json");
                 if (!System.IO.File.Exists(filePath))
                 {
-                    _logger.LogWarning("未找到内置技能 manifest 文件：{FilePath}", filePath);
-                    return NotFound(ResponseHelper.Fail<object>("skill-manifest.json 不存在"));
+                    _logger.LogWarning("Builtin skill manifest file not found: {FilePath}", filePath);
+                    return NotFound(ResponseHelper.Fail<object>("skill-manifest.json does not exist"));
                 }
 
-                // 全局缓存，只加载一次（使用字节数组，自动处理 BOM）
+                // Global cache: load only once (use a byte array to handle the BOM automatically)
                 lock (_cacheLock)
                 {
                     if (_cachedManifestDoc == null)
                     {
                         byte[] jsonBytes = System.IO.File.ReadAllBytes(filePath);
                         _cachedManifestDoc = JsonDocument.Parse(jsonBytes);
-                        _cachedManifestJson = null; // 不再使用字符串缓存
+                        _cachedManifestJson = null; // The string cache is no longer used
                     }
                 }
 
@@ -385,32 +385,32 @@ namespace TangYuan.Controllers
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "skill-manifest.json 格式错误 at Line {Line}, Pos {Pos}", ex.LineNumber, ex.BytePositionInLine);
-                return StatusCode(500, ResponseHelper.Fail<object>("skill-manifest.json 格式错误"));
+                _logger.LogError(ex, "skill-manifest.json has an invalid format at Line {Line}, Pos {Pos}", ex.LineNumber, ex.BytePositionInLine);
+                return StatusCode(500, ResponseHelper.Fail<object>("skill-manifest.json has an invalid format"));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "读取内置技能 manifest 失败");
-                return StatusCode(500, ResponseHelper.Fail<object>("读取内置技能 manifest 失败"));
+                _logger.LogError(ex, "Failed to read the builtin skill manifest");
+                return StatusCode(500, ResponseHelper.Fail<object>("Failed to read the builtin skill manifest"));
             }
         }
 
 
 
         /// <summary>
-        /// 获取某个 workflow 技能的详细定义
+        /// Retrieve the detailed definition of a workflow skill
         ///
-        /// 适合 AI 使用：
-        /// 1. 先通过 GetSkillListForAI 确认有哪些 workflow
-        /// 2. 再通过本接口读取某个 workflow 的具体步骤
-        /// 3. 如果 skillCode 不存在，会明确返回失败
-        /// 4. 如果 SkillActions JSON 格式错误，会明确返回失败
+        /// Intended for AI usage:
+        /// 1. Call GetSkillListForAI first to see which workflows are available
+        /// 2. Then use this endpoint to read the specific steps of a workflow
+        /// 3. Return an explicit failure if skillCode does not exist
+        /// 4. Return an explicit failure if SkillActions JSON has an invalid format
         /// </summary>        
         [HttpPost("GetSkillAction")]
         public async Task<IActionResult> GetSkillAction([FromBody] SkillBaseModel request)
         {
             if (string.IsNullOrWhiteSpace(request.SkillCode))
-                return BadRequest(ResponseHelper.Fail<object>("SkillCode 不能为空"));
+                return BadRequest(ResponseHelper.Fail<object>("SkillCode cannot be empty"));
 
             try
             {
@@ -424,8 +424,8 @@ namespace TangYuan.Controllers
 
                 if (skill == null)
                 {
-                    _logger.LogWarning("未找到技能定义：{SkillCode}", request.SkillCode);
-                    return NotFound(ResponseHelper.Fail<object>("未找到该技能"));
+                    _logger.LogWarning("Skill definition not found: {SkillCode}", request.SkillCode);
+                    return NotFound(ResponseHelper.Fail<object>("The skill was not found"));
                 }
 
                 string skillCode = skill.SkillCode?.ToString() ?? "";
@@ -443,8 +443,8 @@ namespace TangYuan.Controllers
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "技能动作 JSON 格式错误，SkillCode={SkillCode}", request.SkillCode);
-                    return StatusCode(500, ResponseHelper.Fail<object>("SkillActions JSON 格式错误"));
+                    _logger.LogError(ex, "Skill action JSON has an invalid format. SkillCode={SkillCode}", request.SkillCode);
+                    return StatusCode(500, ResponseHelper.Fail<object>("SkillActions JSON has an invalid format"));
                 }
 
                 return Ok(ResponseHelper.Success(new
@@ -459,9 +459,9 @@ namespace TangYuan.Controllers
             }
             catch (Exception ex)
             {
-                // 🔥 这里修复成 request.SkillCode
-                _logger.LogError(ex, "获取技能详情失败，SkillCode={SkillCode}", request.SkillCode);
-                return StatusCode(500, ResponseHelper.Fail<object>("获取技能详情失败"));
+                // 🔥 Fixed here to use request.SkillCode
+                _logger.LogError(ex, "Failed to retrieve skill details. SkillCode={SkillCode}", request.SkillCode);
+                return StatusCode(500, ResponseHelper.Fail<object>("Failed to retrieve skill details"));
             }
         }
 
@@ -469,11 +469,11 @@ namespace TangYuan.Controllers
         #endregion
 
 
-        #region 执行入口
+        #region Execution Endpoints
 
-        #region 兼容coze专用
+        #region Coze Compatibility
 
-        #region 兼容coze专用
+        #region Coze Compatibility
 
         [HttpPost("ExecuteSkillForCoze")]
         public async Task<IActionResult> ExecuteSkillForCoze([FromBody] CozeSimpleRequest request)
@@ -481,11 +481,11 @@ namespace TangYuan.Controllers
             if (request == null || string.IsNullOrWhiteSpace(request.Json))
             {
                 return Ok(CozeSkillResponse.Fail(
-                    message: "缺少请求 JSON",
+                    message: "Request JSON is missing",
                     skillCode: "",
                     executeMode: "unknown",
                     errorCode: "INVALID_REQUEST",
-                    errorMessage: "Json 不能为空",
+                    errorMessage: "Json cannot be empty",
                     needMoreInput: true,
                     missingArgs: new List<string> { "Json" }));
             }
@@ -500,9 +500,9 @@ namespace TangYuan.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Coze JSON 解析失败");
+                _logger.LogError(ex, "Failed to parse Coze JSON");
                 return Ok(CozeSkillResponse.Fail(
-                    message: "请求 JSON 解析失败",
+                    message: "Failed to parse the request JSON",
                     skillCode: "",
                     executeMode: "unknown",
                     errorCode: "INVALID_JSON",
@@ -524,7 +524,7 @@ namespace TangYuan.Controllers
                 bool needMoreInput = missingArgs.Count > 0;
 
                 return Ok(CozeSkillResponse.Fail(
-                    message: needMoreInput ? "缺少必要参数" : "参数错误",
+                    message: needMoreInput ? "Required arguments are missing" : "Invalid arguments",
                     skillCode: code,
                     executeMode: "builtin",
                     errorCode: needMoreInput ? "MISSING_ARGUMENTS" : "INVALID_ARGUMENTS",
@@ -535,7 +535,7 @@ namespace TangYuan.Controllers
             catch (UnauthorizedAccessException ex)
             {
                 return Ok(CozeSkillResponse.Fail(
-                    message: "没有权限执行该技能",
+                    message: "You do not have permission to execute this skill",
                     skillCode: model?.SkillCode ?? "",
                     executeMode: "builtin",
                     errorCode: "FORBIDDEN",
@@ -544,7 +544,7 @@ namespace TangYuan.Controllers
             catch (FileNotFoundException ex)
             {
                 return Ok(CozeSkillResponse.Fail(
-                    message: "目标文件不存在",
+                    message: "The target file does not exist",
                     skillCode: model?.SkillCode ?? "",
                     executeMode: "builtin",
                     errorCode: "FILE_NOT_FOUND",
@@ -553,7 +553,7 @@ namespace TangYuan.Controllers
             catch (NotSupportedException ex)
             {
                 return Ok(CozeSkillResponse.Fail(
-                    message: "不支持的技能或操作",
+                    message: "Unsupported skill or operation",
                     skillCode: model?.SkillCode ?? "",
                     executeMode: "builtin",
                     errorCode: "NOT_SUPPORTED",
@@ -561,9 +561,9 @@ namespace TangYuan.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ExecuteSkillForCoze 执行失败");
+                _logger.LogError(ex, "ExecuteSkillForCoze execution failed");
                 return Ok(CozeSkillResponse.Fail(
-                    message: "服务器内部错误",
+                    message: "Internal server error",
                     skillCode: model?.SkillCode ?? "",
                     executeMode: "unknown",
                     errorCode: "INTERNAL_ERROR",
@@ -578,13 +578,13 @@ namespace TangYuan.Controllers
 
         private CozeSkillResponse BuildCozeSkillResponse(string skillCode, string executeMode, object rawResult)
         {
-            // 1. builtin 结果：直接从 SkillResult 映射
+            // 1. Builtin result: map directly from SkillResult
             if (rawResult is SkillResult skill)
             {
                 var response = new CozeSkillResponse
                 {
                     Success = skill.Success,
-                    Message = skill.Success ? "执行成功" : (string.IsNullOrWhiteSpace(skill.Error) ? "执行失败" : skill.Error),
+                    Message = skill.Success ? "Execution succeeded" : (string.IsNullOrWhiteSpace(skill.Error) ? "Execution failed" : skill.Error),
                     SkillCode = string.IsNullOrWhiteSpace(skill.SkillCode) ? skillCode : skill.SkillCode,
                     ExecuteMode = executeMode,
                     ResultType = skill.Type ?? "",
@@ -596,16 +596,16 @@ namespace TangYuan.Controllers
                     ErrorMessage = skill.Error ?? ""
                 };
 
-                // 尝试补 session / page
+                // Try to populate session/page
                 FillCozeExtraFields(response, skill.Data);
                 return response;
             }
 
-            // 2. workflow / temp_workflow 结果：从 lastResult 扁平化
+            // 2. Workflow/temp_workflow result: flatten from lastResult
             var responseWorkflow = new CozeSkillResponse
             {
                 Success = TryGetBoolProperty(rawResult, "success"),
-                Message = TryGetStringProperty(rawResult, "msg", "执行完成"),
+                Message = TryGetStringProperty(rawResult, "msg", "Execution completed"),
                 SkillCode = skillCode,
                 ExecuteMode = executeMode,
                 ResultType = "workflow",
@@ -735,20 +735,20 @@ namespace TangYuan.Controllers
         private async Task<(string skillCode, string executeMode, object result)> ExecuteSkillCoreAsync(ExecSkillModel model)
         {
             if (model == null)
-                throw new ArgumentException("请求体不能为空");
+                throw new ArgumentException("The request body cannot be empty");
 
             string code = model.SkillCode?.Trim() ?? "";
             var args = model.Arguments ?? new Dictionary<string, object>();
 
-            // 1. 临时 workflow
+            // 1. Temporary workflow
             if (model.Steps != null && model.Steps.Count > 0)
             {
-                _logger.LogInformation("开始执行临时 workflow，SkillCode={SkillCode}", code);
+                _logger.LogInformation("Starting temporary workflow execution. SkillCode={SkillCode}", code);
                 var result = await RunWorkflowAsync(model.Steps, args);
                 return (code, "temp_workflow", result);
             }
 
-            // 2. 数据库 workflow
+            // 2. Database workflow
             var skillJson = await QueryFirstOrDefaultAsync<string>(
                 "SELECT SkillActions FROM Skills WHERE SkillCode = @SkillCode LIMIT 1",
                 new { SkillCode = code });
@@ -762,20 +762,20 @@ namespace TangYuan.Controllers
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "SkillActions JSON 格式错误，SkillCode={SkillCode}", code);
-                    throw new ArgumentException("SkillActions JSON 格式错误");
+                    _logger.LogError(ex, "SkillActions JSON has an invalid format. SkillCode={SkillCode}", code);
+                    throw new ArgumentException("SkillActions JSON has an invalid format");
                 }
 
-                _logger.LogInformation("开始执行 workflow 技能，SkillCode={SkillCode}", code);
+                _logger.LogInformation("Starting workflow skill execution. SkillCode={SkillCode}", code);
                 var result = await RunWorkflowAsync(steps, args);
                 return (code, "workflow", result);
             }
 
             // 3. builtin
             if (string.IsNullOrWhiteSpace(code))
-                throw new ArgumentException("SkillCode 不能为空，或者请直接传 Steps");
+                throw new ArgumentException("SkillCode cannot be empty; alternatively, provide Steps directly");
 
-            _logger.LogInformation("开始执行 builtin 技能，SkillCode={SkillCode}", code);
+            _logger.LogInformation("Starting builtin skill execution. SkillCode={SkillCode}", code);
             var builtinResult = await ExecuteSkillInternal(code, args);
             return (code, "builtin", builtinResult);
         }
@@ -805,7 +805,7 @@ namespace TangYuan.Controllers
         #endregion
 
 
-        #region 转换工具
+        #region Conversion Utilities
 
         private List<string> ConvertToStringList(object value)
         {
@@ -856,7 +856,7 @@ namespace TangYuan.Controllers
                         value = child;
                         return true;
                     }
-                    // 这里重命名为 jsonProp
+                    // Rename it to jsonProp here
                     foreach (var jsonProp in je.EnumerateObject())
                     {
                         if (string.Equals(jsonProp.Name, propertyName, StringComparison.OrdinalIgnoreCase))
@@ -869,7 +869,7 @@ namespace TangYuan.Controllers
                 return false;
             }
 
-            // 这里保留 prop 或重命名为 property 都可以
+            // Either keep prop here or rename it to property
             var prop = obj.GetType().GetProperty(propertyName,
                 System.Reflection.BindingFlags.Public |
                 System.Reflection.BindingFlags.Instance |
@@ -989,25 +989,25 @@ namespace TangYuan.Controllers
                             case "read":
                             case "mark_read":
                                 if (!hasMailTarget)
-                                    missing.Add("mailRef 或 index");
+                                    missing.Add("mailRef or index");
                                 break;
 
                             case "download_attachments":
                                 if (!hasMailTarget)
-                                    missing.Add("mailRef 或 index");
+                                    missing.Add("mailRef or index");
                                 Check("savePath");
                                 break;
 
                             case "reply":
                                 if (!hasMailTarget)
-                                    missing.Add("mailRef 或 index");
+                                    missing.Add("mailRef or index");
                                 if (!HasValue("replyText") && !HasValue("replyHtml"))
-                                    missing.Add("replyText 或 replyHtml");
+                                    missing.Add("replyText or replyHtml");
                                 break;
 
                             case "save_eml":
                                 if (!hasMailTarget)
-                                    missing.Add("mailRef 或 index");
+                                    missing.Add("mailRef or index");
                                 Check("filePath");
                                 break;
                         }
@@ -1036,24 +1036,24 @@ namespace TangYuan.Controllers
 
 
         /// <summary>
-        /// 统一执行入口
+        /// Unified execution endpoint
         ///
-        /// 执行顺序：
-        /// 1. 如果请求里直接带了 Steps，则按临时 workflow 执行
-        /// 2. 否则先查数据库是否存在同名 workflow 技能
-        /// 3. 如果有，则按数据库 workflow 执行
-        /// 4. 如果没有，则按内置原子技能执行
+        /// Execution order:
+        /// 1. If the request includes Steps directly, execute them as a temporary workflow
+        /// 2. Otherwise, check the database for a workflow skill with the same name
+        /// 3. If found, execute it as a database workflow
+        /// 4. If not found, execute it as a builtin atomic skill
         /// </summary>
         [HttpPost("ExecuteSkill")]
         public async Task<IActionResult> ExecuteSkill([FromBody] ExecSkillModel model)
         {
             if (model == null)
-                return BadRequest(ResponseHelper.Fail<object>("请求体不能为空"));
+                return BadRequest(ResponseHelper.Fail<object>("The request body cannot be empty"));
 
             try
             {
                 var (skillCode, executeMode, result) = await ExecuteSkillCoreAsync(model);
-                
+
                 return Ok(ResponseHelper.Success(new
                 {
                     skillCode,
@@ -1063,28 +1063,28 @@ namespace TangYuan.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning(ex, "安全限制，Message={Message}", ex.Message);
+                _logger.LogWarning(ex, "Security restriction. Message={Message}", ex.Message);
                 return StatusCode(403, ResponseHelper.Fail<object>(ex.Message));
             }
             catch (FileNotFoundException ex)
             {
-                _logger.LogWarning(ex, "文件不存在，Message={Message}", ex.Message);
+                _logger.LogWarning(ex, "File not found. Message={Message}", ex.Message);
                 return NotFound(ResponseHelper.Fail<object>(ex.Message));
             }
             catch (NotSupportedException ex)
             {
-                _logger.LogWarning(ex, "不支持的技能，Message={Message}", ex.Message);
+                _logger.LogWarning(ex, "Unsupported skill. Message={Message}", ex.Message);
                 return BadRequest(ResponseHelper.Fail<object>(ex.Message));
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "参数错误，Message={Message}", ex.Message);
+                _logger.LogWarning(ex, "Invalid arguments. Message={Message}", ex.Message);
                 return BadRequest(ResponseHelper.Fail<object>(ex.Message));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "执行技能异常");
-                return StatusCode(500, ResponseHelper.Fail<object>("服务器内部错误"));
+                _logger.LogError(ex, "An error occurred while executing the skill");
+                return StatusCode(500, ResponseHelper.Fail<object>("Internal server error"));
             }
         }
 
@@ -1093,57 +1093,57 @@ namespace TangYuan.Controllers
 
         #endregion
 
-        #region 工作流引擎
+        #region Workflow Engine
 
         /// <summary>
-        /// 执行 workflow 技能
+        /// Execute a workflow skill
         ///
-        /// 功能：
-        /// 1. 按顺序执行每个步骤
-        /// 2. 支持模板变量，例如：
+        /// Features:
+        /// 1. Execute each step in order
+        /// 2. Support template variables, for example:
         ///    {{step0}}
         ///    {{step0.path}}
         ///    {{step0.data.path}}
-        /// 3. 每一步执行结果会写入上下文，供后续步骤引用
+        /// 3. Write each step result to the context for later steps
         ///
-        /// 返回：
-        /// - success: 是否成功
-        /// - msg: 执行结果说明
-        /// - totalSteps: 总步骤数
-        /// - completedSteps: 已完成步骤数
-        /// - failedAt: 失败步骤索引（失败时返回）
-        /// - failedStep: 失败步骤名称（失败时返回）
-        /// - lastResult: 最后一个成功步骤的结果
-        /// - log: 每一步的执行日志
+        /// Returns:
+        /// - success: Whether execution succeeded
+        /// - msg: Execution result description
+        /// - totalSteps: Total number of steps
+        /// - completedSteps: Number of completed steps
+        /// - failedAt: Index of the failed step (returned on failure)
+        /// - failedStep: Name of the failed step (returned on failure)
+        /// - lastResult: Result of the last successful step
+        /// - log: Execution log for each step
         /// </summary>
         /// <summary>
-        /// 执行 workflow 技能（瘦身版日志）
+        /// Execute a workflow skill (compact log)
         ///
-        /// 功能：
-        /// 1. 按顺序执行每个步骤
-        /// 2. 支持模板变量，例如：
+        /// Features:
+        /// 1. Execute each step in order
+        /// 2. Support template variables, for example:
         ///    {{step0}}
         ///    {{step0.path}}
         ///    {{step0.data.path}}
-        /// 3. 每一步执行结果会写入上下文，供后续步骤引用
+        /// 3. Write each step result to the context for later steps
         ///
-        /// 返回：
-        /// - success: 是否成功
-        /// - msg: 执行结果说明
-        /// - totalSteps: 总步骤数
-        /// - completedSteps: 已完成步骤数
-        /// - failedAt: 失败步骤索引（失败时返回）
-        /// - failedStep: 失败步骤名称（失败时返回）
-        /// - lastResult: 最后一个成功步骤的结果
-        /// - log: 每一步的简要执行日志
+        /// Returns:
+        /// - success: Whether execution succeeded
+        /// - msg: Execution result description
+        /// - totalSteps: Total number of steps
+        /// - completedSteps: Number of completed steps
+        /// - failedAt: Index of the failed step (returned on failure)
+        /// - failedStep: Name of the failed step (returned on failure)
+        /// - lastResult: Result of the last successful step
+        /// - log: Brief execution log for each step
         /// </summary>
         /// <summary>
-        /// 执行 workflow 技能（默认精简版返回）
+        /// Execute a workflow skill (compact response by default)
         ///
-        /// 说明：
-        /// 1. 默认只返回必要信息：success / msg / totalSteps / completedSteps / lastResult
-        /// 2. 只有当 input 中传了 debug=true 时，才返回详细 log
-        /// 3. 每一步执行结果仍会写入上下文，供后续步骤引用
+        /// Notes:
+        /// 1. Return only essential information by default: success/msg/totalSteps/completedSteps/lastResult
+        /// 2. Return the detailed log only when input contains debug=true
+        /// 3. Continue writing each step result to the context for later steps
         /// </summary>
         private async Task<object> RunWorkflowAsync(List<SkillStep>? steps, Dictionary<string, object>? input)
         {
@@ -1169,7 +1169,7 @@ namespace TangYuan.Controllers
                     return new
                     {
                         success = true,
-                        msg = "workflow 没有可执行步骤",
+                        msg = "The workflow has no executable steps",
                         totalSteps = 0,
                         completedSteps = 0,
                         lastResult = (object?)null,
@@ -1180,7 +1180,7 @@ namespace TangYuan.Controllers
                 return new
                 {
                     success = true,
-                    msg = "workflow 没有可执行步骤",
+                    msg = "The workflow has no executable steps",
                     totalSteps = 0,
                     completedSteps = 0,
                     lastResult = (object?)null
@@ -1202,13 +1202,13 @@ namespace TangYuan.Controllers
                             stepIndex = i,
                             step = "",
                             success = false,
-                            error = "步骤 Action 不能为空"
+                            error = "The step Action cannot be empty"
                         });
 
                         return new
                         {
                             success = false,
-                            msg = "workflow 执行失败",
+                            msg = "Workflow execution failed",
                             failedAt = i,
                             failedStep = "",
                             totalSteps = safeSteps.Count,
@@ -1221,7 +1221,7 @@ namespace TangYuan.Controllers
                     return new
                     {
                         success = false,
-                        msg = "workflow 执行失败",
+                        msg = "Workflow execution failed",
                         failedAt = i,
                         failedStep = "",
                         totalSteps = safeSteps.Count,
@@ -1237,7 +1237,7 @@ namespace TangYuan.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "步骤参数模板解析失败，StepIndex={StepIndex}，Action={Action}", i, action);
+                    _logger.LogError(ex, "Failed to resolve the step argument template. StepIndex={StepIndex}, Action={Action}", i, action);
 
                     if (debug)
                     {
@@ -1246,13 +1246,13 @@ namespace TangYuan.Controllers
                             stepIndex = i,
                             step = action,
                             success = false,
-                            error = "参数模板解析失败：" + ex.Message
+                            error = "Failed to resolve the argument template: " + ex.Message
                         });
 
                         return new
                         {
                             success = false,
-                            msg = "workflow 执行失败",
+                            msg = "Workflow execution failed",
                             failedAt = i,
                             failedStep = action,
                             totalSteps = safeSteps.Count,
@@ -1265,7 +1265,7 @@ namespace TangYuan.Controllers
                     return new
                     {
                         success = false,
-                        msg = "workflow 执行失败",
+                        msg = "Workflow execution failed",
                         failedAt = i,
                         failedStep = action,
                         totalSteps = safeSteps.Count,
@@ -1276,7 +1276,7 @@ namespace TangYuan.Controllers
 
                 try
                 {
-                    _logger.LogInformation("开始执行 workflow 步骤，StepIndex={StepIndex}，Action={Action}", i, action);
+                    _logger.LogInformation("Starting workflow step execution. StepIndex={StepIndex}, Action={Action}", i, action);
 
                     var result = await ExecuteSkillInternal(action, resolvedArgs);
 
@@ -1320,7 +1320,7 @@ namespace TangYuan.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "workflow 步骤执行失败，StepIndex={StepIndex}，Action={Action}", i, action);
+                    _logger.LogError(ex, "Workflow step execution failed. StepIndex={StepIndex}, Action={Action}", i, action);
 
                     if (debug)
                     {
@@ -1336,7 +1336,7 @@ namespace TangYuan.Controllers
                         return new
                         {
                             success = false,
-                            msg = "workflow 执行失败",
+                            msg = "Workflow execution failed",
                             failedAt = i,
                             failedStep = action,
                             totalSteps = safeSteps.Count,
@@ -1349,7 +1349,7 @@ namespace TangYuan.Controllers
                     return new
                     {
                         success = false,
-                        msg = "workflow 执行失败",
+                        msg = "Workflow execution failed",
                         failedAt = i,
                         failedStep = action,
                         totalSteps = safeSteps.Count,
@@ -1364,7 +1364,7 @@ namespace TangYuan.Controllers
                 return new
                 {
                     success = true,
-                    msg = "workflow 执行完成",
+                    msg = "Workflow execution completed",
                     totalSteps = safeSteps.Count,
                     completedSteps = safeSteps.Count,
                     lastResult,
@@ -1375,7 +1375,7 @@ namespace TangYuan.Controllers
             return new
             {
                 success = true,
-                msg = "workflow 执行完成",
+                msg = "Workflow execution completed",
                 totalSteps = safeSteps.Count,
                 completedSteps = safeSteps.Count,
                 lastResult
@@ -1386,12 +1386,12 @@ namespace TangYuan.Controllers
 
 
         /// <summary>
-        /// 统一执行内置原子技能
+        /// Unified execution of builtin atomic skills
         ///
-        /// 说明：
-        /// 1. 这里只处理 builtin skill
-        /// 2. workflow skill 不走这里，而是走 RunWorkflowAsync
-        /// 3. 如果 skillCode 不支持，会抛 NotSupportedException
+        /// Notes:
+        /// 1. Handle builtin skills only
+        /// 2. Workflow skills do not use this path; they use RunWorkflowAsync
+        /// 3. Throw NotSupportedException if skillCode is unsupported
         /// </summary>
         private async Task<object> ExecuteSkillInternal(string skillCode, Dictionary<string, object>? args)
         {
@@ -1411,38 +1411,38 @@ namespace TangYuan.Controllers
 
                 "browser_task" => await DoBrowserTaskAsync(safeArgs),
                 "wechat_task" => await DoWechatTaskAsync(safeArgs),
-                _ => throw new NotSupportedException($"不支持的技能：{skillCode}")
+                _ => throw new NotSupportedException($"Unsupported skill: {skillCode}")
             };
         }
 
 
 
 
-        #region 模板处理
+        #region Template Processing
         /// <summary>
-        /// 模板变量替换
+        /// Template variable replacement
         ///
-        /// 支持：
+        /// Supports:
         /// - {{step0}}
         /// - {{step0.path}}
         /// - {{step0.data.path}}
         /// - {{myInputVar}}
         ///
-        /// 说明：
-        /// 1. 只对“可转成字符串”的参数做模板替换
-        /// 2. 非字符串类型的值原样保留
-        /// 3. 如果模板变量不存在，替换为空字符串
-        /// 4. 支持从：
+        /// Notes:
+        /// 1. Apply template replacement only to arguments that can be converted to strings
+        /// 2. Preserve non-string values as-is
+        /// 3. Replace missing template variables with an empty string
+        /// 4. Support reading from:
         ///    - Dictionary<string, object>
         ///    - JsonElement
-        ///    - 匿名对象 / 普通对象属性
-        ///    中读取字段
+        ///    - Anonymous/regular object properties
+        ///    to read fields
         /// </summary>
         private Dictionary<string, object> ResolveTemplateVariables(
             Dictionary<string, object>? args,
             IReadOnlyDictionary<string, object> context)
         {
-            // 1. 空值保护
+            // 1. Null/empty guard
             if (args == null || args.Count == 0)
                 return new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
@@ -1450,8 +1450,8 @@ namespace TangYuan.Controllers
 
             foreach (var kv in args)
             {
-                // 2. 尝试把当前参数转成字符串
-                //    只有字符串类参数才做模板替换
+                // 2. Try to convert the current argument to a string
+                //    Only string-like arguments are subject to template replacement
                 string? rawText = kv.Value switch
                 {
                     null => null,
@@ -1461,22 +1461,22 @@ namespace TangYuan.Controllers
                     _ => kv.Value.ToString()
                 };
 
-                // 3. 如果无法转成字符串，则原样保留
+                // 3. Preserve the original value if it cannot be converted to a string
                 if (rawText == null)
                 {
                     resolved[kv.Key] = kv.Value!;
                     continue;
                 }
 
-                // 4. 替换模板变量
-                // 先替换 {{ ... }}
+                // 4. Replace template variables
+                // Replace {{ ... }} first
                 var replaced = Regex.Replace(rawText, @"\{\{\s*([^}]+?)\s*\}\}", match =>
                 {
                     var expr = match.Groups[1].Value.Trim();
                     return ResolveTemplateExpression(expr, context);
                 });
 
-                // 再兼容 ${ ... }
+                // Then support ${ ... } for compatibility
                 replaced = Regex.Replace(replaced, @"\$\{\s*([^}]+?)\s*\}", match =>
                 {
                     var expr = match.Groups[1].Value.Trim();
@@ -1490,18 +1490,18 @@ namespace TangYuan.Controllers
         }
 
         /// <summary>
-        /// 解析单个模板表达式
+        /// Resolve a single template expression
         ///
-        /// 示例：
+        /// Examples:
         /// - step0
         /// - step0.path
         /// - step0.data.path
         /// - myInputVar
         ///
-        /// 规则：
-        /// 1. 先取第一级变量（如 step0 / myInputVar）
-        /// 2. 再逐级读取属性/字段
-        /// 3. 任意一级不存在时返回空字符串
+        /// Rules:
+        /// 1. Retrieve the top-level variable first (such as step0/myInputVar)
+        /// 2. Then read properties/fields one level at a time
+        /// 3. Return an empty string if any level does not exist
         /// </summary>
         private string ResolveTemplateExpression(
             string expr,
@@ -1510,16 +1510,16 @@ namespace TangYuan.Controllers
             if (string.IsNullOrWhiteSpace(expr))
                 return "";
 
-            // 按点分隔，例如 step0.data.path
+            // Split on dots, for example step0.data.path
             var parts = expr.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (parts.Length == 0)
                 return "";
 
-            // 先从上下文中取第一级变量
+            // First retrieve the top-level variable from the context
             if (!context.TryGetValue(parts[0], out var current) || current == null)
                 return "";
 
-            // 逐级往下取值
+            // Traverse the value one level at a time
             for (int i = 1; i < parts.Length; i++)
             {
                 current = GetObjectMemberValue(current, parts[i]);
@@ -1531,26 +1531,26 @@ namespace TangYuan.Controllers
         }
 
         /// <summary>
-        /// 从对象中读取指定成员值（大小写不敏感）
+        /// Read a specified member value from an object (case-insensitive)
         ///
-        /// 支持：
+        /// Supports:
         /// 1. Dictionary<string, object>
-        /// 2. JsonElement（对象类型）
-        /// 3. 匿名对象 / 普通对象属性
+        /// 2. JsonElement (object type)
+        /// 3. Anonymous/regular object properties
         /// </summary>
         private object? GetObjectMemberValue(object obj, string memberName)
         {
             if (obj == null || string.IsNullOrWhiteSpace(memberName))
                 return null;
 
-            // 1. Dictionary<string, object>（大小写不敏感查找）
+            // 1. Dictionary<string, object> (case-insensitive lookup)
             if (obj is IDictionary<string, object> dict)
             {
-                // 先直接取
+                // Try a direct lookup first
                 if (dict.TryGetValue(memberName, out var value))
                     return value;
 
-                // 再做大小写不敏感匹配
+                // Then perform a case-insensitive match
                 var matchedKey = dict.Keys.FirstOrDefault(k =>
                     string.Equals(k, memberName, StringComparison.OrdinalIgnoreCase));
 
@@ -1560,16 +1560,16 @@ namespace TangYuan.Controllers
                 return null;
             }
 
-            // 2. JsonElement（对象类型，属性名大小写不敏感）
+            // 2. JsonElement (object type, case-insensitive property names)
             if (obj is JsonElement je)
             {
                 if (je.ValueKind == JsonValueKind.Object)
                 {
-                    // 先直接尝试
+                    // Try a direct lookup first
                     if (je.TryGetProperty(memberName, out var child))
                         return child;
 
-                    // 再遍历做大小写不敏感匹配
+                    // Then iterate to perform a case-insensitive match
                     foreach (var prop in je.EnumerateObject())
                     {
                         if (string.Equals(prop.Name, memberName, StringComparison.OrdinalIgnoreCase))
@@ -1580,7 +1580,7 @@ namespace TangYuan.Controllers
                 return null;
             }
 
-            // 3. 普通对象 / 匿名对象（属性名大小写不敏感）
+            // 3. Regular/anonymous objects (case-insensitive property names)
             var propInfo = obj.GetType().GetProperty(
                 memberName,
                 System.Reflection.BindingFlags.Public |
@@ -1595,12 +1595,12 @@ namespace TangYuan.Controllers
 
 
         /// <summary>
-        /// 把 object 安全转成字符串
+        /// Safely convert an object to a string
         ///
-        /// 支持：
+        /// Supports:
         /// - string
         /// - JsonElement
-        /// - 普通对象
+        /// - Regular objects
         /// </summary>
         private string ConvertObjectToString(object? value, string defaultValue = "")
         {
@@ -1621,7 +1621,7 @@ namespace TangYuan.Controllers
 
         #endregion
 
-        #region 原子技能：邮件
+        #region Atomic Skill: Email
 
         private async Task<object> DoEmailTaskAsync(Dictionary<string, object> args)
         {
@@ -1683,8 +1683,8 @@ namespace TangYuan.Controllers
                             Success = TryGetBoolProperty(raw, "Success"),
                             SkillCode = "email_task",
                             Type = "send_email",
-                            Text = TryGetStringProperty(raw, "Text", "邮件发送完成"),
-                            ResultText = TryGetStringProperty(raw, "Text", "邮件发送完成"),
+                            Text = TryGetStringProperty(raw, "Text", "Email sent"),
+                            ResultText = TryGetStringProperty(raw, "Text", "Email sent"),
                             ResultValue = "",
                             Data = TryGetPropertyValue(raw, "Data", out var dataObj) ? dataObj : null,
                             Error = ""
@@ -1735,7 +1735,7 @@ namespace TangYuan.Controllers
                         };
 
                         var resultList = items.Select(x =>
-                            $"{x.Index}. {x.Subject} | {x.From} | {x.DateText} | {(x.HasAttachments ? "有附件" : "无附件")} | {(x.IsUnread ? "未读" : "已读")}"
+                            $"{x.Index}. {x.Subject} | {x.From} | {x.DateText} | {(x.HasAttachments ? "Has attachments" : "No attachments")} | {(x.IsUnread ? "Unread" : "Read")}"
                         ).ToList();
 
                         return new SkillResult
@@ -1743,8 +1743,8 @@ namespace TangYuan.Controllers
                             Success = true,
                             SkillCode = "email_task",
                             Type = "search_email",
-                            Text = items.Count == 0 ? "未找到符合条件的邮件" : $"找到 {items.Count} 封邮件",
-                            ResultText = items.Count == 0 ? "未找到符合条件的邮件" : $"找到 {items.Count} 封邮件",
+                            Text = items.Count == 0 ? "No matching emails found" : $"Found {items.Count} emails",
+                            ResultText = items.Count == 0 ? "No matching emails found" : $"Found {items.Count} emails",
                             ResultList = resultList,
                             ResultValue = items.FirstOrDefault()?.MailRef ?? "",
                             Data = new
@@ -1769,8 +1769,8 @@ namespace TangYuan.Controllers
                             Success = true,
                             SkillCode = "email_task",
                             Type = "read_email",
-                            Text = $"已读取邮件：{detail.Subject}",
-                            ResultText = string.IsNullOrWhiteSpace(detail.TextPreview) ? "邮件无正文" : detail.TextPreview,
+                            Text = $"Email read: {detail.Subject}",
+                            ResultText = string.IsNullOrWhiteSpace(detail.TextPreview) ? "The email has no body content" : detail.TextPreview,
                             ResultValue = detail.MailRef,
                             Data = detail,
                             Error = ""
@@ -1782,7 +1782,7 @@ namespace TangYuan.Controllers
                         var uid = ResolveUid(args, contextKey);
                         string savePath = GetString(args, "savePath");
                         if (string.IsNullOrWhiteSpace(savePath))
-                            throw new ArgumentException("savePath 不能为空");
+                            throw new ArgumentException("savePath cannot be empty");
 
                         var fullSavePath = ValidatePath(savePath, mustExist: false);
                         var files = await MailKitHelper.DownloadAttachmentsAsync(uid, fullSavePath);
@@ -1792,8 +1792,8 @@ namespace TangYuan.Controllers
                             Success = true,
                             SkillCode = "email_task",
                             Type = "download_attachments",
-                            Text = files.Count == 0 ? "该邮件没有附件" : $"已下载 {files.Count} 个附件",
-                            ResultText = files.Count == 0 ? "该邮件没有附件" : $"已下载 {files.Count} 个附件",
+                            Text = files.Count == 0 ? "This email has no attachments" : $"Downloaded {files.Count} attachments",
+                            ResultText = files.Count == 0 ? "This email has no attachments" : $"Downloaded {files.Count} attachments",
                             ResultList = files,
                             ResultValue = files.FirstOrDefault() ?? "",
                             Data = new
@@ -1817,8 +1817,8 @@ namespace TangYuan.Controllers
                             Success = true,
                             SkillCode = "email_task",
                             Type = "mark_read",
-                            Text = "已标记为已读",
-                            ResultText = "已标记为已读",
+                            Text = "Marked as read",
+                            ResultText = "Marked as read",
                             ResultValue = "",
                             Data = new { action = "mark_read" },
                             Error = ""
@@ -1834,7 +1834,7 @@ namespace TangYuan.Controllers
                         bool replyToAll = GetBoolArg(args, "replyToAll", false);
 
                         if (string.IsNullOrWhiteSpace(replyText) && string.IsNullOrWhiteSpace(replyHtml))
-                            throw new ArgumentException("replyText 或 replyHtml 至少提供一个");
+                            throw new ArgumentException("At least one of replyText or replyHtml must be provided");
 
                         var attachments = GetStringList(args, "attachments");
                         var safeAttachments = new List<string>();
@@ -1855,8 +1855,8 @@ namespace TangYuan.Controllers
                             Success = true,
                             SkillCode = "email_task",
                             Type = "reply_email",
-                            Text = "回复已发送",
-                            ResultText = "回复已发送",
+                            Text = "Reply sent",
+                            ResultText = "Reply sent",
                             ResultValue = "",
                             Data = new
                             {
@@ -1873,7 +1873,7 @@ namespace TangYuan.Controllers
                         var uid = ResolveUid(args, contextKey);
                         string filePath = GetString(args, "filePath");
                         if (string.IsNullOrWhiteSpace(filePath))
-                            throw new ArgumentException("filePath 不能为空");
+                            throw new ArgumentException("filePath cannot be empty");
 
                         var fullPath = ValidatePath(filePath, mustExist: false);
                         var dir = Path.GetDirectoryName(fullPath);
@@ -1887,8 +1887,8 @@ namespace TangYuan.Controllers
                             Success = true,
                             SkillCode = "email_task",
                             Type = "save_eml",
-                            Text = "邮件已保存为 eml",
-                            ResultText = "邮件已保存为 eml",
+                            Text = "The email was saved as an EML file",
+                            ResultText = "The email was saved as an EML file",
                             ResultValue = fullPath,
                             Data = new
                             {
@@ -1900,7 +1900,7 @@ namespace TangYuan.Controllers
                     }
 
                 default:
-                    throw new NotSupportedException($"email_task 不支持的操作：{action}");
+                    throw new NotSupportedException($"Unsupported email_task operation: {action}");
             }
         }
 
@@ -1912,24 +1912,24 @@ namespace TangYuan.Controllers
                 if (MailKitHelper.TryParseMailRef(mailRef, out var uidByRef))
                     return uidByRef;
 
-                throw new ArgumentException("mailRef 格式不正确");
+                throw new ArgumentException("mailRef has an invalid format");
             }
 
             int index = GetIntArg(args, "index", 0);
             if (index <= 0)
-                throw new ArgumentException("必须提供 mailRef 或 index");
+                throw new ArgumentException("mailRef or index must be provided");
 
             if (!_mailContext.TryGetValue(scopedContextKey, out var cache) || cache.Items.Count == 0)
-                throw new ArgumentException("未找到邮件上下文，请先执行 search");
+                throw new ArgumentException("Email context not found. Run search first.");
 
             cache.LastAccessAt = DateTime.Now;
 
             var item = cache.Items.FirstOrDefault(x => x.Index == index);
             if (item == null)
-                throw new ArgumentException($"上下文中不存在第 {index} 封邮件");
+                throw new ArgumentException($"Email #{index} does not exist in the context");
 
             if (!MailKitHelper.TryParseMailRef(item.MailRef, out var uid))
-                throw new ArgumentException("缓存中的 mailRef 无效");
+                throw new ArgumentException("The cached mailRef is invalid");
 
             return uid;
         }
@@ -1996,11 +1996,11 @@ namespace TangYuan.Controllers
 
 
 
-        #region 原子技能：文件
+        #region Atomic Skill: Files
 
 
         /// <summary>
-        /// 文件类技能：
+        /// File-related skills:
         /// search / copy / move / rename / mkdir
         /// </summary>
         private async Task<object> DoFileTaskAsync(Dictionary<string, object> args)
@@ -2012,7 +2012,7 @@ namespace TangYuan.Controllers
             string ext = GetString(args, "ext", "*");
             string newName = GetString(args, "newName");
 
-            // 新增三个搜索参数
+            // Add three search parameters
             string root = GetString(args, "root");
             bool recursive = GetBoolArg(args, "recursive", false);
             bool exactName = GetBoolArg(args, "exactName", false);
@@ -2034,7 +2034,7 @@ namespace TangYuan.Controllers
                 "mkdir" => await CreateDirAsync(from),
 
                 _ => throw new NotSupportedException(
-                    $"file_task 不支持的操作：{action}")
+                    $"Unsupported file_task operation: {action}")
             };
         }
 
@@ -2094,7 +2094,7 @@ namespace TangYuan.Controllers
                 p?.WaitForExit(10000);
             });
 
-            // 返回标准 JSON，告知智能体成功
+            // Return standard JSON to indicate success to the agent
             return new
             {
                 Success = true,
@@ -2136,21 +2136,21 @@ namespace TangYuan.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "归类文件失败: {FilePath}", file);
+                        _logger.LogWarning(ex, "Failed to categorize file: {FilePath}", file);
                     }
                 }
             });
 
-            return $"归类完成，共移动 {count} 个文件";
+            return $"Categorization completed. Moved {count} files.";
         }
 
         #endregion
 
 
-        #region 原子技能：企业微信
+        #region Atomic Skill: WeCom
 
         /// <summary>
-        /// 企业微信机器人消息发送
+        /// Send messages through a WeCom bot
         ///
         /// action:
         /// - text
@@ -2162,7 +2162,7 @@ namespace TangYuan.Controllers
             string action = GetString(args, "action").Trim().ToLowerInvariant();
 
             if (string.IsNullOrWhiteSpace(action))
-                throw new ArgumentException("wechat_task 的 action 不能为空");
+                throw new ArgumentException("wechat_task action cannot be empty");
 
             switch (action)
             {
@@ -2170,7 +2170,7 @@ namespace TangYuan.Controllers
                     {
                         string content = GetString(args, "content");
                         if (string.IsNullOrWhiteSpace(content))
-                            throw new ArgumentException("text 模式下 content 不能为空");
+                            throw new ArgumentException("content cannot be empty in text mode");
 
                         bool isAtAll = bool.TryParse(GetString(args, "isAtAll", "false"), out var b) && b;
 
@@ -2183,7 +2183,7 @@ namespace TangYuan.Controllers
 
                         return new SkillResult
                         {
-                            Success = result.StartsWith("成功"),
+                            Success = result.StartsWith("\u6210\u529f"),
                             SkillCode = "wechat_task",
                             Type = "text",
                             Text = result,
@@ -2194,7 +2194,7 @@ namespace TangYuan.Controllers
                                 isAtAll,
                                 atUsers
                             },
-                            Error = result.StartsWith("成功") ? "" : result
+                            Error = result.StartsWith("\u6210\u529f") ? "" : result
                         }.Normalize();
                     }
 
@@ -2202,13 +2202,13 @@ namespace TangYuan.Controllers
                     {
                         string content = GetString(args, "content");
                         if (string.IsNullOrWhiteSpace(content))
-                            throw new ArgumentException("markdown 模式下 content 不能为空");
+                            throw new ArgumentException("content cannot be empty in markdown mode");
 
                         string result = await WechatBotHelper.SendMarkdown(content);
 
                         return new SkillResult
                         {
-                            Success = result.StartsWith("成功"),
+                            Success = result.StartsWith("\u6210\u529f"),
                             SkillCode = "wechat_task",
                             Type = "markdown",
                             Text = result,
@@ -2217,7 +2217,7 @@ namespace TangYuan.Controllers
                                 action = "markdown",
                                 content
                             },
-                            Error = result.StartsWith("成功") ? "" : result
+                            Error = result.StartsWith("\u6210\u529f") ? "" : result
                         }.Normalize();
                     }
 
@@ -2229,17 +2229,17 @@ namespace TangYuan.Controllers
                         string picUrl = GetString(args, "picUrl");
 
                         if (string.IsNullOrWhiteSpace(title))
-                            throw new ArgumentException("card 模式下 title 不能为空");
+                            throw new ArgumentException("title cannot be empty in card mode");
                         if (string.IsNullOrWhiteSpace(desc))
-                            throw new ArgumentException("card 模式下 desc 不能为空");
+                            throw new ArgumentException("desc cannot be empty in card mode");
                         if (string.IsNullOrWhiteSpace(url))
-                            throw new ArgumentException("card 模式下 url 不能为空");
+                            throw new ArgumentException("url cannot be empty in card mode");
 
                         string result = await WechatBotHelper.SendCard(title, desc, url, picUrl);
 
                         return new SkillResult
                         {
-                            Success = result.StartsWith("成功"),
+                            Success = result.StartsWith("\u6210\u529f"),
                             SkillCode = "wechat_task",
                             Type = "card",
                             Text = result,
@@ -2251,85 +2251,85 @@ namespace TangYuan.Controllers
                                 url,
                                 picUrl
                             },
-                            Error = result.StartsWith("成功") ? "" : result
+                            Error = result.StartsWith("\u6210\u529f") ? "" : result
                         }.Normalize();
                     }
 
                 default:
-                    throw new NotSupportedException($"wechat_task 不支持的操作：{action}");
+                    throw new NotSupportedException($"Unsupported wechat_task operation: {action}");
             }
         }
 
         #endregion
 
-        #region 原子技能：浏览器
+        #region Atomic Skill: Browser
 
         /// <summary>
-        /// 浏览器技能
+        /// Browser skill
         ///
-        /// 参数：
+        /// Parameters:
         /// {
-        ///   "actions": [ ...BrowserAction数组... ]
+        ///   "actions": [ ...BrowserAction array... ]
         /// }
         ///
-        /// 说明：
-        /// 1. 这里不再直接调用 BrowserController
-        /// 2. 而是调用 BrowserService.ExecuteActionAsync
-        /// 3. 最终返回最后一步结果，供工作流引用
+        /// Notes:
+        /// 1. BrowserController is no longer called directly here
+        /// 2. Call BrowserService.ExecuteActionAsync instead
+        /// 3. Return the final step result for workflow references
         /// </summary>
         /// <summary>
-        /// 浏览器技能
+        /// Browser skill
         ///
-        /// 参数：
+        /// Parameters:
         /// {
-        ///   "actions": [ ...BrowserAction数组... ]
+        ///   "actions": [ ...BrowserAction array... ]
         /// }
         ///
-        /// 说明：
-        /// 1. 这里不再直接调用 BrowserController
-        /// 2. 而是调用 BrowserService.ExecuteActionAsync
-        /// 3. 支持 actions 以 JSON 字符串或 JsonElement 数组传入
-        /// 4. 支持小写字段名：type / url / selector / value
+        /// Notes:
+        /// 1. BrowserController is no longer called directly here
+        /// 2. Call BrowserService.ExecuteActionAsync instead
+        /// 3. Accept actions as either a JSON string or a JsonElement array
+        /// 4. Support lowercase field names: type/url/selector/value
         /// </summary>
         /// <summary>
-        /// 浏览器技能（瘦身版返回）
+        /// Browser skill (compact response)
         ///
-        /// 参数：
+        /// Parameters:
         /// {
-        ///   "actions": [ ...BrowserAction数组... ],
-        ///   "sessionId": "可选",
+        ///   "actions": [ ...BrowserAction array... ],
+        ///   "sessionId": "optional",
         ///   "closeSession": false,
         ///   "includeOutputs": false
         /// }
         ///
-        /// 说明：
-        /// 1. 支持 actions 以 JSON 字符串或 JsonElement 数组传入
-        /// 2. 支持小写字段名：type / url / selector / value
-        /// 3. 默认不返回完整 outputs，避免结果过大
-        /// 4. 最终只返回：sessionId、page、list、result
+        /// Notes:
+        /// 1. Accept actions as either a JSON string or a JsonElement array
+        /// 2. Support lowercase field names: type/url/selector/value
+        /// 3. Do not return full outputs by default to avoid oversized results
+        /// 4. Return only sessionId, page, list, and result
         /// </summary>
         /// <summary>
-        /// 浏览器技能（默认精简版返回）
+        /// Browser skill (compact response by default)
         ///
-        /// 参数：
+        /// Parameters:
         /// {
-        ///   "actions": [ ...BrowserAction数组... ],
-        ///   "sessionId": "可选",
+        ///   "actions": [ ...BrowserAction array... ],
+        ///   "sessionId": "optional",
         ///   "closeSession": false,
         ///   "includeOutputs": false
         /// }
         ///
-        /// 说明：
-        /// 1. 默认不返回完整 outputs，避免结果过大
-        /// 2. 最终只返回：sessionId、page、count、list、result
-        /// 3. 当 includeOutputs=true 时，才返回每一步动作明细
+        /// Notes:
+        /// 1. Do not return full outputs by default to avoid oversized results
+        /// 2. Return only sessionId, page, count, list, and result
+        /// 3. Return per-action details only when includeOutputs=true
         /// </summary>
         private async Task<object> DoBrowserTaskAsync(Dictionary<string, object> args)
         {
             List<BrowserAction> actions;
 
             if (!args.TryGetValue("actions", out var actionsObj) || actionsObj == null)
-                throw new ArgumentException("browser_task 必须提供 actions");
+                throw new ArgumentException("browser_task requires actions");
 
             try
             {
@@ -2345,22 +2345,22 @@ namespace TangYuan.Controllers
                 }
                 else
                 {
-                    throw new ArgumentException("actions 格式不正确，必须是 JSON 数组");
+                    throw new ArgumentException("actions has an invalid format and must be a JSON array");
                 }
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "browser_task 的 actions JSON 解析失败");
-                throw new ArgumentException("actions JSON 解析失败：" + ex.Message);
+                _logger.LogError(ex, "Failed to parse browser_task actions JSON");
+                throw new ArgumentException("Failed to parse actions JSON: " + ex.Message);
             }
 
             if (actions.Count == 0)
-                throw new ArgumentException("browser_task 的 actions 不能为空");
+                throw new ArgumentException("browser_task actions cannot be empty");
 
             for (int i = 0; i < actions.Count; i++)
             {
                 if (string.IsNullOrWhiteSpace(actions[i].Type))
-                    throw new ArgumentException($"第 {i + 1} 个 action 的 type 不能为空");
+                    throw new ArgumentException($"The type of action #{i + 1} cannot be empty");
             }
 
             string sessionId = GetString(args, "sessionId");
@@ -2400,7 +2400,7 @@ namespace TangYuan.Controllers
 
                 var final = _browserService.BuildFinalResult(outputs);
 
-                // 统一补一个 count，方便 workflow 和 AI 直接使用
+                // Add a consistent count field for direct use by workflows and AI
                 int count = final.FinalList?.Count ?? 0;
 
                 object data = includeOutputs
@@ -2451,10 +2451,10 @@ namespace TangYuan.Controllers
 
         #endregion
 
-        #region 原子技能：外部工具
+        #region Atomic Skill: External Tools
 
         /// <summary>
-        /// 调用白名单中的外部 exe
+        /// Invoke an external executable from the allowlist
         /// </summary>
         private async Task<object> RunExternalToolAsync(Dictionary<string, object> args)
         {
@@ -2464,11 +2464,11 @@ namespace TangYuan.Controllers
 
             string exeName = Path.GetFileName(exePath);
             if (!AllowedExeNames.Contains(exeName))
-                throw new UnauthorizedAccessException($"工具 {exeName} 未在白名单中");
+                throw new UnauthorizedAccessException($"Tool {exeName} is not on the allowlist");
 
             var fullExePath = ValidatePath(exePath, mustExist: true);
             if (!System.IO.File.Exists(fullExePath))
-                throw new FileNotFoundException($"工具不存在: {fullExePath}");
+                throw new FileNotFoundException($"Tool does not exist: {fullExePath}");
 
             string arguments = GetString(args, "arguments");
             int timeoutSec = int.TryParse(GetString(args, "timeout", "10"), out int t) ? t : 10;
@@ -2510,7 +2510,7 @@ namespace TangYuan.Controllers
                 {
                 }
 
-                throw new TimeoutException($"外部工具执行超时（{timeoutSec}秒）");
+                throw new TimeoutException($"External tool execution timed out after {timeoutSec} seconds");
             }
 
             string output = await outputTask;
@@ -2521,7 +2521,7 @@ namespace TangYuan.Controllers
                 Success = process.ExitCode == 0,
                 SkillCode = "tool_task",
                 Type = "run_exe",
-                Text = process.ExitCode == 0 ? "工具执行完成" : "工具执行失败",
+                Text = process.ExitCode == 0 ? "Tool execution completed" : "Tool execution failed",
                 Data = new
                 {
                     exePath = fullExePath,
@@ -2537,11 +2537,11 @@ namespace TangYuan.Controllers
 
         #endregion
 
-        #region 文件搜索
+        #region File Search
 
         /// <summary>
-        /// 搜索文件：
-        /// 优先 Everything → 降级 Windows Search → 最后递归搜索
+        /// Search for files:
+        /// Prefer Everything, fall back to Windows Search, then use recursive search
         /// </summary>
         private async Task<SkillResult> SearchFileAsync(
     string keyword,
@@ -2551,12 +2551,12 @@ namespace TangYuan.Controllers
     bool exactName = false)
         {
             if (string.IsNullOrWhiteSpace(keyword))
-                throw new ArgumentException("搜索关键词不能为空");
+                throw new ArgumentException("The search keyword cannot be empty");
 
             List<string> resultList;
 
-            // 指定 root 后，只搜索这个目录，不调用 Everything、
-            // Windows Search，也不进行全盘递归搜索。
+            // When root is specified, search only that directory; do not call Everything,
+            // Windows Search, or a full-disk recursive search.
             if (!string.IsNullOrWhiteSpace(root))
             {
                 resultList = await SearchInDirectoryAsync(
@@ -2599,8 +2599,8 @@ namespace TangYuan.Controllers
                     Success = false,
                     SkillCode = "file_task",
                     Type = "search",
-                    Text = "未找到文件",
-                    ResultText = "未找到文件",
+                    Text = "No files found",
+                    ResultText = "No files found",
                     ResultList = new List<string>(),
                     ResultValue = "",
                     Data = new
@@ -2612,7 +2612,7 @@ namespace TangYuan.Controllers
                         paths = Array.Empty<string>(),
                         count = 0
                     },
-                    Error = "未找到文件"
+                    Error = "No files found"
                 }.Normalize();
             }
 
@@ -2623,8 +2623,8 @@ namespace TangYuan.Controllers
                 Success = true,
                 SkillCode = "file_task",
                 Type = "search",
-                Text = $"找到 {resultList.Count} 个文件",
-                ResultText = $"找到 {resultList.Count} 个文件",
+                Text = $"Found {resultList.Count} files",
+                ResultText = $"Found {resultList.Count} files",
                 ResultList = resultList,
                 ResultValue = firstPath,
                 Data = new
@@ -2689,7 +2689,7 @@ namespace TangYuan.Controllers
         }
 
         /// <summary>
-        /// Everything 搜索
+        /// Everything search
         /// </summary>
         private async Task<List<string>> SearchWithEverythingAsync(string keyword, string ext = "*")
         {
@@ -2704,9 +2704,9 @@ namespace TangYuan.Controllers
             {
                 try
                 {
-                    // 注意：很多 Everything SDK 中：
-                    // item.Path = 目录
-                    // item.Name = 文件名
+                    // Note: in many Everything SDKs:
+                    // item.Path = directory
+                    // item.Name = file name
                     string dir = item.Path ?? "";
                     string name = item.Name ?? "";
 
@@ -2717,11 +2717,11 @@ namespace TangYuan.Controllers
                     if (string.IsNullOrWhiteSpace(fullPath))
                         continue;
 
-                    // 只保留真实文件，不要目录
+                    // Keep actual files only, not directories
                     if (!System.IO.File.Exists(fullPath))
                         continue;
 
-                    // 过滤快捷方式，避免返回 Recent 里的 .lnk
+                    // Filter out shortcuts to avoid returning .lnk files from Recent
                     if (fullPath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
                         continue;
 
@@ -2737,7 +2737,7 @@ namespace TangYuan.Controllers
                 }
                 catch
                 {
-                    // 忽略非法路径/不可访问项
+                    // Ignore invalid paths or inaccessible items
                 }
             }
 
@@ -2746,7 +2746,7 @@ namespace TangYuan.Controllers
 
 
         /// <summary>
-        /// Windows Search 搜索
+        /// Windows Search
         /// </summary>
         private async Task<List<string>> SearchWithWindowsSearchAsync(string keyword, string ext = "*")
         {
@@ -2779,7 +2779,7 @@ namespace TangYuan.Controllers
                 }
                 catch
                 {
-                    // 忽略非法路径/不可访问项
+                    // Ignore invalid paths or inaccessible items
                 }
             }
 
@@ -2787,7 +2787,7 @@ namespace TangYuan.Controllers
         }
 
         /// <summary>
-        /// 兜底递归搜索
+        /// Fallback recursive search
         /// </summary>
         private async Task<List<string>> SearchFallbackAsync(string keyword, string ext = "*")
         {
@@ -2825,7 +2825,7 @@ namespace TangYuan.Controllers
                     {
                         try
                         {
-                            // 过滤快捷方式
+                            // Filter out shortcuts
                             if (file.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
                                 continue;
 
@@ -2834,13 +2834,13 @@ namespace TangYuan.Controllers
                         }
                         catch
                         {
-                            // 忽略非法路径/不可访问项
+                            // Ignore invalid paths or inaccessible items
                         }
                     }
                 }
                 catch
                 {
-                    // 忽略单个目录搜索失败
+                    // Ignore failures while searching an individual directory
                 }
             }
 
@@ -2849,7 +2849,7 @@ namespace TangYuan.Controllers
 
 
         /// <summary>
-        /// 文件列表格式化为多行文本，方便 AI 阅读
+        /// Format a file list as multiline text for easier AI consumption
         /// </summary>
         private string FormatFileList(List<string> files)
         {
@@ -2868,14 +2868,14 @@ namespace TangYuan.Controllers
 
         #endregion
 
-        #region 安全文件操作
+        #region Secure File Operations
 
         /// <summary>
-        /// 路径安全校验
+        /// Path security validation
         ///
-        /// 说明：
-        /// 1. 只允许访问 AllowedRoots 中的路径
-        /// 2. 可选是否要求路径必须存在
+        /// Notes:
+        /// 1. Only paths under AllowedRoots may be accessed
+        /// 2. Optionally require the path to exist
         /// </summary>
         private string ValidatePath(string inputPath, bool mustExist = false)
         {
@@ -2972,7 +2972,7 @@ namespace TangYuan.Controllers
             if (string.IsNullOrWhiteSpace(newName))
                 throw new ArgumentException("The new filename must not be empty.");
 
-            // 确保 newName 不包含路径，只取文件名
+            // Ensure newName contains no path; keep only the file name
             var safeNewName = Path.GetFileName(newName);
 
             var sourceDir = Path.GetDirectoryName(source);
@@ -3015,7 +3015,7 @@ namespace TangYuan.Controllers
                 Success = true,
                 SkillCode = "file_task",
                 Type = "mkdir",
-                Text = "已创建目录",
+                Text = "Directory created",
                 Data = new
                 {
                     path = fullPath
@@ -3023,7 +3023,7 @@ namespace TangYuan.Controllers
             }.WithValue(fullPath);
         }
 
-        #region 批量文件操作
+        #region Batch File Operations
         private async Task<SkillResult> CopyManyAsync(Dictionary<string, object> args)
         {
             var paths = GetStringList(args, "paths");
@@ -3031,10 +3031,10 @@ namespace TangYuan.Controllers
             bool overwrite = bool.TryParse(GetString(args, "overwrite", "true"), out var ov) && ov;
 
             if (paths.Count == 0)
-                throw new ArgumentException("paths 不能为空");
+                throw new ArgumentException("paths cannot be empty");
 
             if (string.IsNullOrWhiteSpace(toDir))
-                throw new ArgumentException("toDir 不能为空");
+                throw new ArgumentException("toDir cannot be empty");
 
             var fullTargetDir = ValidatePath(toDir, mustExist: false);
 
@@ -3052,7 +3052,7 @@ namespace TangYuan.Controllers
                     {
                         var source = ValidatePath(item, mustExist: true);
                         if (!System.IO.File.Exists(source))
-                            throw new FileNotFoundException($"文件不存在: {source}");
+                            throw new FileNotFoundException($"File does not exist: {source}");
 
                         var target = Path.Combine(fullTargetDir, Path.GetFileName(source));
                         var validatedTarget = ValidatePath(target, mustExist: false);
@@ -3078,8 +3078,8 @@ namespace TangYuan.Controllers
                 SkillCode = "file_task",
                 Type = "copy_many",
                 Text = successCount > 0
-                    ? $"批量复制完成，成功 {successCount} 个，失败 {failed.Count} 个"
-                    : "批量复制失败",
+                    ? $"Batch copy completed: {successCount} succeeded, {failed.Count} failed"
+                    : "Batch copy failed",
                 Data = new
                 {
                     toDir = fullTargetDir,
@@ -3088,7 +3088,7 @@ namespace TangYuan.Controllers
                     copied,
                     failed
                 },
-                Error = successCount > 0 ? "" : "没有文件复制成功"
+                Error = successCount > 0 ? "" : "No files were copied successfully"
             }.Normalize();
         }
 
@@ -3099,10 +3099,10 @@ namespace TangYuan.Controllers
             bool overwrite = bool.TryParse(GetString(args, "overwrite", "true"), out var ov) && ov;
 
             if (paths.Count == 0)
-                throw new ArgumentException("paths 不能为空");
+                throw new ArgumentException("paths cannot be empty");
 
             if (string.IsNullOrWhiteSpace(toDir))
-                throw new ArgumentException("toDir 不能为空");
+                throw new ArgumentException("toDir cannot be empty");
 
             var fullTargetDir = ValidatePath(toDir, mustExist: false);
 
@@ -3154,8 +3154,8 @@ namespace TangYuan.Controllers
                 SkillCode = "file_task",
                 Type = "move_many",
                 Text = successCount > 0
-                    ? $"批量移动完成，成功 {successCount} 个，失败 {failed.Count} 个"
-                    : "批量移动失败",
+                    ? $"Batch move completed: {successCount} succeeded, {failed.Count} failed"
+                    : "Batch move failed",
                 Data = new
                 {
                     toDir = fullTargetDir,
@@ -3164,7 +3164,7 @@ namespace TangYuan.Controllers
                     moved,
                     failed
                 },
-                Error = successCount > 0 ? "" : "没有文件移动成功"
+                Error = successCount > 0 ? "" : "No files were moved successfully"
             }.Normalize();
         }
 
@@ -3173,11 +3173,11 @@ namespace TangYuan.Controllers
 
         #endregion
 
-        #region 工具方法
+        #region Utility Methods
 
         /// <summary>
-        /// 从 Dictionary<string, object> 中安全取字符串
-        /// 兼容 string / JsonElement / 普通 object
+        /// Safely retrieve a string from Dictionary<string, object>
+        /// Supports string, JsonElement, and regular object values
         /// </summary>
         private new string GetString(Dictionary<string, object>? args, string key, string defaultValue = "")
         {
@@ -3234,12 +3234,9 @@ namespace TangYuan.Controllers
             return result;
         }
 
-
-
-
         #endregion
 
-        #region 管理接口
+        #region Management Endpoints
 
         [HttpPost("GetAllSkillCodes")]
         public async Task<IActionResult> GetAllSkillCodes()
@@ -3248,13 +3245,10 @@ namespace TangYuan.Controllers
             return Ok(ResponseHelper.Success(codes));
         }
 
-        
-
-
 
         /// <summary>
-        /// 保存技能定义
-        /// 存在则更新，不存在则插入
+        /// Save a skill definition
+        /// Update if it exists; insert otherwise
         /// </summary>
         [HttpPost("SaveSkillAction")]
         public async Task<IActionResult> SaveSkillAction([FromBody] SkillModel model)
@@ -3310,13 +3304,13 @@ VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
         [HttpPost("ExecSql")]
         public IActionResult ExecSql()
         {
-            return StatusCode(403, ResponseHelper.Fail<object>("禁用"));
+            return StatusCode(403, ResponseHelper.Fail<object>("Disabled"));
         }
 
         #endregion
     }
 
-    #region 模型
+    #region Models
 
 
     public class SkillBaseModel
@@ -3326,7 +3320,7 @@ VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
         public string SkillCode { get; set; } = "";
 
         public string Remark { get; set; } = "";
-        
+
     }
 
 
@@ -3341,12 +3335,12 @@ VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
         public string Remark { get; set; } = "";
 
         /// <summary>
-        /// 技能类型，前端不传时默认 OtherType
+        /// Skill type; defaults to OtherType when omitted by the frontend
         /// </summary>
         public string SkillType { get; set; } = "OtherType";
 
         /// <summary>
-        /// 更新时间，当前先保留字符串格式，兼容你现有库表
+        /// Update time; retained as a string for compatibility with the existing database table
         /// </summary>
         public string UpdateTime { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
     }
@@ -3358,8 +3352,8 @@ VALUES (@SkillCode, @SkillActions, @Remark, @SkillType, @UpdateTime)", model);
         public Dictionary<string, object> Arguments { get; set; } = new();
 
         /// <summary>
-        /// 临时 workflow 步骤。
-        /// 如果传了 Steps，就直接执行，不走数据库。
+        /// Temporary workflow steps.
+        /// If Steps is provided, execute it directly without querying the database.
         /// </summary>
         public List<SkillStep> Steps { get; set; } = new();
     }

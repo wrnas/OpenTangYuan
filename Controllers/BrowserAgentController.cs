@@ -7,21 +7,21 @@ using System.Collections;
 namespace AiApi.Controllers
 {
     /// <summary>
-    /// 浏览器智能体控制器（生产增强版）
+    /// Browser agent controller (production-enhanced version)
     ///
-    /// 设计目标：
-    /// 1. 通过 JSON actions 控制浏览器（适配 Coze / AI）
-    /// 2. 返回结构稳定，便于大模型解析
-    /// 3. 每个 action 都是“可组合的原子能力”
+    /// Design goals:
+    /// 1. Control the browser through JSON actions (compatible with Coze / AI)
+    /// 2. Return a stable structure that is easy for large language models to parse
+    /// 3. Each action is a composable atomic capability
     ///
-    /// ⚠️ 注意：
-    /// - 不做验证码自动破解，只做检测 + 人工协作
-    /// - evaluate 有安全风险，建议生产限制
-    /// - session 必须做好回收（否则会堆积浏览器进程）
+    /// ⚠️ Notes:
+    /// - CAPTCHA solving is not automated; only detection and human-assisted handling are supported
+    /// - evaluate poses security risks and should be restricted in production
+    /// - Sessions must be properly cleaned up (otherwise browser processes will accumulate)
     ///
-    /// ⭐ 推荐使用方式（Coze）
-    /// - 只调用 /run
-    /// - 读取 result.text / result.list / result.data
+    /// ⭐ Recommended usage (Coze)
+    /// - Call only /run
+    /// - Read result.text / result.list / result.data
     /// </summary>
 
     [ApiController]
@@ -53,17 +53,17 @@ namespace AiApi.Controllers
             {
                 success = true,
                 sessionId = session.SessionId,
-                message = "Session 创建成功"
+                message = "Session created successfully"
             });
         }
 
-        
+
         /// <summary>
-        /// 执行浏览器动作序列（核心入口）
+        /// Execute a sequence of browser actions (core endpoint)
         ///
-        /// 这是唯一推荐给 Coze 使用的接口
+        /// This is the only endpoint recommended for Coze
         ///
-        /// 请求结构：
+        /// Request structure:
         /// {
         ///   "actions": [
         ///     { "type": "goto", "url": "https://xxx.com" },
@@ -71,15 +71,15 @@ namespace AiApi.Controllers
         ///   ]
         /// }
         ///
-        /// 返回重点字段：
-        /// - result.text   👉 给 AI 直接读
-        /// - result.list   👉 给 AI 做循环
-        /// - result.data   👉 原始结构化数据
+        /// Key response fields:
+        /// - result.text   👉 Directly readable by AI
+        /// - result.list   👉 Used by AI for iteration
+        /// - result.data   👉 Raw structured data
         ///
-        /// ⚠️ 注意：
-        /// - actions 必须有
-        /// - session 自动创建 / 复用
-        /// - 同一 session 内部是串行执行（防并发问题）
+        /// ⚠️ Notes:
+        /// - actions is required
+        /// - The session is created or reused automatically
+        /// - Actions within the same session are executed sequentially (to prevent concurrency issues)
         /// </summary>        
         [HttpPost("run")]
         public async Task<IActionResult> Run([FromBody] BrowserRunRequest request)
@@ -92,7 +92,7 @@ namespace AiApi.Controllers
                 return Ok(new
                 {
                     success = false,
-                    error = "actions 不能为空"
+                    error = "actions cannot be empty"
                 });
             }
 
@@ -136,7 +136,7 @@ namespace AiApi.Controllers
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Action 执行失败");
+                            _logger.LogError(ex, "Action execution failed");
 
                             if (string.Equals(action.OnError, "skip", StringComparison.OrdinalIgnoreCase))
                             {
@@ -210,7 +210,7 @@ namespace AiApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "关闭浏览器 Session 失败，SessionId={SessionId}", session.SessionId);
+                        _logger.LogWarning(ex, "Failed to close browser session, SessionId={SessionId}", session.SessionId);
                     }
                 }
             }
@@ -227,7 +227,7 @@ namespace AiApi.Controllers
                 return Ok(new
                 {
                     success = false,
-                    error = "sessionId 不能为空"
+                    error = "sessionId cannot be empty"
                 });
             }
 
@@ -236,7 +236,7 @@ namespace AiApi.Controllers
             return Ok(new
             {
                 success = true,
-                message = "Session 已关闭"
+                message = "Session closed"
             });
         }
 
@@ -252,6 +252,6 @@ namespace AiApi.Controllers
 
         #endregion
 
-        
+
     }
 }
