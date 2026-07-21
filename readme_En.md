@@ -10,14 +10,13 @@
 
 <p align="center">
   <a href="#what-is-opentangyuan">What it is</a> ·
-  <a href="#what-can-it-do">What it can do</a> ·
+  <a href="#why-opentangyuan">Why it matters</a> ·
+  <a href="#system-architecture">Architecture</a> ·
   <a href="#quick-start">Quick Start</a> ·
-  <a href="#core-concepts">Core Concepts</a> ·
   <a href="#workflow-runtime">Workflow Runtime</a> ·
   <a href="#core-apis">Core APIs</a> ·
   <a href="#security-and-deployment-boundaries">Security</a> ·
-  <a href="#research-context">Research Context</a> ·
-  <a href="#Important-Notes-for-Production-Environment">Important Notes for Production Environment</a>
+  <a href="#platform-and-reproducibility">Reproducibility</a>
 </p>
 
 <p align="center">
@@ -52,6 +51,32 @@ The first validation scenarios came from university administrative work, but the
 
 ---
 
+## Why OpenTangYuan?
+
+OpenTangYuan is designed as an open-source runtime first, while also serving as the software artifact for our SoftwareX paper.
+
+Compared with typical tool-calling architectures, OpenTangYuan adds a practical runtime layer for safer and more reusable agent-based office automation:
+
+1. **Manifest-driven skill registry**  
+   Each local skill is described in a structured `skill-manifest.json`, including its capabilities, parameters, supported actions, usage examples, constraints, and side effects. Agents can discover and query skills on demand instead of loading all tool descriptions at once.
+
+2. **Workflow-based multi-step execution**  
+   OpenTangYuan supports both reusable workflows stored in a database and ad-hoc temporary workflows generated at runtime. Multiple built-in skills can be orchestrated into traceable automation pipelines.
+
+3. **Trusted local runtime**  
+   Sensitive operations such as file access, email, browser control, screenshots, local tools, and enterprise system interactions stay inside the local trusted environment. The cloud-side agent handles understanding, planning, and parameter generation, but not direct access to private resources.
+
+4. **Cloud-local hybrid architecture**  
+   By decoupling AI decision-making from actual execution privileges, OpenTangYuan keeps sensitive data and permissions on the user's side while still allowing cloud agents to assist with task decomposition and workflow planning.
+
+5. **Policy-controlled side effects**  
+   State-changing actions are explicitly controlled and logged. These include sending or replying to emails, downloading attachments, copying, moving, or deleting files, printing, launching programs, and calling external tools. Authentication, allowlists, policy checks, and execution logs add further safeguards.
+
+6. **Reusable capability discovery APIs**  
+   A small set of REST endpoints makes it possible to integrate OpenTangYuan with Coze, Dify, GPTs, or custom agent frameworks. The same API pattern supports skill discovery, detail lookup, workflow retrieval, and unified execution.
+
+---
+
 ## What can it do?
 
 OpenTangYuan is useful when a task needs to cross multiple systems, repeat reliably, and run close to private data. Typical examples include:
@@ -68,6 +93,31 @@ A simple task may call one built-in skill, such as searching email. A more compl
 
 ```text
 search file -> open it -> capture screenshot -> send email
+```
+
+---
+
+## System Architecture
+
+![Architecture](readme/images/architecture.png)
+
+OpenTangYuan follows a cloud-local collaboration model.
+
+| Layer | Responsibility |
+|---|---|
+| User Interaction Layer | Web, mobile, chat, API, SDK, Coze, Dify, GPTs, and custom agents. |
+| OpenTangYuan Orchestration Layer | Workflow repository, skill registry, capability discovery, planning, and routing. |
+| Secure Execution Channel | Secure communication between cloud orchestration and the local runtime. |
+| Trusted Local Runtime Layer | Authentication, policy validation, workflow scheduling, skill invocation, context management, and result packaging. |
+| Enterprise Integration Layer | Browser, email, file system, WeChat Work, local tools, OA, ERP/CRM, and custom APIs. |
+| Governance & Compliance | Privacy protection, access control, trust management, auditing, monitoring, and alerting. |
+
+The execution boundary is intentionally clear:
+
+```text
+Cloud side: planning and capability metadata only
+Local runtime: execution and sensitive data processing
+Enterprise systems: accessed only through the trusted local runtime
 ```
 
 ---
@@ -251,31 +301,6 @@ These mechanisms make the runtime suitable for environments where automation nee
 
 ---
 
-## System Architecture
-
-![Architecture](readme/images/architecture.png)
-
-OpenTangYuan follows a cloud-local collaboration model.
-
-| Layer | Responsibility |
-|---|---|
-| User Interaction Layer | Web, mobile, chat, API, SDK, Coze, Dify, GPTs, and custom agents. |
-| OpenTangYuan Orchestration Layer | Workflow repository, skill registry, capability discovery, planning, and routing. |
-| Secure Execution Channel | Secure communication between cloud orchestration and the local runtime. |
-| Trusted Local Runtime Layer | Authentication, policy validation, workflow scheduling, skill invocation, context management, and result packaging. |
-| Enterprise Integration Layer | Browser, email, file system, WeChat Work, local tools, OA, ERP/CRM, and custom APIs. |
-| Governance & Compliance | Privacy protection, access control, trust management, auditing, monitoring, and alerting. |
-
-The execution boundary is intentionally clear:
-
-```text
-Cloud side: planning and capability metadata only
-Local runtime: execution and sensitive data processing
-Enterprise systems: accessed only through the trusted local runtime
-```
-
----
-
 ## Capability Discovery
 
 ![Capability Discovery](readme/images/capability-discovery.png)
@@ -412,6 +437,41 @@ It supports:
 
 ---
 
+## Demo Screenshots
+
+### Agent execution example
+
+![Agent Execution Example](readme/images/demo-1.png)
+
+These screenshots were taken in a Chinese office automation environment. English captions or annotations can be added in the paper and supplementary materials to explain the key UI elements, workflow steps, and results. The runtime APIs and workflow definitions are language-agnostic.
+
+### Dynamic composite task execution
+
+![Dynamic Composite Task Execution](readme/images/demo-2.png)
+
+### Coze debug trace
+
+![Coze Debug Trace](readme/images/coze-trace.png)
+
+---
+
+## Built-in Skills
+
+| SkillCode | Description |
+|---|---|
+| `email_task` | Send, search, read, download attachments, reply, mark read, and save as `.eml`. |
+| `wechat_task` | Send text, markdown, or card messages to WeChat Work. |
+| `browser_task` | Browse, capture screenshots, extract content, and download files. |
+| `file_task` | Search, copy, move, rename, create directories, and run batch operations. |
+| `open_task` | Open local files, directories, or programs. |
+| `print_task` | Print local files. |
+| `tool_task` | Invoke whitelisted local tools or executables. |
+| `screenshot_task` | Capture the full screen or active window. |
+| `folder_task` | Organize files by extension. |
+| `lock_task` | Lock the local workstation. |
+
+---
+
 ## Core APIs
 
 This README lists the most important APIs for agent integration. For full parameter details, see [`docs/api.md`](docs/api.md).
@@ -541,64 +601,6 @@ Failure:
   "data": null
 }
 ```
----
-
-## Technology Stack
-
-| Technology | Purpose |
-|---|---|
-| .NET 8 | Backend framework. |
-| C# 10+ | Main implementation language. |
-| ASP.NET WebAPI | Local runtime API. |
-| SQLite | Workflow storage. |
-| Dapper | Data access. |
-| MailKit | SMTP / IMAP email handling. |
-| Playwright | Browser automation. |
-| Everything SDK / Windows Search | File search on Windows. |
-| WeChat Work Webhook / API | Enterprise messaging. |
-| REST API | Skill query and execution interface. |
-| JSON Manifest | Skill metadata description. |
-| Docker | Optional containerized deployment. |
-
----
-
-## Docker Deployment
-
-Docker is useful for running server-side components and checking APIs. Desktop-intensive features, such as screenshots, opening documents, and Windows file search, still require a Windows runtime with desktop access.
-
-### Build the image
-
-```bash
-docker build -t opentangyuan .
-```
-
-### Run the container
-
-```bash
-docker run -d \
-  --name opentangyuan \
-  -p 54124:54124 \
-  opentangyuan
-```
-
-### Sample `docker-compose.yml`
-
-```yaml
-version: '3.8'
-
-services:
-  tangyuan-app:
-    build: .
-    container_name: tangyuan-app
-    restart: always
-    ports:
-      - "54124:54124"
-    volumes:
-      - ./sqlite-data:/app/data
-    environment:
-      - TZ=Asia/Shanghai
-      - ASPNETCORE_URLS=http://*:54124
-```
 
 ---
 
@@ -661,41 +663,6 @@ Never commit email passwords, authorization codes, Webhook keys, API tokens, dat
 | `FileSystem:AllowedRoots` | Recommended | Directories the runtime may access. |
 | `AllowedExeNames` | Recommended | Executables that can be launched. |
 | `DebugMode` | Optional | Enable verbose logging. |
-
----
-
-## Built-in Skills
-
-| SkillCode | Description |
-|---|---|
-| `email_task` | Send, search, read, download attachments, reply, mark read, and save as `.eml`. |
-| `wechat_task` | Send text, markdown, or card messages to WeChat Work. |
-| `browser_task` | Browse, capture screenshots, extract content, and download files. |
-| `file_task` | Search, copy, move, rename, create directories, and run batch operations. |
-| `open_task` | Open local files, directories, or programs. |
-| `print_task` | Print local files. |
-| `tool_task` | Invoke whitelisted local tools or executables. |
-| `screenshot_task` | Capture the full screen or active window. |
-| `folder_task` | Organize files by extension. |
-| `lock_task` | Lock the local workstation. |
-
----
-
-## Demo Screenshots
-
-### Agent execution example
-
-![Agent Execution Example](readme/images/demo-1.png)
-
-These screenshots were taken in a Chinese office automation environment. English captions or annotations can be added in the paper and supplementary materials to explain the key UI elements, workflow steps, and results. The runtime APIs and workflow definitions are language-agnostic.
-
-### Dynamic composite task execution
-
-![Dynamic Composite Task Execution](readme/images/demo-2.png)
-
-### Coze debug trace
-
-![Coze Debug Trace](readme/images/coze-trace.png)
 
 ---
 
@@ -767,6 +734,27 @@ OpenTangYuan can send emails, modify files, control browsers, take screenshots, 
 
 ---
 
+## Important Notes for Production Environment
+
+In a production environment, it is recommended to take the following actions:
+
+- Please enable HTTPS in the production environment to ensure secure data transmission.
+- Disable Swagger UI, or enable user authentication for Swagger (configuration options are available in `appsettings.json`).
+- In `Program.cs`, locate the section that enables Swagger user authentication and uncomment the corresponding code.
+- Enable API Key validation by adding `[Authorize(AuthenticationSchemes = "ApiKey")]` to your controllers. Example:
+
+```csharp
+    [Authorize(AuthenticationSchemes = "ApiKey")]
+    [Route("api/[controller]")]
+    [ApiController]
+    public class SkillsController : BaseCommandController
+    {
+        // ...
+    }
+```
+
+---
+
 ## Platform and Reproducibility
 
 Full desktop automation is Windows-first because file search, document opening, screenshots, and local tool invocation rely on Windows desktop resources.
@@ -781,6 +769,65 @@ To make evaluation easier, OpenTangYuan offers several validation paths:
 | Full external agent integration | Windows Runtime + agent platform | End-to-end automation with Coze, Dify, GPTs, or custom agents. |
 
 Real-world pilot logs may contain sensitive information such as email content, file paths, screenshots, and internal system data, so they are not published. The code, documentation, sample workflows, and deployment guides are provided to reproduce the software structure and execution paths.
+
+---
+
+## Docker Deployment
+
+Docker is useful for running server-side components and checking APIs. Desktop-intensive features, such as screenshots, opening documents, and Windows file search, still require a Windows runtime with desktop access.
+
+### Build the image
+
+```bash
+docker build -t opentangyuan .
+```
+
+### Run the container
+
+```bash
+docker run -d \
+  --name opentangyuan \
+  -p 54124:54124 \
+  opentangyuan
+```
+
+### Sample `docker-compose.yml`
+
+```yaml
+version: '3.8'
+
+services:
+  tangyuan-app:
+    build: .
+    container_name: tangyuan-app
+    restart: always
+    ports:
+      - "54124:54124"
+    volumes:
+      - ./sqlite-data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+      - ASPNETCORE_URLS=http://*:54124
+```
+
+---
+
+## Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| .NET 8 | Backend framework. |
+| C# 10+ | Main implementation language. |
+| ASP.NET WebAPI | Local runtime API. |
+| SQLite | Workflow storage. |
+| Dapper | Data access. |
+| MailKit | SMTP / IMAP email handling. |
+| Playwright | Browser automation. |
+| Everything SDK / Windows Search | File search on Windows. |
+| WeChat Work Webhook / API | Enterprise messaging. |
+| REST API | Skill query and execution interface. |
+| JSON Manifest | Skill metadata description. |
+| Docker | Optional containerized deployment. |
 
 ---
 
@@ -836,22 +883,6 @@ docs: update workflow examples
 
 ---
 
-## Roadmap
-
-- visual workflow designer;
-- web admin dashboard;
-- plugin-based skill extension;
-- permission management and operation auditing;
-- improved Docker Compose setup;
-- GitHub Release with CI/CD;
-- Zenodo DOI;
-- MCP support;
-- more office software automation capabilities;
-- automated test suite and benchmark tasks;
-- distributed runtime node management.
-
----
-
 ## FAQ
 
 ### Why can I not send email?
@@ -876,50 +907,19 @@ Check the step numbering, such as `step0` and `step1`, the exact field path, suc
 
 ---
 
-## Research Context
+## Roadmap
 
-OpenTangYuan is designed as an open-source runtime first,while also serving as the software artifact for our SoftwareX paper.
-
-Compared with typical tool-calling architectures, OpenTangYuan adds a practical runtime layer for safer and more reusable agent-based office automation:
-
-1. **Manifest-driven skill registry**  
-   Each local skill is described in a structured `skill-manifest.json`, including its capabilities, parameters, supported actions, usage examples, constraints, and side effects. Agents can discover and query skills on demand instead of loading all tool descriptions at once.
-
-2. **Workflow-based multi-step execution**  
-   OpenTangYuan supports both reusable workflows stored in a database and ad-hoc temporary workflows generated at runtime. Multiple built-in skills can be orchestrated into traceable automation pipelines.
-
-3. **Trusted local runtime**  
-   Sensitive operations such as file access, email, browser control, screenshots, local tools, and enterprise system interactions stay inside the local trusted environment. The cloud-side agent handles understanding, planning, and parameter generation, but not direct access to private resources.
-
-4. **Cloud-local hybrid architecture**  
-   By decoupling AI decision-making from actual execution privileges, OpenTangYuan keeps sensitive data and permissions on the user's side while still allowing cloud agents to assist with task decomposition and workflow planning.
-
-5. **Policy-controlled side effects**  
-   State-changing actions are explicitly controlled and logged. These include sending or replying to emails, downloading attachments, copying, moving, or deleting files, printing, launching programs, and calling external tools. Authentication, allowlists, policy checks, and execution logs add further safeguards.
-
-6. **Reusable capability discovery APIs**  
-   A small set of REST endpoints makes it possible to integrate OpenTangYuan with Coze, Dify, GPTs, or custom agent frameworks. The same API pattern supports skill discovery, detail lookup, workflow retrieval, and unified execution.
-
----
-
-## Important Notes for Production Environment
-
-In a production environment, it is recommended to take the following actions:
-
-- Please enable HTTPS in the production environment to ensure secure data transmission.
-- Disable Swagger UI, or enable user authentication for Swagger (configuration options are available in `appsettings.json`).
-- In `Program.cs`, locate the section that enables Swagger user authentication and uncomment the corresponding code.
-- Enable API Key validation by adding `[Authorize(AuthenticationSchemes = "ApiKey")]` to your controllers. Example:
-
-```csharp
-    [Authorize(AuthenticationSchemes = "ApiKey")]
-    [Route("api/[controller]")]
-    [ApiController]
-    public class SkillsController : BaseCommandController
-    {
-        // ...
-    }
-```
+- visual workflow designer;
+- web admin dashboard;
+- plugin-based skill extension;
+- permission management and operation auditing;
+- improved Docker Compose setup;
+- GitHub Release with CI/CD;
+- Zenodo DOI;
+- MCP support;
+- more office software automation capabilities;
+- automated test suite and benchmark tasks;
+- distributed runtime node management.
 
 ---
 
