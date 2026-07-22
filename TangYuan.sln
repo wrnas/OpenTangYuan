@@ -7,6 +7,48 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TangYuan.Demo", "..\TangYua
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TangYuan", "src\OpenTangYuan\TangYuan.csproj", "{85D9BA82-6272-E344-DD1E-85D09B902C4F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "doc", "doc", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		doc\ai.xml = doc\ai.xml
+		doc\AiBrowser.md = doc\AiBrowser.md
+		doc\AI_AGENT_SYSTEM_PROMPT.md = doc\AI_AGENT_SYSTEM_PROMPT.md
+		doc\COZE_专属协议.md = doc\COZE_专属协议.md
+		doc\Flowchart.png = doc\Flowchart.png
+		doc\readMe_JW.md = doc\readMe_JW.md
+		doc\setup1.png = doc\setup1.png
+		doc\setup2.png = doc\setup2.png
+		doc\TipForCoze.md = doc\TipForCoze.md
+		doc\workflowTips.md = doc\workflowTips.md
+		doc\开发及运行配置说明.docx = doc\开发及运行配置说明.docx
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}"
+	ProjectSection(SolutionItems) = preProject
+		doc\docs\agent-prompt-cn.md = doc\docs\agent-prompt-cn.md
+		doc\docs\agent-prompt.md = doc\docs\agent-prompt.md
+		doc\docs\api-cn.md = doc\docs\api-cn.md
+		doc\docs\api.md = doc\docs\api.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "images", "images", "{C4ECE238-1CB1-4039-B00F-98C30562914F}"
+	ProjectSection(SolutionItems) = preProject
+		doc\images\architecture.png = doc\images\architecture.png
+		doc\images\capability-discovery.png = doc\images\capability-discovery.png
+		doc\images\coze-agent-config.png = doc\images\coze-agent-config.png
+		doc\images\coze-trace.png = doc\images\coze-trace.png
+		doc\images\demo-1.png = doc\images\demo-1.png
+		doc\images\demo-2.png = doc\images\demo-2.png
+		doc\images\Figure2_Capability_Discovery_Sequence.png = doc\images\Figure2_Capability_Discovery_Sequence.png
+		doc\images\Figure3_Deployment_Topology.png = doc\images\Figure3_Deployment_Topology.png
+		doc\images\skill-manifest.png = doc\images\skill-manifest.png
+		doc\images\swagger-1.png = doc\images\swagger-1.png
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "综合说明", "综合说明", "{D9CF73B9-D1BF-45A4-9D54-175F371C457C}"
+	ProjectSection(SolutionItems) = preProject
+		doc\综合说明\说明.txt = doc\综合说明\说明.txt
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,6 +66,11 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{C4ECE238-1CB1-4039-B00F-98C30562914F} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{D9CF73B9-D1BF-45A4-9D54-175F371C457C} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C2C0C6B2-EFD3-469A-93CE-95F2D86BF488}
