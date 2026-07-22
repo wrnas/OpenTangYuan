@@ -1,6 +1,10 @@
 [English](README.md)
 
-# <img src="logo.png" alt="OpenTangYuan Logo" width="36"> OpenTangYuan
+<p align="center">
+
+  # <img src="logo.png" alt="OpenTangYuan Logo" width="36"> OpenTangYuan
+
+</p>
 
 <p align="center">
   <strong>面向隐私敏感办公自动化的云端规划—本地执行 Agent 工作流运行时</strong>
