@@ -1,3 +1,5 @@
+[中文版](readme.md)
+
 # OpenTangYuan
 
 <p align="center">

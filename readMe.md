@@ -1,4 +1,4 @@
-[英文版](readme_En.md)
+[English](readme_En.md)
 
 # OpenTangYuan
 
