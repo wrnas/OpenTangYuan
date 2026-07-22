@@ -268,7 +268,7 @@ For execution modes, response structures, and error handling, see the [Core API 
 
 An independent WinForms reference client can be placed under `samples/OpenTangYuan.WinFormsDemo/` to demonstrate how a standard desktop application can call OpenTangYuan through its REST APIs without depending on a specific agent platform.
 
-The client should connect to a running OpenTangYuan instance before performing capability discovery, parameter lookup, and task execution. See [WinForms Reference Client](samples/OpenTangYuan.WinFormsDemo/README.md) for usage instructions.
+The client should connect to a running OpenTangYuan instance before performing capability discovery, parameter lookup, and task execution. See [WinForms Reference Client](samples/README.md) for usage instructions.
 
 ---
 

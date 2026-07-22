@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "D:\\my\\OpenTangYuan\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\readme_En.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
+      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:readme_En.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\README_zh-CN.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
       "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:README_zh-CN.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
     },
@@ -18,7 +22,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 5,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
@@ -38,7 +42,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
+              "Title": "readme_En.md",
+              "DocumentMoniker": "D:\\my\\OpenTangYuan\\readme_En.md",
+              "RelativeDocumentMoniker": "readme_En.md",
+              "ToolTip": "D:\\my\\OpenTangYuan\\readme_En.md",
+              "RelativeToolTip": "readme_En.md",
+              "ViewState": "AgIAAPoAAAAAAAAAAAAEwA4BAACzAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-07-22T08:14:30.67Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
               "Title": "agent-integration_zh-CN.md",
               "DocumentMoniker": "D:\\my\\OpenTangYuan\\docs\\agent-integration_zh-CN.md",
               "RelativeDocumentMoniker": "docs\\agent-integration_zh-CN.md",
@@ -51,13 +68,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "README_zh-CN.md",
               "DocumentMoniker": "D:\\my\\OpenTangYuan\\README_zh-CN.md",
               "RelativeDocumentMoniker": "README_zh-CN.md",
               "ToolTip": "D:\\my\\OpenTangYuan\\README_zh-CN.md",
               "RelativeToolTip": "README_zh-CN.md",
-              "ViewState": "AgIAAAAAAAAAAAAAAADwvxEAAAAeAAAAAAAAAA==",
+              "ViewState": "AgIAAAoBAAAAAAAAAAAEwCwBAAAbAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
               "WhenOpened": "2026-07-22T07:28:19.747Z",
               "EditorCaption": ""

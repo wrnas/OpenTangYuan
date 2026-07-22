@@ -298,7 +298,7 @@ ExecuteSkill / ExecuteSkillForCoze
 - [Coze 系统提示词](docs/coze-system-prompt_zh-CN.md)
 - [部署与平台支持](docs/deployment-platform_zh-CN.md)
 - [故障排查](docs/troubleshooting_zh-CN.md)
-- [WinForms 示例客户端](samples/OpenTangYuan.WinFormsDemo/README_zh-CN.md)
+- [WinForms 示例客户端](samples/README_zh-CN.md)
 
 ---
 
