@@ -107,7 +107,7 @@ OpenTangYuan 首先是一个开源运行时，同时也是我们 SoftwareX 论�
 
 ## 系统架构
 
-![系统架构](readme/images/architecture.png)
+![系统架构](doc/images/architecture.png)
 
 OpenTangYuan 采用云端—本地协作模式。
 
@@ -181,7 +181,7 @@ curl -X POST http://localhost:54124/api/Skills/GetSkillListForAI
 
 ### Swagger / OpenAPI
 
-![Swagger](readme/images/swagger-1.png)
+![Swagger](doc/images/swagger-1.png)
 
 服务启动后，访问：
 
@@ -312,7 +312,7 @@ OpenTangYuan 会在执行这些操作前应用内置保护机制，包括：
 
 ## 能力发现
 
-![能力发现](readme/images/capability-discovery.png)
+![能力发现](doc/images/capability-discovery.png)
 
 外部智能体通过以下流程发现系统能力：
 
@@ -452,17 +452,17 @@ OpenTangYuan 内置工作流运行时，可处理预定义工作流和临时多�
 
 ### 智能体执行示例
 
-![智能体执行示例](readme/images/demo-1.png)
+![智能体执行示例](doc/images/demo-1.png)
 
 这些截图来自中文办公自动化环境。可以在论文或补充材料中添加英文图注或标注，用于解释关键界面元素、工作流步骤和执行结果。运行时 API 与工作流定义本身不依赖自然语言。
 
 ### 动态组合任务执行
 
-![动态组合任务执行](readme/images/demo-2.png)
+![动态组合任务执行](doc/images/demo-2.png)
 
 ### Coze 调试轨迹
 
-![Coze 调试轨迹](readme/images/coze-trace.png)
+![Coze 调试轨迹](doc/images/coze-trace.png)
 
 ---
 
@@ -700,7 +700,7 @@ OpenTangYuan 可以作为 Coze、Dify、GPTs 或自定义智能体平台的外�
 
 以 Coze 为例，系统提示词较长，完整版本见：
 
-➡️ **[`readme/docs/agent-prompt.md`](readme/docs/agent-prompt.md)**
+➡️ **[`doc/docs/agent-prompt.md`](doc/docs/agent-prompt.md)**
 
 ### 3. 核心调用流程
 
@@ -716,7 +716,7 @@ OpenTangYuan 可以作为 Coze、Dify、GPTs 或自定义智能体平台的外�
 
 ### Coze 智能体配置示例
 
-![Coze 智能体配置](readme/images/coze-agent-config.png)
+![Coze 智能体配置](doc/images/coze-agent-config.png)
 
 ---
 

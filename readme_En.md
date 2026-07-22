@@ -101,7 +101,7 @@ search file -> open it -> capture screenshot -> send email
 
 ## System Architecture
 
-![Architecture](readme/images/architecture.png)
+![Architecture](doc/images/architecture.png)
 
 OpenTangYuan follows a cloud-local collaboration model.
 
@@ -173,7 +173,7 @@ You should see a list of available workflows and built-in skills.
 
 ### Swagger / OpenAPI
 
-![Swagger](readme/images/swagger-1.png)
+![Swagger](doc/images/swagger-1.png)
 
 Once the service is running, visit:
 
@@ -305,7 +305,7 @@ These mechanisms make the runtime suitable for environments where automation nee
 
 ## Capability Discovery
 
-![Capability Discovery](readme/images/capability-discovery.png)
+![Capability Discovery](doc/images/capability-discovery.png)
 
 An external agent discovers capabilities through a simple sequence:
 
@@ -443,17 +443,17 @@ It supports:
 
 ### Agent execution example
 
-![Agent Execution Example](readme/images/demo-1.png)
+![Agent Execution Example](doc/images/demo-1.png)
 
 These screenshots were taken in a Chinese office automation environment. English captions or annotations can be added in the paper and supplementary materials to explain the key UI elements, workflow steps, and results. The runtime APIs and workflow definitions are language-agnostic.
 
 ### Dynamic composite task execution
 
-![Dynamic Composite Task Execution](readme/images/demo-2.png)
+![Dynamic Composite Task Execution](doc/images/demo-2.png)
 
 ### Coze debug trace
 
-![Coze Debug Trace](readme/images/coze-trace.png)
+![Coze Debug Trace](doc/images/coze-trace.png)
 
 ---
 
@@ -689,7 +689,7 @@ We suggest creating **four plugins**, each corresponding to one of the core Open
 
 Using Coze as an example, the system prompt is quite long. You can find the full version here:
 
-➡️ **[`readme/docs/agent-prompt.md`](readme/docs/agent-prompt.md)**
+➡️ **[`doc/docs/agent-prompt.md`](doc/docs/agent-prompt.md)**
 
 ### 3. Core Call Flow
 
@@ -705,7 +705,7 @@ Using Coze as an example, the system prompt is quite long. You can find the full
 
 ### Coze Agent Configuration Example
 
-![Coze Agent Configuration](readme/images/coze-agent-config.png)
+![Coze Agent Configuration](doc/images/coze-agent-config.png)
 
 ---
 
