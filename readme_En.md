@@ -300,7 +300,7 @@ The client should connect to a running OpenTangYuan instance before performing c
 - [Coze System Prompt](docs/coze-system-prompt.md)
 - [Deployment and Platform Support](docs/deployment-platform.md)
 - [Troubleshooting](docs/troubleshooting.md)
-- [WinForms Reference Client](samples/OpenTangYuan.WinFormsDemo/README.md)
+- [WinForms Reference Client](samples/README.md)
 
 ---
 

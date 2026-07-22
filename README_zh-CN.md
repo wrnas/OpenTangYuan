@@ -266,7 +266,7 @@ ExecuteSkill / ExecuteSkillForCoze
 
 仓库可在 `samples/OpenTangYuan.WinFormsDemo/` 中放置独立的 WinForms 示例客户端，用于展示普通桌面程序如何通过 REST API 调用 OpenTangYuan，而不依赖特定的 Agent 平台。
 
-示例客户端应先连接已经启动的 OpenTangYuan 运行时，再执行能力发现、参数查询和任务调用。使用说明见 [WinForms 示例客户端](samples/OpenTangYuan.WinFormsDemo/README_zh-CN.md)。
+示例客户端应先连接已经启动的 OpenTangYuan 运行时，再执行能力发现、参数查询和任务调用。使用说明见 [WinForms 示例客户端](samples/README_zh-CN.md)。
 
 ---
 
