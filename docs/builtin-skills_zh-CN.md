@@ -1,37 +1,54 @@
-[返回文档导航](README_zh-CN.md) · [返回项目首页](../README_zh-CN.md)
+[English](builtin-skills.md) · [返回文档导航](README_zh-CN.md) · [返回项目首页](../README_zh-CN.md)
 
 # 内置技能参考
 
-内置技能通过统一的 `ExecuteSkill` 接口执行：
+OpenTangYuan 将本地能力封装为内置技能。技能通过 `ExecuteSkill` 执行，其当前支持的动作、参数、示例、约束和副作用可以通过 `GetBuiltinSkillDetail` 查询。
 
-```http
-POST /api/Skills/ExecuteSkill
-```
+以下示例说明常见调用方式。当前版本的 `skill-manifest.json`、Swagger 定义和实际接口响应应作为最终依据。
 
-请求的基本结构为：
+## 1. 通用请求格式
 
 ```json
 {
-  "SkillCode": "skill_code",
-  "Arguments": {}
+  "SkillCode": "file_task",
+  "Arguments": {
+    "action": "search"
+  }
 }
 ```
 
-Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前版本的真实能力定义，再生成参数。本文档提供常见调用方式，实际字段以技能清单和 Swagger 为准。
+临时多步骤工作流将内置技能放入 `Steps`：
 
-## 1. `email_task`
+```json
+{
+  "SkillCode": "temp_task",
+  "Arguments": {},
+  "Steps": [
+    {
+      "Action": "file_task",
+      "Args": {
+        "action": "search",
+        "keyword": "报告",
+        "ext": "docx"
+      }
+    }
+  ]
+}
+```
 
-### 支持动作
+## 2. `email_task`
 
-| action | 说明 |
+常见邮箱动作包括：
+
+| action | 用途 |
 |---|---|
-| `send` | 发送邮件。 |
-| `search` | 搜索邮件。 |
-| `read` | 读取指定搜索结果的正文。 |
+| `send` | 发送新邮件。 |
+| `search` | 搜索邮件并返回列表。 |
+| `read` | 读取指定邮件内容。 |
 | `download_attachments` | 下载指定邮件的附件。 |
-| `reply` | 回复邮件。 |
-| `mark_read` | 标记邮件已读。 |
-| `save_eml` | 将邮件保存为 `.eml` 文件。 |
+| `reply` | 回复指定邮件。 |
+| `mark_read` | 将指定邮件标记为已读。 |
+| `save_eml` | 将指定邮件保存为 `.eml` 文件。 |
 
 ### 搜索邮件
 
@@ -52,7 +69,7 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
 }
 ```
 
-搜索成功后，应先向用户展示结果列表并停止。只有用户明确指定某一项时，才继续读取、下载附件、回复或标记已读。
+返回列表后，应先向用户展示结果并停止。只有用户明确指定邮件后，才继续读取或执行副作用操作。
 
 ### 读取邮件
 
@@ -90,7 +107,7 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
     "action": "send",
     "to": "someone@example.com",
     "subject": "测试邮件",
-    "body": "这是一封自动发送的邮件。",
+    "body": "这是一封由 OpenTangYuan 发送的邮件。",
     "attachments": [
       "D:\\Files\\report.docx"
     ],
@@ -101,22 +118,20 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
 }
 ```
 
-- `attachments`：普通附件；
-- `insertImagePaths`：插入邮件正文中的图片；
-- 发送成功后不要重复调用。
+普通附件使用 `attachments`，嵌入邮件正文的图片使用 `insertImagePaths`。发送或回复成功后应立即停止。
 
-## 2. `file_task`
+## 3. `file_task`
 
-### 支持动作
+常见文件动作包括：
 
-| action | 说明 |
+| action | 用途 |
 |---|---|
 | `search` | 搜索文件。 |
-| `copy` | 复制文件。 |
-| `move` | 移动文件。 |
-| `copy_many` | 批量复制。 |
-| `move_many` | 批量移动。 |
-| `rename` | 重命名。 |
+| `copy` | 复制单个文件。 |
+| `move` | 移动单个文件。 |
+| `copy_many` | 批量复制文件。 |
+| `move_many` | 批量移动文件。 |
+| `rename` | 重命名文件或目录。 |
 | `mkdir` | 创建目录。 |
 
 ### 搜索文件
@@ -157,19 +172,20 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
 }
 ```
 
-文件路径必须位于允许访问的范围内。复制、移动、重命名和删除等操作成功后不要重复执行。
+所有文件路径都应经过校验，并限制在配置的允许范围内。会修改文件状态的操作成功后不得自动重复执行。
 
-## 3. `browser_task`
+## 4. `browser_task`
 
-用于执行浏览器动作序列，例如：
+`browser_task` 用于执行浏览器自动化。当前清单可能支持：
 
 - 打开网页；
 - 等待元素；
-- 点击和输入；
+- 点击；
+- 输入文本；
 - 提取文本或列表；
-- 截图；
+- 截取网页；
 - 下载文件；
-- 保持或关闭 Session。
+- 保持或关闭浏览器 Session。
 
 示例：
 
@@ -197,17 +213,17 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
 }
 ```
 
-网页截图使用 `browser_task`；本地桌面或本地应用窗口截图通常使用 `open_task` 与 `screenshot_task` 组合。
+网页截图使用 `browser_task`；本地桌面或本地应用窗口截图使用 `screenshot_task`。
 
-## 4. `wechat_task`
+## 5. `wechat_task`
 
-支持向企业微信发送：
+常见企业微信动作包括：
 
-| action | 说明 |
+| action | 用途 |
 |---|---|
-| `text` | 文本消息。 |
-| `markdown` | Markdown 消息。 |
-| `card` | 图文卡片。 |
+| `text` | 发送文本消息。 |
+| `markdown` | 发送 Markdown 消息。 |
+| `card` | 发送卡片消息。 |
 
 示例：
 
@@ -222,11 +238,11 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
 }
 ```
 
-发送成功后不要重复调用。
+消息发送成功属于副作用操作，不应自动重复调用。
 
-## 5. `open_task`
+## 6. `open_task`
 
-打开本地文件、目录或程序：
+打开本地文件、目录或应用程序：
 
 ```json
 {
@@ -237,9 +253,9 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
 }
 ```
 
-目标路径必须存在，并且运行账户需要具有访问权限。对应文件类型还需要安装默认应用程序。
+目标应真实存在、位于允许范围内，并在需要时安装了关联应用程序。
 
-## 6. `print_task`
+## 7. `print_task`
 
 打印本地文件：
 
@@ -252,11 +268,11 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
 }
 ```
 
-打印属于副作用操作，建议在生产环境中增加确认和日志。
+打印属于副作用操作。执行前应确认文件、打印机状态和用户意图。
 
-## 7. `screenshot_task`
+## 8. `screenshot_task`
 
-用于截取本地桌面或活动窗口。常见示例：
+截取本地桌面或活动应用窗口：
 
 ```json
 {
@@ -267,40 +283,46 @@ Agent 应先通过 `GetSkillListForAI` 和 `GetBuiltinSkillDetail` 获取当前�
 }
 ```
 
-截图产生的文件路径可以通过工作流上下文传递给邮件或其他步骤。具体返回字段以当前技能详情为准。
+具体动作和返回字段应通过 `GetBuiltinSkillDetail` 查询。桌面截图要求运行在具有桌面访问能力的 Windows 会话中。
 
-## 8. `tool_task`
+## 9. `tool_task`
 
-调用允许的本地工具或可执行程序：
+调用白名单中的本地工具或可执行程序：
 
 ```json
 {
   "SkillCode": "tool_task",
   "Arguments": {
-    "exePath": "D:\\Tools\\LmyTools.exe",
+    "exePath": "D:\\Tools\\CustomTool.exe",
     "arguments": "--help",
     "timeout": 10
   }
 }
 ```
 
-只能调用程序白名单允许的可执行文件。不要将模型生成的任意命令直接交给系统执行。
+仅应允许明确批准的程序。应校验程序路径和参数，限制超时时间，并记录执行结果。
 
-## 9. 其他技能
+## 10. `folder_task`
 
-| SkillCode | 说明 |
-|---|---|
-| `folder_task` | 按扩展名等规则整理文件。 |
-| `lock_task` | 锁定本地工作站。 |
+`folder_task` 用于按照扩展名等规则整理文件。当前版本支持的动作名称和参数应通过 `GetBuiltinSkillDetail` 获取。
 
-如果当前部署增加了其他技能，应通过能力发现接口读取其定义，不应假设所有安装实例拥有相同的扩展技能。
+## 11. `lock_task`
 
-## 10. 调用安全规则
+`lock_task` 用于锁定本地工作站。该操作会改变用户桌面状态，只有在用户意图明确时才应执行。
 
-- 缺少路径、收件人、文件名或其他必要参数时先询问用户；
-- 不猜测本地路径或中间结果；
-- 列表查询成功后先展示结果并停止；
-- 副作用操作成功后立即停止；
-- 同一技能失败后最多修正参数重试一次；
-- 文件和程序操作必须受白名单限制；
-- 实际调用前应查看当前技能详情。
+## 12. 技能发现与版本差异
+
+不同部署可能暴露不同的技能集合或参数结构。Agent 和客户端应：
+
+1. 调用 `GetSkillListForAI` 获取当前能力目录；
+2. 在构造参数前调用 `GetBuiltinSkillDetail`；
+3. 只使用当前运行时返回的动作和字段；
+4. 对缺失的可选技能进行合理降级；
+5. 不在不兼容版本之间长期缓存技能定义。
+
+## 13. 相关文档
+
+- [核心 API 参考](api_zh-CN.md)
+- [架构与运行机制](architecture_zh-CN.md)
+- [Agent 集成指南](agent-integration_zh-CN.md)
+- [配置与安全控制](configuration-security_zh-CN.md)

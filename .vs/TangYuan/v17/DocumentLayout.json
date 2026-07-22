@@ -5,6 +5,10 @@
     {
       "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\README_zh-CN.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
       "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:README_zh-CN.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{D508948C-BB6C-47A7-B260-D2066F4B944A}|docs{D508948C-BB6C-47A7-B260-D2066F4B944A}|D:\\my\\OpenTangYuan\\docs\\agent-integration_zh-CN.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
+      "RelativeMoniker": "D:0:0:{D508948C-BB6C-47A7-B260-D2066F4B944A}|docs{D508948C-BB6C-47A7-B260-D2066F4B944A}|solutionrelative:docs\\agent-integration_zh-CN.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,7 +18,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Bookmark",
@@ -34,13 +38,26 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "agent-integration_zh-CN.md",
+              "DocumentMoniker": "D:\\my\\OpenTangYuan\\docs\\agent-integration_zh-CN.md",
+              "RelativeDocumentMoniker": "docs\\agent-integration_zh-CN.md",
+              "ToolTip": "D:\\my\\OpenTangYuan\\docs\\agent-integration_zh-CN.md",
+              "RelativeToolTip": "docs\\agent-integration_zh-CN.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAADwvwAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-07-22T08:07:32.848Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 0,
               "Title": "README_zh-CN.md",
               "DocumentMoniker": "D:\\my\\OpenTangYuan\\README_zh-CN.md",
               "RelativeDocumentMoniker": "README_zh-CN.md",
               "ToolTip": "D:\\my\\OpenTangYuan\\README_zh-CN.md",
               "RelativeToolTip": "README_zh-CN.md",
-              "ViewState": "AgIAAAAAAAAAAAAAAADwvxEAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAADwvxEAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
               "WhenOpened": "2026-07-22T07:28:19.747Z",
               "EditorCaption": ""

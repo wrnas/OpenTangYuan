@@ -60,14 +60,23 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决�
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{D508948C-BB6C-47A7-B260-D2066F4B944A}"
 	ProjectSection(SolutionItems) = preProject
+		docs\agent-integration.md = docs\agent-integration.md
 		docs\agent-integration_zh-CN.md = docs\agent-integration_zh-CN.md
+		docs\api.md = docs\api.md
 		docs\api_zh-CN.md = docs\api_zh-CN.md
+		docs\architecture.md = docs\architecture.md
 		docs\architecture_zh-CN.md = docs\architecture_zh-CN.md
+		docs\builtin-skills.md = docs\builtin-skills.md
 		docs\builtin-skills_zh-CN.md = docs\builtin-skills_zh-CN.md
+		docs\configuration-security.md = docs\configuration-security.md
 		docs\configuration-security_zh-CN.md = docs\configuration-security_zh-CN.md
+		docs\coze-system-prompt.md = docs\coze-system-prompt.md
 		docs\coze-system-prompt_zh-CN.md = docs\coze-system-prompt_zh-CN.md
+		docs\deployment-platform.md = docs\deployment-platform.md
 		docs\deployment-platform_zh-CN.md = docs\deployment-platform_zh-CN.md
+		docs\README.md = docs\README.md
 		docs\README_zh-CN.md = docs\README_zh-CN.md
+		docs\troubleshooting.md = docs\troubleshooting.md
 		docs\troubleshooting_zh-CN.md = docs\troubleshooting_zh-CN.md
 	EndProjectSection
 EndProject
