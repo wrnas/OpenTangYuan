@@ -94,6 +94,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "images", "images", "{99811B
 		docs\images\swagger-1.png = docs\images\swagger-1.png
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{D8025230-AF9D-4240-A23F-E920F20A173C}"
+	ProjectSection(SolutionItems) = preProject
+		samples\demo.png = samples\demo.png
+		samples\OpenTangYuan_Demo_Guide.md = samples\OpenTangYuan_Demo_Guide.md
+		samples\OpenTangYuan_Demo_Guide_ZH.md = samples\OpenTangYuan_Demo_Guide_ZH.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -118,6 +125,7 @@ Global
 		{D9CF73B9-D1BF-45A4-9D54-175F371C457C} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{D508948C-BB6C-47A7-B260-D2066F4B944A} = {9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}
 		{99811B2D-D62F-481F-9EDF-154241A723AE} = {D508948C-BB6C-47A7-B260-D2066F4B944A}
+		{D8025230-AF9D-4240-A23F-E920F20A173C} = {9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C2C0C6B2-EFD3-469A-93CE-95F2D86BF488}
