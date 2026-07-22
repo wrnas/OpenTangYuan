@@ -1253,19 +1253,6 @@ OpenTangYuan 能够执行具有副作用的本地操作，因此应当在受信�
 
 # 14. 后续待完善
 
-建议后续继续补充：
-
-- Swagger 截图；
-- OpenAPI JSON；
-- `skill-manifest.json` 完整说明；
-- `docs/workflow.md`；
-- `docs/builtins.md`；
-- `docs/deployment.md`；
-- `docs/security.md`；
-- smoke test 脚本；
-- API 自动化测试；
-- 示例配置 `appsettings.example.json`；
-- Release 与 Zenodo DOI。
 
 ---
 

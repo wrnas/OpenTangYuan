@@ -55,6 +55,34 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决�
 		readme_En.md = readme_En.md
 		README_en_v2.0.md = README_en_v2.0.md
 		readme_New.md = readme_New.md
+		README_zh-CN.md = README_zh-CN.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{D508948C-BB6C-47A7-B260-D2066F4B944A}"
+	ProjectSection(SolutionItems) = preProject
+		docs\agent-integration_zh-CN.md = docs\agent-integration_zh-CN.md
+		docs\api_zh-CN.md = docs\api_zh-CN.md
+		docs\architecture_zh-CN.md = docs\architecture_zh-CN.md
+		docs\builtin-skills_zh-CN.md = docs\builtin-skills_zh-CN.md
+		docs\configuration-security_zh-CN.md = docs\configuration-security_zh-CN.md
+		docs\coze-system-prompt_zh-CN.md = docs\coze-system-prompt_zh-CN.md
+		docs\deployment-platform_zh-CN.md = docs\deployment-platform_zh-CN.md
+		docs\README_zh-CN.md = docs\README_zh-CN.md
+		docs\troubleshooting_zh-CN.md = docs\troubleshooting_zh-CN.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "images", "images", "{99811B2D-D62F-481F-9EDF-154241A723AE}"
+	ProjectSection(SolutionItems) = preProject
+		docs\images\architecture.png = docs\images\architecture.png
+		docs\images\capability-discovery.png = docs\images\capability-discovery.png
+		docs\images\coze-agent-config.png = docs\images\coze-agent-config.png
+		docs\images\coze-trace.png = docs\images\coze-trace.png
+		docs\images\demo-1.png = docs\images\demo-1.png
+		docs\images\demo-2.png = docs\images\demo-2.png
+		docs\images\Figure2_Capability_Discovery_Sequence.png = docs\images\Figure2_Capability_Discovery_Sequence.png
+		docs\images\Figure3_Deployment_Topology.png = docs\images\Figure3_Deployment_Topology.png
+		docs\images\skill-manifest.png = docs\images\skill-manifest.png
+		docs\images\swagger-1.png = docs\images\swagger-1.png
 	EndProjectSection
 EndProject
 Global
@@ -79,6 +107,8 @@ Global
 		{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{C4ECE238-1CB1-4039-B00F-98C30562914F} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{D9CF73B9-D1BF-45A4-9D54-175F371C457C} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{D508948C-BB6C-47A7-B260-D2066F4B944A} = {9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}
+		{99811B2D-D62F-481F-9EDF-154241A723AE} = {D508948C-BB6C-47A7-B260-D2066F4B944A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C2C0C6B2-EFD3-469A-93CE-95F2D86BF488}

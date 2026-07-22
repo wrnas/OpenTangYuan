@@ -3,32 +3,8 @@
   "WorkspaceRootPath": "D:\\my\\OpenTangYuan\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\readme_En.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:readme_En.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\readMe.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:readMe.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|doc{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|D:\\my\\OpenTangYuan\\doc\\AiBrowser.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|doc{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|solutionrelative:doc\\AiBrowser.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}|docs{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}|D:\\my\\OpenTangYuan\\doc\\docs\\api.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}|docs{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}|solutionrelative:doc\\docs\\api.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}|docs{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}|D:\\my\\OpenTangYuan\\doc\\docs\\api-cn.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}|docs{7DE8B2C7-B3C4-491E-82E7-4D78532C5E2E}|solutionrelative:doc\\docs\\api-cn.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|doc{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|D:\\my\\OpenTangYuan\\doc\\workflowTips.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|doc{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|solutionrelative:doc\\workflowTips.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|doc{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|D:\\my\\OpenTangYuan\\doc\\TipForCoze.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|doc{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}|solutionrelative:doc\\TipForCoze.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
+      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\README_zh-CN.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
+      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:README_zh-CN.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
     }
   ],
   "DocumentGroupContainers": [
@@ -38,7 +14,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 9,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
@@ -58,93 +34,15 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "AiBrowser.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\doc\\AiBrowser.md",
-              "RelativeDocumentMoniker": "doc\\AiBrowser.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\doc\\AiBrowser.md",
-              "RelativeToolTip": "doc\\AiBrowser.md",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAYAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-22T06:07:00.885Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "api.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\doc\\docs\\api.md",
-              "RelativeDocumentMoniker": "doc\\docs\\api.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\doc\\docs\\api.md",
-              "RelativeToolTip": "doc\\docs\\api.md",
-              "ViewState": "AgIAADkAAAAAAAAAAADwv0oAAAADAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-22T06:02:29.065Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "api-cn.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\doc\\docs\\api-cn.md",
-              "RelativeDocumentMoniker": "doc\\docs\\api-cn.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\doc\\docs\\api-cn.md",
-              "RelativeToolTip": "doc\\docs\\api-cn.md",
-              "ViewState": "AgIAANIAAAAAAAAAAAAAAH4AAAAYAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-22T06:02:17.913Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "workflowTips.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\doc\\workflowTips.md",
-              "RelativeDocumentMoniker": "doc\\workflowTips.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\doc\\workflowTips.md",
-              "RelativeToolTip": "doc\\workflowTips.md",
-              "ViewState": "AgIAAFoAAAAAAAAAAAAAAA8AAAANAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-22T06:01:51.917Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "TipForCoze.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\doc\\TipForCoze.md",
-              "RelativeDocumentMoniker": "doc\\TipForCoze.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\doc\\TipForCoze.md",
-              "RelativeToolTip": "doc\\TipForCoze.md",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAEAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-22T06:01:47.198Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "readme_En.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\readme_En.md",
-              "RelativeDocumentMoniker": "readme_En.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\readme_En.md",
-              "RelativeToolTip": "readme_En.md",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAA==",
+              "Title": "README_zh-CN.md",
+              "DocumentMoniker": "D:\\my\\OpenTangYuan\\README_zh-CN.md",
+              "RelativeDocumentMoniker": "README_zh-CN.md",
+              "ToolTip": "D:\\my\\OpenTangYuan\\README_zh-CN.md",
+              "RelativeToolTip": "README_zh-CN.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAADwvwAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-22T03:24:04.471Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "readMe.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\readMe.md",
-              "RelativeDocumentMoniker": "readMe.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\readMe.md",
-              "RelativeToolTip": "readMe.md",
-              "ViewState": "AgIAANcBAAAAAAAAAAAEwOUBAAAWAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-22T03:23:56.374Z",
+              "WhenOpened": "2026-07-22T07:28:19.747Z",
               "EditorCaption": ""
             }
           ]
