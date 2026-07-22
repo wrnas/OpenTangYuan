@@ -2,7 +2,7 @@
 
 <p align="center">
 
-  # <img src="logo.png" alt="OpenTangYuan Logo" width="36"> OpenTangYuan
+  <img src="logo.png" alt="OpenTangYuan Logo" width="36"> OpenTangYuan
 
 </p>
 
