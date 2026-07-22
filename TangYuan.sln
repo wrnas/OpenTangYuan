@@ -97,8 +97,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{D8025230-AF9D-4240-A23F-E920F20A173C}"
 	ProjectSection(SolutionItems) = preProject
 		samples\demo.png = samples\demo.png
-		samples\OpenTangYuan_Demo_Guide.md = samples\OpenTangYuan_Demo_Guide.md
-		samples\OpenTangYuan_Demo_Guide_ZH.md = samples\OpenTangYuan_Demo_Guide_ZH.md
+		samples\README_zh-CN.md = samples\README_zh-CN.md
+		samples\README.md = samples\README.md
 	EndProjectSection
 EndProject
 Global
