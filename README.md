@@ -49,6 +49,28 @@ OpenTangYuan is not a chatbot and is not tied to one agent platform. It provides
 
 ---
 
+## Key Features
+
+OpenTangYuan provides a practical execution runtime for AI-driven office automation with the following core capabilities:
+
+- 🔒 **Cloud-planned, locally executed architecture**  
+  AI agents handle task understanding and planning, while all sensitive operations are executed only inside a trusted local runtime.
+
+- 🧩 **Manifest-driven skill discovery**  
+  Skills are described through structured manifests, allowing agents to discover capabilities and retrieve detailed parameter definitions on demand.
+
+- 🔄 **Flexible workflow orchestration**  
+  Supports reusable database workflows, temporary AI-generated workflows, and direct execution of individual built-in skills.
+
+- 📁 **Rich local and enterprise integrations**  
+  Automates files, email, browsers, screenshots, desktop applications, enterprise messaging, and other local resources through a unified interface.
+
+- 🌐 **Unified REST / OpenAPI interfaces**  
+  Provides consistent discovery and execution APIs that can be integrated with Coze, Dify, GPTs, desktop clients, or custom AI agents.
+
+- 🛡️ **Security-first execution model**  
+  Supports path allowlists, executable allowlists, policy validation, execution logging, and other controls to reduce the risks of AI-driven automation.
+
 ## Why OpenTangYuan?
 
 OpenTangYuan focuses on capability discovery, multi-step execution, context propagation, and local permission control in real automation environments.
