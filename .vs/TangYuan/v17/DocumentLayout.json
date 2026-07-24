@@ -3,8 +3,8 @@
   "WorkspaceRootPath": "D:\\my\\OpenTangYuan\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\readMe.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:readMe.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
+      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\README.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
+      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:README.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,21 +14,8 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 4,
           "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "readMe.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\readMe.md",
-              "RelativeDocumentMoniker": "readMe.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\readMe.md",
-              "RelativeToolTip": "readMe.md",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-24T05:38:37.272Z",
-              "EditorCaption": ""
-            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
@@ -44,6 +31,19 @@
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "README.md",
+              "DocumentMoniker": "D:\\my\\OpenTangYuan\\README.md",
+              "RelativeDocumentMoniker": "README.md",
+              "ToolTip": "D:\\my\\OpenTangYuan\\README.md",
+              "RelativeToolTip": "README.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-07-24T05:45:28.318Z",
+              "EditorCaption": ""
             }
           ]
         }

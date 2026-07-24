@@ -3,12 +3,8 @@
   "WorkspaceRootPath": "D:\\my\\OpenTangYuan\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\readme_En.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:readme_En.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\readMe.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
-      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:readMe.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
+      "AbsoluteMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|D:\\my\\OpenTangYuan\\README.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
+      "RelativeMoniker": "D:0:0:{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|\u89E3\u51B3\u65B9\u6848\u9879{9FA3D6BD-1EC1-3BA5-80CB-CE02773A58D5}|solutionrelative:README.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
     }
   ],
   "DocumentGroupContainers": [
@@ -39,27 +35,14 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "readme_En.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\readme_En.md",
-              "RelativeDocumentMoniker": "readme_En.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\readme_En.md",
-              "RelativeToolTip": "readme_En.md",
-              "ViewState": "AgIAAFEAAAAAAAAAAAAAAGIAAAAAAAAAAAAAAA==",
+              "Title": "README.md",
+              "DocumentMoniker": "D:\\my\\OpenTangYuan\\README.md",
+              "RelativeDocumentMoniker": "README.md",
+              "ToolTip": "D:\\my\\OpenTangYuan\\README.md",
+              "RelativeToolTip": "README.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAADwvxIAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-24T05:19:47.507Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "readMe.md",
-              "DocumentMoniker": "D:\\my\\OpenTangYuan\\readMe.md",
-              "RelativeDocumentMoniker": "readMe.md",
-              "ToolTip": "D:\\my\\OpenTangYuan\\readMe.md",
-              "RelativeToolTip": "readMe.md",
-              "ViewState": "AgIAABUAAAAAAAAAAAAAAA8AAAAqAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-07-22T08:35:28.334Z",
+              "WhenOpened": "2026-07-24T05:45:28.318Z",
               "EditorCaption": ""
             }
           ]

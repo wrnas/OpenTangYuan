@@ -1,24 +1,23 @@
-[English](readMe.md)
+[中文版](README_zh-CN.md)
 
-# <img src="logo.png" alt="OpenTangYuan Logo" width="36"> OpenTangYuan
-
+# OpenTangYuan
 
 <p align="center">
-  <strong>面向隐私敏感办公自动化的云端规划—本地执行 Agent 工作流运行时</strong>
+  <strong>Cloud-Planned, Locally Executed Agent Workflow Runtime for Privacy-Sensitive Office Automation</strong>
 </p>
 
 <p align="center">
-  通过云端任务理解与规划、可信本地执行，将浏览器、邮箱、文件系统、企业消息、本地工具和内部系统连接起来。
+  Connect browsers, email, file systems, enterprise messaging, local tools, and internal systems through cloud-side task understanding and planning with trusted local execution.
 </p>
 
 <p align="center">
-  <a href="#项目简介">项目简介</a> ·
-  <a href="#为什么使用-opentangyuan">设计特点</a> ·
-  <a href="#系统架构">系统架构</a> ·
-  <a href="#快速开始">快速开始</a> ·
-  <a href="#工作流示例">工作流示例</a> ·
-  <a href="#文档">文档</a> ·
-  <a href="#安全与平台边界">安全边界</a>
+  <a href="#overview">Overview</a> ·
+  <a href="#why-opentangyuan">Design Highlights</a> ·
+  <a href="#system-architecture">Architecture</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#workflow-example">Workflow Example</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="#security-and-platform-boundaries">Security Boundaries</a>
 </p>
 
 <p align="center">
@@ -30,134 +29,136 @@
 
 ---
 
-## 项目简介
+## Overview
 
-**OpenTangYuan** 是一个开源的 **Agent 工作流运行时**，面向需要访问本地文件、邮箱、浏览器、桌面应用、企业消息平台或内部系统的办公自动化场景。
+**OpenTangYuan** is an open-source **Agent Workflow Runtime** for office automation scenarios that require access to local files, email, browsers, desktop applications, enterprise messaging platforms, or internal systems.
 
-许多外部 AI Agent 能够理解用户意图并规划任务，但实际执行往往需要接触敏感数据或拥有本地操作权限。OpenTangYuan 将这两部分分开：
-
-```text
-云端或外部 Agent：理解意图、发现能力、规划任务、生成参数
-可信本地运行时：验证请求、执行技能、管理工作流上下文、返回结构化结果
-企业与本地资源：仅由可信本地运行时访问
-```
-
-外部 Agent 可以按需查询本地可用能力，获取技能或工作流的参数说明，组合单步或多步任务，再将任务提交给本地运行时执行。敏感数据和实际执行权限保留在用户控制的环境中。
-
-OpenTangYuan 本身不是聊天机器人，也不绑定某一种 Agent 平台。它提供的是一个可供 Coze、Dify、GPTs、自定义 Agent 网关或普通桌面客户端调用的执行层。
-
----
-
-## 为什么使用 OpenTangYuan？
-
-OpenTangYuan 重点解决真实自动化场景中的能力发现、多步执行、上下文传递和本地权限控制问题。
-
-1. **清单驱动的技能注册**  
-   本地技能通过结构化清单描述能力、参数、动作、约束和副作用。Agent 可以先获取摘要，再按需查询详细定义，而不必一次性加载全部工具说明。
-
-2. **可复用与临时工作流并存**  
-   系统既可以执行数据库中保存的工作流，也可以执行 Agent 在运行时生成的临时多步骤任务。
-
-3. **可信本地执行**  
-   文件、邮件、浏览器、截图、本地程序和企业系统操作均在本地运行时完成，外部 Agent 不直接访问这些资源。
-
-4. **工作流上下文传递**  
-   每一步的结果会写入执行上下文，后续步骤可通过 `{{step0.data.path}}` 等模板变量引用前序结果。
-
-5. **可控的副作用操作**  
-   文件修改、邮件发送、打印和程序启动等操作可结合路径白名单、程序白名单、认证、策略校验和执行日志进行控制。
-
-6. **统一的发现与执行接口**  
-   一组稳定的 REST API 支持技能发现、详情查询、工作流读取和统一执行，方便接入不同 Agent 或客户端。
-
----
-
-## 主要能力
-
-OpenTangYuan 适用于需要跨多个本地或企业系统执行的任务，例如：
-
-- 搜索、复制、移动、重命名、打开和整理本地文件；
-- 搜索、读取、回复和发送邮件，以及下载附件或在正文中插入截图；
-- 打开网页、提取页面内容、截图和下载文件；
-- 向企业微信等消息平台发送通知；
-- 启动白名单中的本地工具或程序；
-- 将多个内置技能组合为可复用工作流；
-- 接收外部 Agent、桌面客户端或自定义网关提交的任务。
-
-一个典型的多步骤任务可以是：
+Many external AI agents can understand user intent and plan tasks, but real execution often requires access to sensitive data or local operating privileges. OpenTangYuan separates these responsibilities:
 
 ```text
-搜索文件 → 打开文件 → 截取屏幕 → 将截图和原文件发送到邮箱
+Cloud-side or external agent: understand intent, discover capabilities,
+                              plan tasks, and generate parameters
+Trusted local runtime:       validate requests, execute skills,
+                              manage workflow context, and return structured results
+Local and enterprise assets: accessed only by the trusted local runtime
+```
+
+An external agent can query the capabilities available in the local environment, retrieve skill or workflow parameter definitions, compose single-step or multi-step jobs, and submit them to the local runtime. Sensitive data and execution privileges remain in an environment controlled by the user.
+
+OpenTangYuan is not a chatbot and is not tied to one agent platform. It provides an execution layer that can be called by Coze, Dify, GPTs, a custom agent gateway, or an ordinary desktop client.
+
+---
+
+## Why OpenTangYuan?
+
+OpenTangYuan focuses on capability discovery, multi-step execution, context propagation, and local permission control in real automation environments.
+
+1. **Manifest-driven skill registration**  
+   Local skills are described through structured manifests that define capabilities, parameters, actions, constraints, and side effects. Agents can retrieve summaries first and query detailed definitions only when needed, instead of loading every tool description at once.
+
+2. **Reusable and temporary workflows**  
+   The runtime can execute workflows stored in a database as well as temporary multi-step jobs generated dynamically by an agent or client.
+
+3. **Trusted local execution**  
+   File, email, browser, screenshot, local application, and enterprise-system operations are performed inside the local runtime. External agents do not access these resources directly.
+
+4. **Workflow context propagation**  
+   Each step result is stored in the execution context. Later steps can reference earlier outputs through template variables such as `{{step0.data.path}}`.
+
+5. **Controlled side effects**  
+   File changes, email delivery, printing, and program execution can be restricted through path allowlists, executable allowlists, authentication, policy validation, and execution logs.
+
+6. **Unified discovery and execution APIs**  
+   A stable set of REST APIs supports skill discovery, detail lookup, workflow retrieval, and unified execution across different agents and clients.
+
+---
+
+## Key Capabilities
+
+OpenTangYuan is intended for tasks that span multiple local or enterprise systems, including:
+
+- searching, copying, moving, renaming, opening, and organizing local files;
+- searching, reading, replying to, and sending email, including downloading attachments or embedding screenshots in message bodies;
+- opening web pages, extracting content, taking screenshots, and downloading files;
+- sending notifications to enterprise messaging platforms such as WeChat Work;
+- launching allowlisted local tools or applications;
+- combining built-in skills into reusable workflows;
+- accepting tasks from external agents, desktop clients, or custom gateways.
+
+A representative multi-step task is:
+
+```text
+Search for a file → open it → capture the screen → send the screenshot and file by email
 ```
 
 ---
 
-## 系统架构
+## System Architecture
 
-![OpenTangYuan 系统架构](docs/images/architecture.png)
+![OpenTangYuan system architecture](docs/images/architecture.png)
 
-OpenTangYuan 采用云端或外部 Agent 与本地运行时协作的架构：
+OpenTangYuan uses a collaborative architecture between an external agent and a trusted local runtime:
 
-| 层级 | 主要职责 |
+| Layer | Primary responsibility |
 |---|---|
-| 用户与 Agent 层 | Web、移动端、聊天界面、Coze、Dify、GPTs、自定义 Agent 或桌面客户端。 |
-| 能力发现与编排层 | 工作流目录、技能清单、能力查询、参数生成和调用路由。 |
-| 可信本地运行时 | 请求验证、策略检查、工作流调度、技能调用、上下文管理和结果封装。 |
-| 本地与企业集成层 | 浏览器、邮箱、文件系统、企业消息、本地程序、OA、ERP/CRM 和自定义接口。 |
-| 治理与运维 | 访问控制、日志、审计、监控、告警和敏感配置管理。 |
+| User and Agent Layer | Web, mobile, chat interfaces, Coze, Dify, GPTs, custom agents, and desktop clients. |
+| Capability Discovery and Orchestration Layer | Workflow catalog, skill manifests, capability queries, parameter generation, and routing. |
+| Trusted Local Runtime | Request validation, policy checks, workflow scheduling, skill invocation, context management, and result packaging. |
+| Local and Enterprise Integration Layer | Browsers, email, file systems, enterprise messaging, local programs, OA, ERP/CRM, and custom APIs. |
+| Governance and Operations | Access control, logging, auditing, monitoring, alerting, and sensitive configuration management. |
 
-完整设计说明见 [架构与运行机制](docs/architecture_zh-CN.md)。
+For a detailed design description, see [Architecture and Runtime Model](docs/architecture.md).
 
 ---
 
-## 快速开始
+## Quick Start
 
-### 环境要求
+### Requirements
 
-完整桌面自动化建议运行在 Windows 10、Windows 11 或 Windows Server 2016 及以上版本。
+Full desktop automation is best run on Windows 10, Windows 11, or Windows Server 2016 and later.
 
-基础要求：
+Basic requirements:
 
-- .NET 8 SDK 或 Runtime；
-- Visual Studio 2022、JetBrains Rider、VS Code 或 `dotnet` CLI；
-- SQLite；
-- 按需配置邮箱、企业消息 Webhook、浏览器或本地工具。
+- .NET 8 SDK or Runtime;
+- Visual Studio 2022, JetBrains Rider, VS Code, or the `dotnet` CLI;
+- SQLite;
+- optional email, enterprise messaging webhook, browser, and local tool configuration.
 
-服务端 API 可在 Linux 或 Docker 中运行，但桌面文件搜索、打开文档、屏幕截图和本地程序调用仍需要具有桌面访问能力的 Windows 环境。
+The server-side API can run on Linux or in Docker, but desktop file search, document opening, screenshots, and local application invocation still require a Windows environment with desktop access.
 
-### 克隆仓库
+### Clone the repository
 
 ```bash
 git clone https://github.com/wrnas/OpenTangYuan.git
 cd OpenTangYuan
 ```
 
-### 恢复并编译
+### Restore and build
 
 ```bash
 dotnet restore TangYuan.sln
 dotnet build TangYuan.sln
 ```
 
-### 启动运行时
+### Start the runtime
 
-项目代码位于 `src/OpenTangYuan/`。在仓库根目录运行：
+The application source is located under `src/OpenTangYuan/`. From the repository root, run:
 
 ```bash
 dotnet run --project src/OpenTangYuan --urls "http://localhost:54124"
 ```
 
-### 验证服务
+### Verify the service
 
 ```bash
 curl -X POST http://localhost:54124/api/Skills/GetSkillListForAI
 ```
 
-正常情况下会返回当前可用的工作流和内置技能摘要。
+A successful response contains summaries of the workflows and built-in skills available in the current installation.
 
 ### Swagger / OpenAPI
 
-服务启动后访问：
+After the service starts, open:
 
 ```text
 http://localhost:54124/swagger
@@ -165,19 +166,19 @@ http://localhost:54124/swagger
 
 ![Swagger](docs/images/swagger-1.png)
 
-配置邮箱、文件访问范围和本地程序白名单前，请先阅读 [配置与安全控制](docs/configuration-security_zh-CN.md)。
+Before configuring email, file access, or local executable allowlists, read [Configuration and Security Controls](docs/configuration-security.md).
 
 ---
 
-## 核心概念
+## Core Concepts
 
-### 技能（Skill）
+### Skill
 
-每个可执行操作都表示为一个技能，例如 `email_task`、`file_task`、`browser_task` 或 `screenshot_task`。技能通过统一接口暴露给不同的 Agent 和客户端。
+Each executable operation is represented as a skill, such as `email_task`, `file_task`, `browser_task`, or `screenshot_task`. Skills are exposed through a unified interface so that different agents and clients can invoke them consistently.
 
-### 先发现，再执行
+### Discover Before Executing
 
-Agent 不需要预先记住所有技能及参数。推荐调用顺序为：
+Agents do not need to memorize every skill and parameter in advance. The recommended call sequence is:
 
 ```text
 GetSkillListForAI
@@ -187,17 +188,17 @@ GetBuiltinSkillDetail / GetSkillAction
 ExecuteSkill / ExecuteSkillForCoze
 ```
 
-### 工作流（Workflow）
+### Workflow
 
-多个技能可以组合为一个工作流。系统支持：
+Multiple skills can be composed into a workflow. OpenTangYuan supports:
 
-- 数据库中保存的可复用工作流；
-- 请求中临时提交的多步骤工作流；
-- 直接执行单个内置技能。
+- reusable workflows stored in a database;
+- temporary multi-step workflows supplied in a request;
+- direct execution of a single built-in skill.
 
-### 上下文变量
+### Context Variables
 
-每一步执行结果会保存为 `step0`、`step1`、`step2` 等上下文对象。后续步骤可以引用：
+Each step result is stored as a context object such as `step0`, `step1`, or `step2`. Later steps can reference values through expressions such as:
 
 ```text
 {{step0}}
@@ -207,13 +208,13 @@ ExecuteSkill / ExecuteSkillForCoze
 {{step1.result}}
 ```
 
-字段路径必须与前一步真实返回的数据结构一致。
+The field path must match the actual response structure returned by the previous step.
 
 ---
 
-## 工作流示例
+## Workflow Example
 
-以下临时工作流依次搜索文件、打开文件、截图，并将截图插入邮件正文，同时附加原文件：
+The following temporary workflow searches for a file, opens it, captures the screen, embeds the screenshot in an email, and attaches the original file:
 
 ```json
 {
@@ -245,8 +246,8 @@ ExecuteSkill / ExecuteSkillForCoze
       "Args": {
         "action": "send",
         "to": "someone@example.com",
-        "subject": "文件截图与附件",
-        "body": "以下是自动截图，原文件已作为附件发送。",
+        "subject": "Document Screenshot and Attachment",
+        "body": "The automatically captured screenshot is shown below. The original file is attached.",
         "insertImagePaths": [
           "{{step2.data.path}}"
         ],
@@ -259,100 +260,100 @@ ExecuteSkill / ExecuteSkillForCoze
 }
 ```
 
-详细的执行模式、响应结构和错误处理见 [核心 API 参考](docs/api_zh-CN.md) 与 [内置技能参考](docs/builtin-skills_zh-CN.md)。
+For execution modes, response structures, and error handling, see the [Core API Reference](docs/api.md) and [Built-in Skills Reference](docs/builtin-skills.md).
 
 ---
 
-## WinForms 示例客户端
+## WinForms Reference Client
 
-仓库可在 `samples/OpenTangYuan.WinFormsDemo/` 中放置独立的 WinForms 示例客户端，用于展示普通桌面程序如何通过 REST API 调用 OpenTangYuan，而不依赖特定的 Agent 平台。
+An independent WinForms reference client can be placed under `samples/OpenTangYuan.WinFormsDemo/` to demonstrate how a standard desktop application can call OpenTangYuan through its REST APIs without depending on a specific agent platform.
 
-示例客户端应先连接已经启动的 OpenTangYuan 运行时，再执行能力发现、参数查询和任务调用。使用说明见 [WinForms 示例客户端](samples/README_zh-CN.md)。
+The client should connect to a running OpenTangYuan instance before performing capability discovery, parameter lookup, and task execution. See [WinForms Reference Client](samples/README.md) for usage instructions.
 
 ---
 
-## 内置技能
+## Built-in Skills
 
-| SkillCode | 说明 |
+| SkillCode | Description |
 |---|---|
-| `email_task` | 搜索、读取、发送、回复邮件，下载附件、标记已读和保存 `.eml`。 |
-| `wechat_task` | 向企业微信发送文本、Markdown 或卡片消息。 |
-| `browser_task` | 打开网页、执行浏览器动作、提取内容、截图和下载文件。 |
-| `file_task` | 搜索、复制、移动、重命名文件，创建目录和批量操作。 |
-| `open_task` | 打开本地文件、目录或程序。 |
-| `print_task` | 打印本地文件。 |
-| `tool_task` | 调用白名单中的本地工具或可执行程序。 |
-| `screenshot_task` | 截取全屏或活动窗口。 |
-| `folder_task` | 按扩展名等规则整理文件。 |
-| `lock_task` | 锁定本地工作站。 |
+| `email_task` | Search, read, send, and reply to email; download attachments, mark messages as read, and save `.eml` files. |
+| `wechat_task` | Send text, Markdown, or card messages to WeChat Work. |
+| `browser_task` | Open pages, run browser actions, extract content, take screenshots, and download files. |
+| `file_task` | Search, copy, move, and rename files; create directories and run batch operations. |
+| `open_task` | Open local files, directories, or applications. |
+| `print_task` | Print local files. |
+| `tool_task` | Invoke allowlisted local tools or executables. |
+| `screenshot_task` | Capture the full screen or active window. |
+| `folder_task` | Organize files by extension or other rules. |
+| `lock_task` | Lock the local workstation. |
 
 ---
 
-## 文档
+## Documentation
 
-- [文档导航](docs/README_zh-CN.md)
-- [架构与运行机制](docs/architecture_zh-CN.md)
-- [核心 API 参考](docs/api_zh-CN.md)
-- [内置技能参考](docs/builtin-skills_zh-CN.md)
-- [配置与安全控制](docs/configuration-security_zh-CN.md)
-- [Agent 集成指南](docs/agent-integration_zh-CN.md)
-- [Coze 系统提示词](docs/coze-system-prompt_zh-CN.md)
-- [部署与平台支持](docs/deployment-platform_zh-CN.md)
-- [故障排查](docs/troubleshooting_zh-CN.md)
-- [WinForms 示例客户端](samples/README_zh-CN.md)
-
----
-
-## 安全与平台边界
-
-OpenTangYuan 能够发送邮件、修改文件、控制浏览器、截图、打印和启动本地程序，因此应运行在受信任的环境中。
-
-部署时至少应遵循以下原则：
-
-- 不要将运行时直接暴露到公网；
-- 不要将邮箱授权码、Webhook Key、API Token 或内部系统凭据提交到仓库；
-- 使用路径白名单限制文件访问范围；
-- 使用程序白名单限制可以启动的可执行文件；
-- 对发送邮件、删除或移动文件、打印等副作用操作保留日志；
-- 对高风险操作增加人工确认或审批；
-- 对外部 Agent 生成的参数进行验证，不信任未经检查的路径和命令；
-- 同一副作用操作成功后不要重复执行。
-
-完整说明见 [配置与安全控制](docs/configuration-security_zh-CN.md)。
+- [Documentation Index](docs/README.md)
+- [Architecture and Runtime Model](docs/architecture.md)
+- [Core API Reference](docs/api.md)
+- [Built-in Skills Reference](docs/builtin-skills.md)
+- [Configuration and Security Controls](docs/configuration-security.md)
+- [Agent Integration Guide](docs/agent-integration.md)
+- [Coze System Prompt](docs/coze-system-prompt.md)
+- [Deployment and Platform Support](docs/deployment-platform.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [WinForms Reference Client](samples/README.md)
 
 ---
 
-## 技术栈
+## Security and Platform Boundaries
 
-- .NET 8 / C#；
-- ASP.NET Web API；
-- SQLite / Dapper；
-- MailKit；
-- Playwright；
-- Everything SDK 或 Windows Search；
-- REST API / JSON Manifest；
-- 可选 Docker 部署。
+OpenTangYuan can send email, modify files, control browsers, capture screenshots, print documents, and launch local programs. It should therefore run only in a trusted environment.
 
----
+At minimum, deployments should follow these principles:
 
-## 参与贡献
+- do not expose the runtime directly to the public internet;
+- do not commit email authorization codes, webhook keys, API tokens, or internal-system credentials;
+- use path allowlists to restrict file-system access;
+- use executable allowlists to restrict which programs can be launched;
+- retain logs for side-effect operations such as sending email, deleting or moving files, and printing;
+- add human confirmation or approval for high-risk actions;
+- validate parameters generated by external agents and do not trust unchecked paths or commands;
+- never repeat a side-effect operation after it has completed successfully.
 
-欢迎提交 Issue 和 Pull Request。建议在提交前：
-
-1. 确认代码能够通过 `dotnet build TangYuan.sln`；
-2. 不提交真实凭据、内部地址、私人邮件、运行日志或敏感截图；
-3. 对新增技能补充清单、参数说明和调用示例；
-4. 对具有副作用的操作补充边界检查和错误处理；
-5. 同步更新相关文档。
+See [Configuration and Security Controls](docs/configuration-security.md) for the full guidance.
 
 ---
 
-## 许可证
+## Technology Stack
 
-本项目采用 MIT License。详情见 [LICENSE](LICENSE)。
+- .NET 8 / C#;
+- ASP.NET Web API;
+- SQLite / Dapper;
+- MailKit;
+- Playwright;
+- Everything SDK or Windows Search;
+- REST API / JSON manifests;
+- optional Docker deployment.
 
 ---
 
-## 致谢
+## Contributing
 
-感谢所有参与设计、开发、测试和反馈的贡献者。
+Issues and pull requests are welcome. Before submitting changes:
+
+1. confirm that the solution builds with `dotnet build TangYuan.sln`;
+2. do not commit real credentials, internal addresses, private email, runtime logs, or sensitive screenshots;
+3. document manifests, parameters, and usage examples for new skills;
+4. add boundary checks and error handling for operations with side effects;
+5. update all related documentation.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## Acknowledgements
+
+Thank you to everyone who has contributed to the design, development, testing, and improvement of OpenTangYuan.
