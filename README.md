@@ -1,10 +1,10 @@
 [中文版](README_zh-CN.md)
 
-# OpenTangYuan
-
-<p align="center">
+<div align="center">
+  <img src="logo.png" alt="Logo" width="200">
+  <h1>OpenTangYuan</h1>
   <strong>Cloud-Planned, Locally Executed Agent Workflow Runtime for Privacy-Sensitive Office Automation</strong>
-</p>
+</div>
 
 <p align="center">
   Connect browsers, email, file systems, enterprise messaging, local tools, and internal systems through cloud-side task understanding and planning with trusted local execution.
