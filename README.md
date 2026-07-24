@@ -71,6 +71,8 @@ OpenTangYuan provides a practical execution runtime for AI-driven office automat
 - 🛡️ **Security-first execution model**  
   Supports path allowlists, executable allowlists, policy validation, execution logging, and other controls to reduce the risks of AI-driven automation.
 
+---
+
 ## Why OpenTangYuan?
 
 OpenTangYuan focuses on capability discovery, multi-step execution, context propagation, and local permission control in real automation environments.

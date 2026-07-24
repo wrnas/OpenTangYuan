@@ -46,8 +46,6 @@ OpenTangYuan 本身不是聊天机器人，也不绑定某一种 Agent 平台。
 
 ---
 
----
-
 ## 核心亮点（Key Features）
 
 OpenTangYuan 面向 AI 驱动的办公自动化场景，提供安全、灵活、可扩展的本地执行运行时，主要亮点包括：
