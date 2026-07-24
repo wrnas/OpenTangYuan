@@ -1,11 +1,10 @@
 [English](README.md)
 
-# OpenTangYuan
-
-<p align="center">
-  <strong>面向隐私敏感办公自动化的云端规划—本地执行 Agent 工作流运行时</strong>
-</p>
-
+<div align="center">
+  <img src="logo.png" alt="Logo" width="200">
+  <h1>OpenTangYuan</h1>
+   <strong>面向隐私敏感办公自动化的云端规划—本地执行 Agent 工作流运行时</strong>
+</div>
 <p align="center">
   通过云端任务理解与规划、可信本地执行，将浏览器、邮箱、文件系统、企业消息、本地工具和内部系统连接起来。
 </p>
