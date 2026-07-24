@@ -1,4 +1,4 @@
-[English](README.md)
+[English](readMe.md)
 
 # <img src="logo.png" alt="OpenTangYuan Logo" width="36"> OpenTangYuan
 
