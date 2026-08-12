@@ -2,9 +2,17 @@
 
 # OpenTangYuan Local Workflow Demo
 
-This demo shows how **OpenTangYuan Runtime** loads and runs a local workflow stored in the bundled database.
+This standalone demo provides a reproducible example of how **OpenTangYuan Runtime** loads and executes a stored local workflow.
 
-The workflow searches for a sample file, copies it to an output folder, and then opens the copied file.
+The included workflow searches for a sample file, copies it to an output folder, and then opens the copied file. It is intended to demonstrate Runtime startup, stored-workflow loading, inter-step data passing, and local skill execution.
+
+## Demo Package
+
+This demo corresponds to **OpenTangYuan V1.1.4**, the software version described in the SoftwareX manuscript.
+
+- **Release:** [OpenTangYuan V1.1.4](https://github.com/wrnas/OpenTangYuan/releases/tag/V1.1.4)
+- **Platform:** Windows 10/11 (x64)
+- **License:** MIT
 
 > [!IMPORTANT]
 > **You do not need to install .NET 8.**
@@ -28,7 +36,9 @@ It does not require:
 - access to private user files;
 - administrator permissions.
 
-The demo is intended to provide a small, self-contained validation of the Runtime, database workflow loading, step-to-step data passing, and local file operations.
+The demo is intended to provide a small, self-contained demonstration of the Runtime, database workflow loading, step-to-step data passing, and local file operations.
+
+It is separate from the university administrative-office pilot reported in the manuscript and is not intended as a performance, security, or privacy benchmark.
 
 ## Quick Start
 
@@ -41,7 +51,7 @@ The demo is intended to provide a small, self-contained validation of the Runtim
 
 ### How to Run
 
-1. Download the Demo ZIP from the official OpenTangYuan GitHub Releases page.
+1. Download the standalone Demo ZIP from the [OpenTangYuan V1.1.4 release](https://github.com/wrnas/OpenTangYuan/releases/tag/V1.1.4).
 2. Extract the entire ZIP file to a local folder, for example:
 
    ```text
@@ -203,4 +213,4 @@ For the full project overview, architecture, workflow model, API reference, conf
 
 - [OpenTangYuan Repository](https://github.com/wrnas/OpenTangYuan)
 - [Main Documentation](https://github.com/wrnas/OpenTangYuan/tree/master/docs)
-- [GitHub Releases](https://github.com/wrnas/OpenTangYuan/releases)
+- [OpenTangYuan V1.1.4 Release](https://github.com/wrnas/OpenTangYuan/releases/tag/V1.1.4)
