@@ -210,7 +210,6 @@ sample-report-copy.txt
 本 README 仅说明如何运行打包后的 Demo。
 
 如需查看完整项目介绍、系统架构、工作流模型、API 参考、配置说明和源代码，请访问：
-
-- [OpenTangYuan 项目主页](https://github.com/wrnas/OpenTangYuan)
-- [项目文档](https://github.com/wrnas/OpenTangYuan/tree/master/docs)
+- [OpenTangYuan 项目主页](https://gitee.com/l00f/open-tang-yuan/)
+- [项目文档](https://gitee.com/l00f/open-tang-yuan/tree/master/docs)
 - [OpenTangYuan V1.1.4 Release](https://github.com/wrnas/OpenTangYuan/releases/tag/V1.1.4)
