@@ -21,7 +21,7 @@ This demo corresponds to **OpenTangYuan V1.1.4**, the software version described
 
 ## Screenshot
 
-![OpenTangYuan Demo](demo.png)
+![OpenTangYuan Demo](Demo.png)
 
 ## Demo Scope
 
