@@ -21,7 +21,7 @@
 
 ## 截图
 
-![OpenTangYuan Demo](demo.png)
+![OpenTangYuan Demo](Demo.png)
 
 ## Demo 范围
 
