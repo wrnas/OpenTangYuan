@@ -132,6 +132,7 @@ namespace TangYuan.Controllers
         /// - If not, inspect builtins and call GetBuiltinSkillManifest
         /// </summary>
         [HttpPost("GetSkillListForAI")]
+        [Authorize(AuthenticationSchemes = "ApiKey")]
         public async Task<IActionResult> GetSkillListForAI()
         {
             try
@@ -231,6 +232,8 @@ namespace TangYuan.Controllers
 
         #region GetBuiltinSkillDetail - Retrieve Builtin Definition Details
         [HttpPost("GetBuiltinSkillDetail")]
+        [Authorize(AuthenticationSchemes = "ApiKey")]
+
         public IActionResult GetBuiltinSkillDetail([FromBody] SkillBaseModel request)
         {
             if (string.IsNullOrWhiteSpace(request.SkillCode))
@@ -407,6 +410,7 @@ namespace TangYuan.Controllers
         /// 4. Return an explicit failure if SkillActions JSON has an invalid format
         /// </summary>        
         [HttpPost("GetSkillAction")]
+        [Authorize(AuthenticationSchemes = "ApiKey")]
         public async Task<IActionResult> GetSkillAction([FromBody] SkillBaseModel request)
         {
             if (string.IsNullOrWhiteSpace(request.SkillCode))
@@ -476,6 +480,8 @@ namespace TangYuan.Controllers
         #region Coze Compatibility
 
         [HttpPost("ExecuteSkillForCoze")]
+        [Authorize(AuthenticationSchemes = "ApiKey")]
+
         public async Task<IActionResult> ExecuteSkillForCoze([FromBody] CozeSimpleRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Json))
