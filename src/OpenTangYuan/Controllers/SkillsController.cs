@@ -2550,11 +2550,11 @@ namespace TangYuan.Controllers
         /// Prefer Everything, fall back to Windows Search, then use recursive search
         /// </summary>
         private async Task<SkillResult> SearchFileAsync(
-    string keyword,
-    string ext = "*",
-    string root = "",
-    bool recursive = false,
-    bool exactName = false)
+                        string keyword,
+                        string ext = "*",
+                        string root = "",
+                        bool recursive = false,
+                        bool exactName = false)
         {
             if (string.IsNullOrWhiteSpace(keyword))
                 throw new ArgumentException("The search keyword cannot be empty");
@@ -2578,16 +2578,32 @@ namespace TangYuan.Controllers
 
                 try
                 {
-                    resultList = await SearchWithEverythingAsync(keyword, ext);
-
-                    if (!resultList.Any())
+                    try
                     {
-                        resultList = await SearchWithWindowsSearchAsync(
-                            keyword,
-                            ext);
+                        resultList =
+                            await SearchWithEverythingAsync(keyword, ext);
+                    }
+                    catch (Exception ex)
+                    {
+                        // 记录 Everything provider failure
+
+                        try
+                        {
+                            resultList =
+                                await SearchWithWindowsSearchAsync(
+                                    keyword,
+                                    ext);
+                        }
+                        catch (Exception windowsEx)
+                        {
+                            // 记录 Windows Search provider failure
+
+                            resultList =
+                                await SearchFallbackAsync(keyword, ext);
+                        }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     resultList = await SearchFallbackAsync(keyword, ext);
                 }
