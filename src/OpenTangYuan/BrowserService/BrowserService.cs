@@ -30,6 +30,12 @@ namespace AiApi.Services
         private readonly string[] _allowedDomains;
         private readonly bool _enableDomainCheck;
 
+        // 浏览器通道：
+        // - "msedge" 用本机 Edge
+        // - "chrome" 用本机 Chrome
+        // - null/空  用 Playwright 自带 Chromium（Linux 部署推荐）
+        private readonly string? _browserChannel;
+
         // Session最大存活时间
         private readonly TimeSpan _sessionTimeout = TimeSpan.FromMinutes(30);
 
@@ -72,7 +78,7 @@ namespace AiApi.Services
 
         public BrowserService(IConfiguration configuration, IWebHostEnvironment env)
         {
-            _env = env;  // 注入
+            _env = env;
 
             _enableDomainCheck = configuration
                 .GetValue<bool>("BrowserSecurity:EnableDomainCheck");
@@ -80,6 +86,10 @@ namespace AiApi.Services
             _allowedDomains = configuration
                 .GetSection("BrowserSecurity:AllowedDomains")
                 .Get<string[]>() ?? Array.Empty<string>();
+
+            // 新增：读取浏览器通道
+            _browserChannel = configuration
+                .GetValue<string>("BrowserSecurity:Channel");
         }
 
         #region 内部控制器之间使用
@@ -178,29 +188,41 @@ namespace AiApi.Services
         /// </summary>
         private async Task<IBrowser> GetBrowserAsync()
         {
-            if (_browser != null)
+            // 已连接就直接复用
+            if (_browser != null && _browser.IsConnected)
                 return _browser;
 
             await _browserLock.WaitAsync();
 
             try
             {
-                if (_browser != null)
+                // 双重检查
+                if (_browser != null && _browser.IsConnected)
                     return _browser;
 
-                _playwright = await Playwright.CreateAsync();
+                _playwright ??= await Playwright.CreateAsync();
 
-                _browser = await _playwright.Chromium.LaunchAsync(
-                    new BrowserTypeLaunchOptions
+                var options = new BrowserTypeLaunchOptions
+                {
+                    Headless = true,
+                    Timeout = 60000,
+
+                    // 关键：只有配置了 Channel 才用本机 Edge/Chrome
+                    // 没配置时保持为 null，自动回落到 Playwright 自带 Chromium
+                    Channel = string.IsNullOrWhiteSpace(_browserChannel)
+                        ? null
+                        : _browserChannel,
+
+                    Args = new[]
                     {
-                        Headless = true,
-                        //为了防止阿里云服务器出问题
-                        Args = new[]
-                        {
-                            "--no-sandbox",
-                            "--disable-setuid-sandbox",                           
-                        }
-                    });
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu"
+            }
+                };
+
+                _browser = await _playwright.Chromium.LaunchAsync(options);
 
                 return _browser;
             }
@@ -215,32 +237,40 @@ namespace AiApi.Services
         /// </summary>
         public async Task<BrowserSession> CreateSessionAsync()
         {
-            CleanupExpiredSessions();
-
-            var browser = await GetBrowserAsync();
-
-            var context = await browser.NewContextAsync(new BrowserNewContextOptions
+            try
             {
-                ViewportSize = new ViewportSize
+                CleanupExpiredSessions();
+
+                var browser = await GetBrowserAsync();
+
+                var context = await browser.NewContextAsync(new BrowserNewContextOptions
                 {
-                    Width = 1400,
-                    Height = 900
-                }
-            });
+                    ViewportSize = new ViewportSize
+                    {
+                        Width = 1400,
+                        Height = 900
+                    }
+                });
 
-            var page = await context.NewPageAsync();
+                var page = await context.NewPageAsync();
 
-            var session = new BrowserSession
+                var session = new BrowserSession
+                {
+                    SessionId = Guid.NewGuid().ToString(),
+                    Context = context,
+                    CurrentPage = page,
+                    CreatedTime = DateTime.UtcNow
+                };
+
+                _sessions.TryAdd(session.SessionId, session);
+
+                return session;
+            }
+            catch (Exception exp)
             {
-                SessionId = Guid.NewGuid().ToString(),
-                Context = context,
-                CurrentPage = page,
-                CreatedTime = DateTime.UtcNow
-            };
 
-            _sessions.TryAdd(session.SessionId, session);
-
-            return session;
+                return null;
+            }
         }
 
         /// <summary>
