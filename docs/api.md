@@ -13,12 +13,16 @@ GetSkillListForAI
         ↓
 GetBuiltinSkillDetail / GetSkillAction
         ↓
-ExecuteSkill / ExecuteSkillForCoze
+Choose an execution interface
+  ├─ ExecuteSkill            (standard Web API request)
+  └─ ExecuteSkillForCoze     (JSON-string compatibility request)
         ↓
 Trusted local runtime
         ↓
 Structured execution result
 ```
+
+`ExecuteSkill` and `ExecuteSkillForCoze` are two request forms for the same underlying execution runtime. `ExecuteSkill` accepts the standard structured Web API request model. `ExecuteSkillForCoze` accepts a serialized JSON string for external agent platforms, such as Coze or Dify, that may expose tool parameters only as simple JSON/string fields or may not conveniently support deeply nested request objects. The `ForCoze` endpoint is therefore a compatibility adapter rather than a separate execution engine.
 
 Recommended principles:
 
@@ -51,7 +55,9 @@ Content-Type: application/json
 
 ### Authentication
 
-Production deployments should protect the local runtime through an API key, gateway, VPN, IP allowlist, or another access-control mechanism. The exact authentication header and enablement method depend on the deployed configuration; do not assume that a development environment includes complete production authentication by default.
+In protected mode, the agent-facing controller actions use API-key authentication before requests proceed to argument validation, local-resource policy checks, and skill/workflow execution. A development/demo configuration may enable an authentication bypass for isolated local testing; that mode should not be treated as a protected deployment.
+
+API-key authentication controls access to the agent-facing entry boundary. It does not by itself provide role-based authorization, semantic output filtering, process isolation, or data-loss prevention. Path/executable checks and argument validation are enforced separately by the runtime where applicable.
 
 ### Swagger
 
@@ -67,8 +73,10 @@ http://localhost:54124/swagger
 | `GetBuiltinSkillDetail` | POST | `/api/Skills/GetBuiltinSkillDetail` | Retrieve the detailed definition of one built-in skill. |
 | `GetBuiltinSkillManifest` | POST | `/api/Skills/GetBuiltinSkillManifest` | Retrieve the complete skill manifest, primarily for debugging or documentation generation. |
 | `GetSkillAction` | POST | `/api/Skills/GetSkillAction` | Retrieve the step definition of a database workflow. |
-| `ExecuteSkill` | POST | `/api/Skills/ExecuteSkill` | Execute a built-in skill, database workflow, or temporary workflow. |
-| `ExecuteSkillForCoze` | POST | `/api/Skills/ExecuteSkillForCoze` | Accept serialized string parameters for agent platforms that cannot conveniently send complex JSON. |
+| `ExecuteSkill` | POST | `/api/Skills/ExecuteSkill` | Standard Web API execution endpoint for built-in skills, database workflows, and temporary workflows. |
+| `ExecuteSkillForCoze` | POST | `/api/Skills/ExecuteSkillForCoze` | JSON-string compatibility endpoint for agent platforms such as Coze or Dify that cannot conveniently submit the standard nested request model. |
+
+The two execution endpoints expose different request shapes but share the same underlying runtime, workflow/context handling, local skill implementations, and applicable policy checks.
 
 ## 4. Retrieve the Capability Catalog
 
@@ -206,7 +214,7 @@ Example response:
 
 An agent should inspect the workflow steps and parameter requirements before execution rather than invoking a workflow based only on its name.
 
-## 8. Unified Execution Endpoint
+## 8. Standard Web API Execution Endpoint
 
 ### `ExecuteSkill`
 
@@ -281,7 +289,7 @@ The execution mode is determined by the request and whether a database workflow 
 | `workflow` | Execute a database workflow. |
 | `temp_workflow` | Execute the temporary workflow supplied in the request. |
 
-## 9. Coze-Compatible Execution Endpoint
+## 9. Platform-Compatible JSON Execution Endpoint
 
 ### `ExecuteSkillForCoze`
 
@@ -310,7 +318,9 @@ After deserialization, the content is:
 }
 ```
 
-This endpoint is intended for platforms that can only pass string parameters or cannot conveniently represent deeply nested JSON objects.
+This endpoint is intended for external agent platforms that can only pass string parameters, expose tool calls through simplified JSON fields, or cannot conveniently represent deeply nested request objects. Coze is the original compatibility target, which is why the endpoint name ends with `ForCoze`; the same compatibility form can also be used by platforms such as Dify when their tool-parameter configuration requires it.
+
+After the wrapper JSON is deserialized, the request is handled by the same underlying skill/workflow execution logic used by `ExecuteSkill`. The compatibility endpoint changes request packaging and parsing; it does not define a separate workflow engine, policy model, or local-skill implementation.
 
 ## 10. Workflow Steps and Context
 
