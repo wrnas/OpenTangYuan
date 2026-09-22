@@ -43,7 +43,7 @@ Trusted local runtime:       validate requests, execute skills,
 Local and enterprise assets: accessed only by the trusted local runtime
 ```
 
-An external agent can query the capabilities available in the local environment, retrieve skill or workflow parameter definitions, compose single-step or multi-step jobs, and submit them to the local runtime. Sensitive data and execution privileges remain in an environment controlled by the user.
+An external agent can query the capabilities available in the local environment, retrieve skill or workflow parameter definitions, compose single-step or multi-step jobs, and submit them to the local runtime. Underlying credentials, filesystem access, and OS-level execution privileges remain inside the user-controlled environment; however, permitted skills may return structured results such as text, paths, browser content, or tool output to the calling agent.
 
 OpenTangYuan is not a chatbot and is not tied to one agent platform. It provides an execution layer that can be called by Coze, Dify, GPTs, a custom agent gateway, or an ordinary desktop client.
 
@@ -65,11 +65,11 @@ OpenTangYuan provides a practical execution runtime for AI-driven office automat
 - 📁 **Rich local and enterprise integrations**  
   Automates files, email, browsers, screenshots, desktop applications, enterprise messaging, and other local resources through a unified interface.
 
-- 🌐 **Unified REST / OpenAPI interfaces**  
-  Provides consistent discovery and execution APIs that can be integrated with Coze, Dify, GPTs, desktop clients, or custom AI agents.
+- 🌐 **Discovery APIs and two execution request forms**  
+  Provides capability-discovery APIs together with a standard Web API execution form and JSON-compatible execution variants for platforms such as Coze or Dify.
 
-- 🛡️ **Security-first execution model**  
-  Supports path allowlists, executable allowlists, policy validation, execution logging, and other controls to reduce the risks of AI-driven automation.
+- 🛡️ **Policy-controlled execution model**  
+  Supports agent-facing API-key authentication, path allowlists, executable allowlists, argument validation, execution logging, and other controls to reduce the risks of AI-driven automation. These controls are not a substitute for process sandboxing or semantic data-loss prevention.
 
 ---
 
@@ -92,8 +92,8 @@ OpenTangYuan focuses on capability discovery, multi-step execution, context prop
 5. **Controlled side effects**  
    File changes, email delivery, printing, and program execution can be restricted through path allowlists, executable allowlists, authentication, policy validation, and execution logs.
 
-6. **Unified discovery and execution APIs**  
-   A stable set of REST APIs supports skill discovery, detail lookup, workflow retrieval, and unified execution across different agents and clients.
+6. **Discovery and execution interfaces**  
+   A stable set of APIs supports skill discovery, detail lookup, workflow retrieval, and execution through either standard Web API requests or platform-compatible JSON requests. Both request forms use the same underlying runtime, workflow context, policy checks, and local skill implementations.
 
 ---
 
@@ -202,15 +202,24 @@ Each executable operation is represented as a skill, such as `email_task`, `file
 
 ### Discover Before Executing
 
-Agents do not need to memorize every skill and parameter in advance. The recommended call sequence is:
+Agents do not need to memorize every skill and parameter in advance. The recommended interaction sequence is:
 
 ```text
 GetSkillListForAI
         ↓
 GetBuiltinSkillDetail / GetSkillAction
         ↓
-ExecuteSkill / ExecuteSkillForCoze
+Execute through one of the supported request forms
 ```
+
+### Execution Interfaces
+
+OpenTangYuan supports two request forms for execution:
+
+1. **Standard Web API execution** — intended for ordinary REST/Web API clients that can submit the structured execution request directly. `ExecuteSkill` is the standard execution form.
+2. **Platform-compatible JSON execution** — intended for agent platforms such as Coze or Dify when the platform exposes tool calls primarily through a JSON argument payload. Endpoints with the `ForCoze` suffix, such as `ExecuteSkillForCoze`, provide this compatibility form.
+
+The two forms use the same underlying local execution logic, workflow context, policy checks, and built-in skills. The `ForCoze` form does not represent a separate execution engine; it adapts request packaging for platforms with more restrictive tool-parameter conventions. Despite the name, the compatibility form is not limited to Coze and may also be used by other platforms with similar JSON-only tool-call constraints.
 
 ### Workflow
 
@@ -335,6 +344,7 @@ OpenTangYuan can send email, modify files, control browsers, capture screenshots
 At minimum, deployments should follow these principles:
 
 - do not expose the runtime directly to the public internet;
+- enable API-key authentication for agent-facing controller actions in protected deployments;
 - do not commit email authorization codes, webhook keys, API tokens, or internal-system credentials;
 - use path allowlists to restrict file-system access;
 - use executable allowlists to restrict which programs can be launched;
@@ -342,6 +352,8 @@ At minimum, deployments should follow these principles:
 - add human confirmation or approval for high-risk actions;
 - validate parameters generated by external agents and do not trust unchecked paths or commands;
 - never repeat a side-effect operation after it has completed successfully.
+
+These controls govern who may invoke the runtime and which local operations are permitted. They do not provide universal semantic filtering of returned content: a permitted skill may still return derived text, paths, browser content, or tool output. The current runtime should therefore not be treated as providing centralized semantic redaction, secret scanning, DLP, or process sandboxing.
 
 See [Configuration and Security Controls](docs/configuration-security.md) for the full guidance.
 
